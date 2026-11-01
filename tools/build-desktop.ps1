@@ -48,6 +48,10 @@ Copy-Item "$root\package.json" $OutDir
 Copy-Item "$root\README.md" $OutDir
 Copy-Item "$root\src" $OutDir -Recurse
 Copy-Item "$root\server" $OutDir -Recurse
+if (Test-Path "$root\assets\previews") {
+  New-Item -ItemType Directory -Force -Path (Join-Path $OutDir 'assets') | Out-Null
+  Copy-Item "$root\assets\previews" (Join-Path $OutDir 'assets') -Recurse
+}
 
 $node = 'C:\Program Files\nodejs\node.exe'
 if (Test-Path $node) {

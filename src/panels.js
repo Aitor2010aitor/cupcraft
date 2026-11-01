@@ -101,8 +101,9 @@ function capcutFilterToLocal(item) {
 }
 
 function capcutCard(item, attr) {
+  const fallback = item.url ? ` onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${item.url.replace(/'/g, '%27')}'}else{this.onerror=null}"` : '';
   return `<button class="effect-card" ${attr}="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
-              <img class="effect-thumb capcut" src="${item.img}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" />
+              <img class="effect-thumb capcut" src="${item.img}"${fallback} alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" />
               <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
             </button>`;
 }

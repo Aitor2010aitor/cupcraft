@@ -686,7 +686,7 @@ export async function openAiBridgeDialog() {
 export function installAiBridgeApi() {
   const api = window.openCUP || {};
   api.state = state;
-  api.version = '0.3.1';
+  api.version = '0.4.0';
   api.command = (action, params) => localCommand(action, params);
   api.getState = () => publicState();
   api.actions = AI_ACTIONS;

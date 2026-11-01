@@ -15,6 +15,7 @@ import {
   formatTime,
 } from './store.js';
 import { MediaPool, renderFrame, activeLayers, clipLayerBox } from './renderer.js';
+import { getGLPost } from './gl-post.js';
 import { transformAt, hasKeyframes, setKeyframe, writeProp } from './keyframes.js';
 import { icon } from './icons.js';
 import { toast } from './utils.js';
@@ -378,6 +379,17 @@ export function mountPreview(host) {
     renderFrame(ctx, rect.width, rect.height, state.project, pool, state.playhead, {
       animClock: state.playing ? 0 : animClockValue,
     });
+    if (state.glEffect) {
+      try {
+        const post = getGLPost();
+        if (post.apply(canvas, state.glEffect, state.playhead, state.glAmount ?? 1)) {
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.drawImage(post.canvasEl, 0, 0);
+          ctx.restore();
+        }
+      } catch { /* el previo sigue funcionando sin GL */ }
+    }
     updateOverlay();
   }
 
@@ -388,6 +400,8 @@ export function mountPreview(host) {
       paint();
     });
   }
+
+  window.addEventListener('opencup:glfx', schedulePaint);
 
   /* Las animaciones de texto en bucle se previsualizan aunque esté pausado. */
   function hasLiveTextAnimation() {

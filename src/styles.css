@@ -1040,8 +1040,15 @@ button.ai-card:hover { background: #122326; border-color: #243638; }
 }
 .panel-body.cat .cat-main .filter-search { flex: 0 0 auto; }
 
-.effect-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; }
-.effect-card { border: 1px solid #3a3a3a; border-radius: 4px; overflow: hidden; background: #2b2b2b; padding: 0; text-align: left; }
+.effect-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; }
+.effect-thumb { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #1c1c1c; border-radius: 3px; }
+.effect-thumb.capcut { object-fit: cover; background: #15191b url("/assets/previews/base.png") center / cover no-repeat; }
+.effect-card .filter-name { padding: 3px 4px 4px; font-size: 10px; line-height: 1.15; }
+.effect-card .filter-name span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.fx-sources { display: flex; gap: 6px; padding: 8px 8px 0; }
+.fx-source { flex: 1 1 0; border: 1px solid #333; background: #202020; color: #9aa3a5; border-radius: 5px; padding: 5px 8px; font-size: 11px; cursor: pointer; }
+.fx-source.active { border-color: var(--accent-2); color: #eaf7f8; background: #17332f; }
+.effect-card { border: 1px solid #333; border-radius: 4px; overflow: hidden; background: #232323; padding: 3px; text-align: left; }
 .effect-card:hover { border-color: #5a5a5a; }
 .effect-card.active { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
 .effect-preview {

@@ -58,6 +58,79 @@ import {
   ADJUST_PRESETS,
   ADJUST_CATEGORIES,
 } from './library.js';
+import {
+  CAPCUT_EFFECT_ITEMS,
+  CAPCUT_EFFECT_CATEGORIES,
+  CAPCUT_FILTER_ITEMS,
+  CAPCUT_FILTER_CATEGORIES as CAPCUT_FILTER_PANEL_CATEGORIES,
+  CAPCUT_TRANSITION_ITEMS,
+  CAPCUT_TRANSITION_CATEGORIES as CAPCUT_TRANSITION_PANEL_CATEGORIES,
+  CAPCUT_STICKER_ITEMS,
+  CAPCUT_STICKER_CATEGORIES,
+  CAPCUT_TEXT_ITEMS,
+  CAPCUT_TEXT_CATEGORIES,
+} from './capcut-panels.js';
+import { capcutEffectToGL } from './gl-post.js';
+
+const CAPCUT_TRANSITION_MAP = [
+  [/negro/i, 'black'],
+  [/blanco/i, 'white'],
+  [/fundid|fade/i, 'fade'],
+  [/desliz|slide|barrid/i, 'slide-left'],
+  [/acerc|zoom in/i, 'zoom-in'],
+  [/alej|zoom out/i, 'zoom-out'],
+  [/gir|rotac|spin/i, 'spin'],
+  [/desenfoq|blur/i, 'blur'],
+  [/flash|destello/i, 'flash'],
+  [/disolv|dissolv/i, 'dissolve'],
+  [/cortinilla|wipe/i, 'wipe-left'],
+];
+
+function capcutTransitionToLocal(name) {
+  const hit = CAPCUT_TRANSITION_MAP.find(([re]) => re.test(name));
+  return hit ? hit[1] : 'fade';
+}
+
+function capcutFilterToLocal(item) {
+  const sameCategory = Object.entries(FILTERS).find(([key, value]) => key !== 'none' && value.category === item.cat);
+  if (sameCategory) return sameCategory[0];
+  const words = String(item.name || '').toLowerCase().split(/\s+/).filter((w) => w.length > 4);
+  const byName = Object.entries(FILTERS).find(([key, value]) => key !== 'none'
+    && words.some((w) => value.label.toLowerCase().includes(w)));
+  return byName ? byName[0] : 'none';
+}
+
+function capcutCard(item, attr) {
+  return `<button class="effect-card" ${attr}="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
+              <img class="effect-thumb capcut" src="${item.img}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" />
+              <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
+            </button>`;
+}
+
+const CAPCUT_LOCAL_MAP = [
+  [/desenfoque|blur|bokeh|difumin|suaviz/i, 'esp_dreamy'],
+  [/glitch|falla|error|distorsi|corrupt/i, 'tnd_horror'],
+  [/mosaico|mosaic|pixelad|pixel/i, 'tnd_mosaic'],
+  [/sepia|vintage|retro|vhs|film/i, 'ret_vhs'],
+  [/zoom|pulso|latido/i, 'zoomPulse'],
+  [/temblor|shake|vibra|tremor/i, 'tnd_retroShake'],
+  [/brillo|glow|flash|neon|luz/i, 'luz_flash'],
+  [/coraz|heart|amor/i, 'tnd_heart'],
+  [/confeti|confetti|glitter|chispa|particul/i, 'fst_confetti'],
+  [/garabato|doodle|dibuj/i, 'tnd_doodle'],
+  [/niebla|fog|humo|smoke|vapor/i, 'hal_fog'],
+  [/sangre|blood/i, 'hal_blood'],
+  [/calabaza|pumpkin|halloween/i, 'hal_pumpkin'],
+  [/fantasma|ghost/i, 'hal_ghost'],
+  [/cromatic|chroma|rgb|aberraci/i, 'tnd_chroma'],
+  [/grano|grain|ruido|noise/i, 'grain'],
+  [/vi[nñ]eta|vignette/i, 'vignette'],
+];
+
+function capcutToLocal(name) {
+  const hit = CAPCUT_LOCAL_MAP.find(([re]) => re.test(name));
+  return hit ? hit[1] : 'none';
+}
 import { adjustCss } from './renderer.js';
 import {
   TEXT_STYLES,
@@ -131,7 +204,21 @@ function panelEmpty(title, text, iconName = 'layers') {
 
 let filterSearch = '';
 let effectSearch = '';
+let effectSource = 'capcut';
+let capcutCategory = 'Todos';
+let capcutSearch = '';
 let stickerSearch = '';
+let filterSource = 'capcut';
+let capcutFilterCategory = 'Todos';
+let capcutFilterSearch = '';
+let transitionSource = 'capcut';
+let capcutTransitionCategory = 'Todas';
+let capcutTransitionSearch = '';
+let stickerSource = 'capcut';
+let capcutStickerCategory = 'Todos';
+let capcutStickerSearch = '';
+let capcutTextCategory = 'Todos';
+let capcutTextSearch = '';
 const CUSTOM_ADJUST_KEY = 'openCUP.adjust.presets';
 
 function loadCustomAdjusts() {
@@ -164,6 +251,27 @@ function allAdjustPresets() {
 }
 
 function filterGallery(activeFilter, includeNone, category = 'Destacado') {
+  if (filterSource === 'capcut') {
+    const q = capcutFilterSearch.trim().toLowerCase();
+    const list = CAPCUT_FILTER_ITEMS.filter((item) => (q
+      ? item.name.toLowerCase().includes(q)
+      : capcutFilterCategory === 'Todos' || item.cats.includes(capcutFilterCategory))).slice(0, 5000);
+    return `
+    <div class="cat-rail category-chips">
+      ${CAPCUT_FILTER_PANEL_CATEGORIES.map((name) => `<button class="category-chip${capcutFilterCategory === name ? ' active' : ''}" data-capcut-filter-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+    </div>
+    <div class="cat-main">
+      <div class="fx-sources">
+        <button class="fx-source active" data-filter-source="capcut">CapCut</button>
+        <button class="fx-source" data-filter-source="local">Local</button>
+      </div>
+      <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-filter-search placeholder="Buscar filtro CapCut" value="${escapeHtml(capcutFilterSearch)}" /><span class="filter-count">${list.length}</span></label>
+      <div class="effect-grid">
+        ${list.map((item) => capcutCard(item, 'data-capcut-filter')).join('')}
+      </div>
+      <div class="panel-empty" style="padding-top:2px">Filtros reales de CapCut (${CAPCUT_FILTER_ITEMS.length}). Al elegir uno se aplica el equivalente local.</div>
+    </div>`;
+  }
   const categories = ['Todos', ...CAPCUT_FILTER_CATEGORIES];
   const query = filterSearch.trim().toLowerCase();
   const entries = Object.entries(FILTERS).filter(([key, value]) => {
@@ -176,6 +284,10 @@ function filterGallery(activeFilter, includeNone, category = 'Destacado') {
       ${categories.map((name) => `<button class="category-chip${category === name ? ' active' : ''}" data-filter-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
     </div>
     <div class="cat-main">
+      <div class="fx-sources">
+        <button class="fx-source" data-filter-source="capcut">CapCut</button>
+        <button class="fx-source active" data-filter-source="local">Local</button>
+      </div>
       <label class="search-box filter-search">${icon('search', 13)}<input data-filter-search placeholder="Buscar filtro" value="${escapeHtml(filterSearch)}" /><span class="filter-count">${entries.length}</span></label>
       <div class="filter-grid">
         ${entries.map(([key, value]) => `
@@ -930,9 +1042,26 @@ export function mountLeftPanel(host) {
       ['tracking', 'Seguimiento'],
       ['tts', 'Texto a voz'],
       ['avatar', 'Avatares de IA'],
+      ['capcut', `${CAPCUT_TEXT_ITEMS.length} de CapCut`],
     ];
     let content = '';
-    if (textTab === 'text') {
+    if (textTab === 'capcut') {
+      const q = capcutTextSearch.trim().toLowerCase();
+      const list = CAPCUT_TEXT_ITEMS.filter((item) => (q
+        ? item.name.toLowerCase().includes(q)
+        : capcutTextCategory === 'Todos' || item.cats.includes(capcutTextCategory))).slice(0, 5000);
+      content = `
+      <div class="cat-rail category-chips">
+        ${CAPCUT_TEXT_CATEGORIES.map((name) => `<button class="category-chip${name === capcutTextCategory ? ' active' : ''}" data-capcut-text-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+      </div>
+      <div class="cat-main">
+        <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-text-search placeholder="Buscar texto CapCut" value="${escapeHtml(capcutTextSearch)}" /><span class="filter-count">${list.length}</span></label>
+        <div class="effect-grid">
+          ${list.map((item) => capcutCard(item, 'data-capcut-text')).join('')}
+        </div>
+        <div class="panel-empty" style="padding-top:6px">Plantillas de texto reales de CapCut (${CAPCUT_TEXT_ITEMS.length}) con su categoría.</div>
+      </div>`;
+    } else if (textTab === 'text') {
       const subTabs = [['basic', 'Básico'], ['bubble', 'Burbuja'], ['effect', 'Efectos']];
       content = `
         <div class="text-subtabs">
@@ -951,6 +1080,27 @@ export function mountLeftPanel(host) {
   }
 
   function stickersPanel() {
+    if (stickerSource === 'capcut') {
+      const q = capcutStickerSearch.trim().toLowerCase();
+      const list = CAPCUT_STICKER_ITEMS.filter((item) => (q
+        ? item.name.toLowerCase().includes(q)
+        : capcutStickerCategory === 'Todos' || item.cats.includes(capcutStickerCategory))).slice(0, 5000);
+      return `
+      <div class="cat-rail category-chips">
+        ${CAPCUT_STICKER_CATEGORIES.map((name) => `<button class="category-chip${name === capcutStickerCategory ? ' active' : ''}" data-capcut-sticker-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+      </div>
+      <div class="cat-main">
+        <div class="fx-sources">
+          <button class="fx-source active" data-sticker-source="capcut">CapCut</button>
+          <button class="fx-source" data-sticker-source="local">Local</button>
+        </div>
+        <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-sticker-search placeholder="Buscar sticker CapCut" value="${escapeHtml(capcutStickerSearch)}" /><span class="filter-count">${list.length}</span></label>
+        <div class="effect-grid">
+          ${list.map((item) => capcutCard(item, 'data-capcut-sticker')).join('')}
+        </div>
+        <div class="panel-empty" style="padding-top:6px">Stickers reales de CapCut (${CAPCUT_STICKER_ITEMS.length}) con su categoría.</div>
+      </div>`;
+    }
     const query = stickerSearch.trim().toLowerCase();
     const category = STICKER_CATEGORIES.find((item) => item.name === stickerCategory) || STICKER_CATEGORIES[0];
     const items = query
@@ -961,6 +1111,10 @@ export function mountLeftPanel(host) {
         ${STICKER_CATEGORIES.map((item) => `<button class="category-chip${!query && item.name === category.name ? ' active' : ''}" data-sticker-category="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>`).join('')}
       </div>
       <div class="cat-main">
+        <div class="fx-sources">
+          <button class="fx-source" data-sticker-source="capcut">CapCut</button>
+          <button class="fx-source active" data-sticker-source="local">Local</button>
+        </div>
         <label class="search-box filter-search">${icon('search', 13)}<input data-sticker-search placeholder="Buscar sticker" value="${escapeHtml(stickerSearch)}" /><span class="filter-count">${items.length}</span></label>
         <div class="sticker-grid">
           ${items.map((sticker) => `<button class="sticker-btn" data-sticker="${escapeHtml(sticker)}" title="Añadir ${escapeHtml(sticker)}">${sticker}</button>`).join('')}
@@ -973,6 +1127,36 @@ export function mountLeftPanel(host) {
     const found = selectedClip();
     const isVisual = found && ['video', 'image'].includes(found.clip.kind);
     const active = isVisual ? found.clip.effect || 'none' : 'none';
+    const sourceTabs = `
+      <div class="fx-sources">
+        <button class="fx-source${effectSource === 'capcut' ? ' active' : ''}" data-effect-source="capcut">CapCut</button>
+        <button class="fx-source${effectSource === 'local' ? ' active' : ''}" data-effect-source="local">Local</button>
+      </div>`;
+
+    if (effectSource === 'capcut') {
+      const q = capcutSearch.trim().toLowerCase();
+      const matching = CAPCUT_EFFECT_ITEMS.filter((item) => (q
+        ? item.name.toLowerCase().includes(q)
+        : capcutCategory === 'Todos' || item.cats.includes(capcutCategory)));
+      const list = matching.slice(0, 5000);
+      return `
+      <div class="cat-rail category-chips">
+        ${CAPCUT_EFFECT_CATEGORIES.map((name) => `<button class="category-chip${name === capcutCategory ? ' active' : ''}" data-capcut-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+      </div>
+      <div class="cat-main">
+        ${sourceTabs}
+        <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-search placeholder="Buscar en CapCut" value="${escapeHtml(capcutSearch)}" /><span class="filter-count">${list.length}</span></label>
+        <div class="effect-grid">
+          ${list.map((item) => `
+            <button class="effect-card" data-capcut-effect="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
+              <img class="effect-thumb capcut" src="${item.img}" alt="${escapeHtml(item.name)}" loading="lazy" decoding="async" />
+              <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
+            </button>`).join('')}
+        </div>
+        <div class="panel-empty" style="padding-top:2px">Catálogo real de CapCut: ${CAPCUT_EFFECT_ITEMS.length} efectos con su portada. Al elegir uno se aplica el equivalente local más cercano.</div>
+      </div>`;
+    }
+
     const query = effectSearch.trim().toLowerCase();
     const entries = Object.entries(EFFECTS).filter(([, value]) => {
       if (query) return value.label.toLowerCase().includes(query);
@@ -991,14 +1175,12 @@ export function mountLeftPanel(host) {
         ${['Todos', ...EFFECT_CATEGORIES].map((name) => `<button class="category-chip${name === effectCategory ? ' active' : ''}" data-effect-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
       </div>
       <div class="cat-main">
+        ${sourceTabs}
         <label class="search-box filter-search">${icon('search', 13)}<input data-effect-search placeholder="Buscar efecto" value="${escapeHtml(effectSearch)}" /><span class="filter-count">${entries.length}</span></label>
         <div class="effect-grid">
           ${entries.map(([key, value]) => `
-            <button class="effect-card${active === key ? ' active' : ''}" data-effect="${key}">
-              <div class="effect-preview" style="filter:${value.css}">
-                <span class="effect-glyph">${value.icon}</span>
-                <span class="effect-swatch" style="background:${swatch(value)}"></span>
-              </div>
+            <button class="effect-card${active === key ? ' active' : ''}" data-effect="${key}" title="${escapeHtml(value.label)}">
+              <img class="effect-thumb" src="assets/previews/effects/${key}.jpg" alt="${escapeHtml(value.label)}" loading="lazy" decoding="async" />
               <div class="filter-name"><span>${value.label}</span>${active === key ? icon('check', 11) : ''}</div>
             </button>`).join('')}
         </div>
@@ -1009,6 +1191,27 @@ export function mountLeftPanel(host) {
   function transitionPanel() {
     const found = selectedClip();
     const active = found?.clip.transition || 'none';
+    if (transitionSource === 'capcut') {
+      const q = capcutTransitionSearch.trim().toLowerCase();
+      const list = CAPCUT_TRANSITION_ITEMS.filter((item) => (q
+        ? item.name.toLowerCase().includes(q)
+        : capcutTransitionCategory === 'Todas' || item.cats.includes(capcutTransitionCategory))).slice(0, 5000);
+      return `
+      <div class="cat-rail category-chips">
+        ${CAPCUT_TRANSITION_PANEL_CATEGORIES.map((name) => `<button class="category-chip${capcutTransitionCategory === name ? ' active' : ''}" data-capcut-transition-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
+      </div>
+      <div class="cat-main">
+        <div class="fx-sources">
+          <button class="fx-source active" data-transition-source="capcut">CapCut</button>
+          <button class="fx-source" data-transition-source="local">Local</button>
+        </div>
+        <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-transition-search placeholder="Buscar transición CapCut" value="${escapeHtml(capcutTransitionSearch)}" /><span class="filter-count">${list.length}</span></label>
+        <div class="effect-grid">
+          ${list.map((item) => capcutCard(item, 'data-capcut-transition')).join('')}
+        </div>
+        <div class="panel-empty" style="padding-top:2px">Transiciones reales de CapCut (${CAPCUT_TRANSITION_ITEMS.length}) en su orden: Entrada, Salida, Combinado.</div>
+      </div>`;
+    }
     const categories = ['Todas', ...new Set(TRANSITIONS.map((item) => item.category))];
     const entries = TRANSITIONS.filter((item) => transitionCategory === 'Todas' || item.category === transitionCategory);
     return `
@@ -1016,6 +1219,10 @@ export function mountLeftPanel(host) {
         ${categories.map((name) => `<button class="category-chip${name === transitionCategory ? ' active' : ''}" data-transition-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
       </div>
       <div class="cat-main">
+        <div class="fx-sources">
+          <button class="fx-source" data-transition-source="capcut">CapCut</button>
+          <button class="fx-source active" data-transition-source="local">Local</button>
+        </div>
         <div class="transition-grid">
           ${entries.map((item) => `
             <button class="transition-card${active === item.id ? ' active' : ''}" data-transition="${item.id}" title="${escapeHtml(item.category)}">
@@ -1860,11 +2067,118 @@ export function mountLeftPanel(host) {
       return;
     }
 
+    const effectSourceButton = event.target.closest('[data-effect-source]');
+    if (effectSourceButton) {
+      effectSource = effectSourceButton.dataset.effectSource;
+      render();
+      return;
+    }
+
+    const capcutCategoryButton = event.target.closest('[data-capcut-category]');
+    if (capcutCategoryButton) {
+      capcutCategory = capcutCategoryButton.dataset.capcutCategory;
+      capcutSearch = '';
+      render();
+      return;
+    }
+
+    const capcutEffectButton = event.target.closest('[data-capcut-effect]');
+    if (capcutEffectButton) {
+      const capcutClip = selectedClip();
+      if (!capcutClip || !['video', 'image'].includes(capcutClip.clip.kind)) {
+        toast('Selecciona un clip de video o imagen para aplicar el efecto', 'warning');
+        return;
+      }
+      const capcutName = capcutEffectButton.dataset.capcutName || '';
+      const mapped = capcutToLocal(capcutName);
+      const glId = capcutEffectToGL(capcutName);
+      state.glEffect = glId;
+      state.glAmount = 1;
+      updateClip(capcutClip.clip.id, { effect: glId ? 'none' : mapped });
+      seek(state.playhead);
+      window.dispatchEvent(new CustomEvent('opencup:glfx'));
+      if (glId) {
+        toast(`“${capcutName}”: shader GPU ${glId} aplicado`, 'success', 2200);
+      } else if (mapped === 'none') {
+        toast(`“${capcutName}”: shader de CapCut pendiente de portar`, 'warning', 2400);
+      } else {
+        toast(`“${capcutName}” → ${EFFECTS[mapped]?.label || mapped}`, 'success', 2000);
+      }
+      return;
+    }
+
     const filterCategoryButton = event.target.closest('[data-filter-category]');
     if (filterCategoryButton) {
       filterCategory = filterCategoryButton.dataset.filterCategory;
       filterSearch = '';
       render();
+      return;
+    }
+
+    const filterSourceButton = event.target.closest('[data-filter-source]');
+    if (filterSourceButton) {
+      filterSource = filterSourceButton.dataset.filterSource;
+      render();
+      return;
+    }
+
+    const capcutFilterCategoryButton = event.target.closest('[data-capcut-filter-category]');
+    if (capcutFilterCategoryButton) {
+      capcutFilterCategory = capcutFilterCategoryButton.dataset.capcutFilterCategory;
+      capcutFilterSearch = '';
+      render();
+      return;
+    }
+
+    const transitionSourceButton = event.target.closest('[data-transition-source]');
+    if (transitionSourceButton) {
+      transitionSource = transitionSourceButton.dataset.transitionSource;
+      render();
+      return;
+    }
+
+    const capcutTransitionCategoryButton = event.target.closest('[data-capcut-transition-category]');
+    if (capcutTransitionCategoryButton) {
+      capcutTransitionCategory = capcutTransitionCategoryButton.dataset.capcutTransitionCategory;
+      capcutTransitionSearch = '';
+      render();
+      return;
+    }
+
+    const stickerSourceButton = event.target.closest('[data-sticker-source]');
+    if (stickerSourceButton) {
+      stickerSource = stickerSourceButton.dataset.stickerSource;
+      render();
+      return;
+    }
+
+    const capcutStickerCategoryButton = event.target.closest('[data-capcut-sticker-category]');
+    if (capcutStickerCategoryButton) {
+      capcutStickerCategory = capcutStickerCategoryButton.dataset.capcutStickerCategory;
+      capcutStickerSearch = '';
+      render();
+      return;
+    }
+
+    const capcutStickerButton = event.target.closest('[data-capcut-sticker]');
+    if (capcutStickerButton) {
+      const item = CAPCUT_STICKER_ITEMS.find((entry) => entry.id === capcutStickerButton.dataset.capcutSticker);
+      if (item) toast(`“${item.name}”: sticker de CapCut pendiente de asset`, 'warning', 2200);
+      return;
+    }
+
+    const capcutTextCategoryButton = event.target.closest('[data-capcut-text-category]');
+    if (capcutTextCategoryButton) {
+      capcutTextCategory = capcutTextCategoryButton.dataset.capcutTextCategory;
+      capcutTextSearch = '';
+      render();
+      return;
+    }
+
+    const capcutTextButton = event.target.closest('[data-capcut-text]');
+    if (capcutTextButton) {
+      const item = CAPCUT_TEXT_ITEMS.find((entry) => entry.id === capcutTextButton.dataset.capcutText);
+      if (item) toast(`“${item.name}”: plantilla de texto de CapCut pendiente`, 'warning', 2200);
       return;
     }
 
@@ -1970,6 +2284,28 @@ export function mountLeftPanel(host) {
     const transitionButton = event.target.closest('[data-transition]');
     if (transitionButton) { applyTransition(transitionButton.dataset.transition); return; }
 
+    const capcutFilterButton = event.target.closest('[data-capcut-filter]');
+    if (capcutFilterButton) {
+      const item = CAPCUT_FILTER_ITEMS.find((entry) => entry.id === capcutFilterButton.dataset.capcutFilter);
+      if (item) {
+        const mapped = capcutFilterToLocal(item);
+        applyFilter(mapped);
+        if (mapped === 'none') toast(`“${item.name}”: filtro de CapCut pendiente de LUT`, 'warning', 2200);
+      }
+      return;
+    }
+
+    const capcutTransitionButton = event.target.closest('[data-capcut-transition]');
+    if (capcutTransitionButton) {
+      const item = CAPCUT_TRANSITION_ITEMS.find((entry) => entry.id === capcutTransitionButton.dataset.capcutTransition);
+      if (item) {
+        const mapped = capcutTransitionToLocal(item.name);
+        applyTransition(mapped);
+        toast(`“${item.name}” → ${TRANSITIONS.find((t) => t.id === mapped)?.label || mapped}`, 'success', 1800);
+      }
+      return;
+    }
+
     const templateButton = event.target.closest('[data-template]');
     if (templateButton) {
       const template = TEMPLATES.find((item) => item.id === templateButton.dataset.template);
@@ -2072,9 +2408,34 @@ export function mountLeftPanel(host) {
       debouncedCatalogRender('[data-filter-search]');
       return;
     }
+    if (target.matches('[data-capcut-filter-search]')) {
+      capcutFilterSearch = target.value;
+      debouncedCatalogRender('[data-capcut-filter-search]');
+      return;
+    }
+    if (target.matches('[data-capcut-transition-search]')) {
+      capcutTransitionSearch = target.value;
+      debouncedCatalogRender('[data-capcut-transition-search]');
+      return;
+    }
+    if (target.matches('[data-capcut-sticker-search]')) {
+      capcutStickerSearch = target.value;
+      debouncedCatalogRender('[data-capcut-sticker-search]');
+      return;
+    }
+    if (target.matches('[data-capcut-text-search]')) {
+      capcutTextSearch = target.value;
+      debouncedCatalogRender('[data-capcut-text-search]');
+      return;
+    }
     if (target.matches('[data-effect-search]')) {
       effectSearch = target.value;
       debouncedCatalogRender('[data-effect-search]');
+      return;
+    }
+    if (target.matches('[data-capcut-search]')) {
+      capcutSearch = target.value;
+      debouncedCatalogRender('[data-capcut-search]');
       return;
     }
     if (target.matches('[data-sticker-search]')) {

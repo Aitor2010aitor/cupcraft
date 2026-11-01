@@ -30,7 +30,7 @@ $resFile = Join-Path $root 'build\openCUP.res'
 
 # Compilación del launcher C++ nativo (sin .NET): MSVC + WebView2 estático.
 $compile = "rc /nologo /fo `"$resFile`" `"$rcFile`" && " +
-  "cl /nologo /std:c++17 /EHsc /O2 /W3 /DUNICODE /D_UNICODE /I `"$include`" " +
+  "cl /nologo /utf-8 /std:c++17 /EHsc /O2 /W3 /DUNICODE /D_UNICODE /I `"$include`" " +
   "`"$root\launcher\main.cpp`" /Fo`"$root\build\main.obj`" `"$resFile`" /link /SUBSYSTEM:WINDOWS " +
   "dwmapi.lib winhttp.lib shell32.lib ole32.lib advapi32.lib `"$loader`" " +
   "/OUT:`"$root\build\openCUP.exe`""

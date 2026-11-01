@@ -247,3 +247,13 @@ Notas:
 ## Aviso
 
 openCUP es un proyecto educativo e independiente. CapCut es una marca de ByteDance. Este repositorio no está afiliado a CapCut ni distribuye sus recursos.
+
+## Catálogo de CapCut
+
+openCUP incluye los paneles reales de CapCut (efectos, transiciones, filtros, stickers y plantillas de texto) con sus categorías en el orden original y sus portadas. Detalles del proceso en [docs/CAPCUT.md](docs/CAPCUT.md).
+
+- Efectos: 2.469 · Transiciones: 2.047 · Filtros: 761 · Stickers: 2.167 · Texto: 429
+- Conmutador CapCut / Local en cada panel.
+- 13 shaders WebGL portados de paquetes de CapCut (src/gl-post.js).
+
+Comunidad: [Discord](https://discord.gg/N2kfVGjeZ7) · [GitHub](https://github.com/Aitor2010aitor/openCUP)

@@ -383,6 +383,7 @@ export function mountHome(root) {
         <button class="side-item" data-home-action="capcut">${icon('folderOpen', 16)}<span>Proyectos de CapCut</span></button>
         <button class="side-item side-ai" data-home-action="ai-bridge">${icon('link', 16)}<span>Puente IA</span><span class="side-live-dot" title="Puerto local para IA"></span></button>
         <a class="side-item" href="https://github.com/Aitor2010aitor/openCUP" target="_blank" rel="noopener" title="Repositorio en GitHub">${icon('github', 16)}<span>GitHub</span></a>
+        <a class="side-item" href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener" title="Servidor de Discord de openCUP">${icon('discord', 16)}<span>Discord</span></a>
       </nav>
       <div class="side-foot">
         <button class="invite-card" data-home-action="invite">${icon('user', 15)}<span style="flex:1">Invitar a amigos</span><span class="invite-new">NUEVO</span></button>

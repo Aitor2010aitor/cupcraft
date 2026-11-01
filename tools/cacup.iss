@@ -2,7 +2,7 @@
 ; Generado por tools/build-installer.ps1
 
 #define MyAppName "openCUP"
-#define MyAppVersion "0.4.0"
+#define MyAppVersion "0.4.2"
 #define MyAppPublisher "AITOR2010 (Aitor2010aitor)"
 #define MyAppURL "https://github.com/Aitor2010aitor/openCUP"
 #define MyAppExeName "openCUP.exe"
@@ -30,6 +30,7 @@ UninstallDisplayName={#MyAppName} {#MyAppVersion}
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Crear icono en el escritorio"; GroupDescription: "Iconos adicionales:"

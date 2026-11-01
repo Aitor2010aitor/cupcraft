@@ -1,5 +1,5 @@
 # openCUP
-![READ IN ENGLISH](https://github.com/Aitor2010aitor/openCUP/blob/version.04/READMEN.md)
+![README IN ENGLISH](https://github.com/Aitor2010aitor/openCUP/blob/version.04/READMEN.md)
 
 <img width="1686" height="934" alt="{9E045220-ABD4-45D7-AB6E-E135D48AB93C}" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
 

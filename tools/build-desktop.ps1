@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$OutDir = "C:\Users\aitor\Desktop\cacup\dist\openCUP",
   [switch]$NoShortcut
 )

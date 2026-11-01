@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup 6','C:\Program Files\Inno Setup 6' -Filter 'ISCC.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 if (!$iscc) { throw 'No se encontró ISCC.exe. Instala Inno Setup 6.' }

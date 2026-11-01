@@ -10,6 +10,7 @@ import {
   exportProjectFile,
   importProjectFile,
 } from './store.js';
+import { openLogDialog } from './log.js';
 import { icon, logo } from './icons.js';
 import { mountLeftPanel } from './panels.js';
 import { mountDetailsPanel } from './panels.js';
@@ -50,6 +51,7 @@ export function mountEditor(root) {
         <div class="titlebar-left">
           <button class="app-brand" data-act="home" title="Volver al inicio">${logo}<span>openCUP</span></button>
           <button class="menu-btn" data-act="menu">Menú ${icon('chevronDown', 12)}</button>
+          <button class="menu-btn" data-act="log" title="Ver el registro de la app">Registro</button>
         </div>
         <input class="project-title" data-project-name value="${escapeHtml(project.name)}" maxlength="80" aria-label="Nombre del proyecto" />
         <div class="titlebar-right">
@@ -306,6 +308,7 @@ export function mountEditor(root) {
     if (!action) return;
     if (action === 'home') goHome();
     else if (action === 'menu') openMainMenu(event.target.closest('[data-act]'));
+    else if (action === 'log') openLogDialog();
     else if (action === 'export') openExportDialog();
     else if (action === 'share') showShareDialog();
     else if (action === 'pro') showProDialog();

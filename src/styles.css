@@ -1462,3 +1462,14 @@ button.ai-card:hover { background: #122326; border-color: #243638; }
   flex: 0 0 auto; padding: 0; margin-left: 4px;
 }
 .sec-reset:hover { background: #3a3a3a; color: #fff; }
+
+/* Registro (log) */
+.log-list { max-height: 52vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+.log-row { display: grid; grid-template-columns: 62px 62px 1fr; gap: 8px; padding: 4px 6px; border-radius: 4px; background: #232323; align-items: baseline; }
+.log-time { color: #7d8a8c; font-variant-numeric: tabular-nums; }
+.log-kind { text-transform: uppercase; font-size: 9px; letter-spacing: .5px; color: #9aa3a5; }
+.log-text { color: #d7dcdd; white-space: pre-wrap; word-break: break-word; }
+.log-error .log-kind, .log-error .log-text { color: #ff8b8b; }
+.log-promise .log-kind, .log-promise .log-text { color: #ffb26b; }
+.log-warn .log-kind, .log-warn .log-text { color: #f5d67b; }
+.log-console .log-kind, .log-console .log-text { color: #c9a9ff; }

@@ -22,6 +22,7 @@ import { mountEditor } from './editor.js';
 import { icon } from './icons.js';
 import { isEditableTarget, toast } from './utils.js';
 import { installAiBridgeApi, startAiBridge } from './ai-bridge.js';
+import { installLogCapture } from './log.js';
 
 const root = document.getElementById('app');
 let active = null;
@@ -204,6 +205,7 @@ window.addEventListener('pagehide', () => {
   if (state.project) saveNow();
 });
 
+installLogCapture();
 installAiBridgeApi();
 
 async function boot() {

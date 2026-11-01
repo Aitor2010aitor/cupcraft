@@ -235,6 +235,8 @@ const NAME_MAP = [
   [/poster|umbral|threshold|reduce/i, 'posterize'],
   [/onda|wave|ripple|agua|líquid|liquid/i, 'wave'],
   [/brillo|glow|ne[oó]n|bloom|flash|luz/i, 'bloom'],
+  [/explosi|fuego|llama|chispa|part[ií]cul|energ[ií]a|rayo|el[eé]ctric/i, 'bloom'],
+  [/humo|niebla|fog|smoke|vapor/i, 'wave'],
 ];
 
 export function capcutEffectToGL(name) {

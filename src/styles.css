@@ -809,6 +809,7 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .clip-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.48)); pointer-events: none; }
 .clip-label { position: absolute; left: 7px; right: 20px; top: 5px; font-size: 9px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; pointer-events: none; }
 .clip-meta { position: absolute; left: 7px; bottom: 4px; font-size: 8px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums; pointer-events: none; }
+.clip-fx { position: absolute; right: 10px; top: 4px; z-index: 4; font-size: 8px; font-weight: 700; letter-spacing: .4px; padding: 1px 4px; border-radius: 3px; background: rgba(25, 245, 228, .16); border: 1px solid rgba(25, 245, 228, .45); color: #8ef7ee; pointer-events: none; }
 .clip-handle { position: absolute; top: 0; bottom: 0; width: 7px; z-index: 3; cursor: ew-resize; background: transparent; }
 .clip-handle:hover { background: rgba(0, 229, 240, 0.65); }
 .clip-handle.left { left: 0; }

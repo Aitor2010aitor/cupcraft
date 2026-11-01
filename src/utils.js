@@ -65,6 +65,10 @@ export function downloadBlob(blob, filename) {
 export function toast(message, kind = 'info', timeout = 3200) {
   const host = document.getElementById('toasts');
   if (!host) return;
+  const last = toast._last ?? { message: '', at: 0 };
+  const now = Date.now();
+  if (last.message === message && now - last.at < 2500) return;
+  toast._last = { message, at: now };
   while (host.children.length >= 3) host.firstElementChild?.remove();
   const node = document.createElement('div');
   node.className = `toast toast-${kind}`;

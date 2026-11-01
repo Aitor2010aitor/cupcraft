@@ -176,6 +176,7 @@ export function mountTimeline(host) {
         ${textPreview}
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-label">${escapeHtml(clip.name || 'Clip')}</div>` : ''}
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-meta">${formatTime(clip.duration)}</div>` : ''}
+        ${clip.effect && clip.effect !== 'none' ? `<div class="clip-fx" title="Efecto: ${escapeHtml(clip.effect)}">fx</div>` : (clip.glEffect ? `<div class="clip-fx" title="Shader: ${escapeHtml(clip.glEffect)}">fx</div>` : '')}
         <div class="clip-handle left" data-edge="left"></div>
         <div class="clip-handle right" data-edge="right"></div>
       </div>`;

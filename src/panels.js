@@ -2095,7 +2095,7 @@ export function mountLeftPanel(host) {
       const glId = capcutEffectToGL(capcutName);
       state.glEffect = glId;
       state.glAmount = 1;
-      updateClip(capcutClip.clip.id, { effect: glId ? 'none' : mapped });
+      updateClip(capcutClip.clip.id, { effect: glId ? 'none' : mapped, glEffect: glId || null });
       seek(state.playhead);
       window.dispatchEvent(new CustomEvent('opencup:glfx'));
       if (glId) {

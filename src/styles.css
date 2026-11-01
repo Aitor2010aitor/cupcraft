@@ -782,6 +782,13 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .tracks { position: relative; }
 .track-row { position: relative; height: var(--track-h); border-bottom: 1px solid #232323; background-image: linear-gradient(90deg, #2d2d2d 1px, transparent 1px); background-size: var(--grid-step, 78px) 100%; }
 .track-row.drag-over { background-color: #1a2f30; }
+.track-row.fx-row { background-color: #1a151f; }
+.fx-clip { position: absolute; top: 5px; height: calc(var(--track-h) - 12px); display: flex; align-items: center; padding: 0 7px; border-radius: 4px; background: linear-gradient(180deg, #7b46d6, #5a2fa8); border: 1px solid #a678ff; color: #f3ecff; font-size: 9px; font-weight: 600; overflow: hidden; cursor: pointer; }
+.fx-clip:hover { filter: brightness(1.12); }
+.fx-clip-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-x { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; border: 0; border-radius: 3px; background: rgba(0, 0, 0, .35); color: #f3ecff; font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+.fx-x:hover { background: rgba(0, 0, 0, .6); }
+.track-label.fx-label .t-name { color: #c9a9ff; }
 .track-row.is-empty::after { content: attr(data-hint); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4f4f4f; pointer-events: none; }
 .tl-empty .track-row.is-empty::after { display: none; }
 .tl-empty .track-label { visibility: hidden; }

@@ -149,7 +149,7 @@ import {
 import { openCapCutImportDialog } from './capcut.js';
 import { autoEditPanelHtml, wireAutoEditPanel, isWhisperModelReady, ensureWhisperPipeline, generateSubtitlesForVideo } from './auto-edit.js';
 import { fixWebmDuration } from './webm.js';
-import { escapeHtml, formatTime, formatBytes, toast, clamp } from './utils.js';
+import { escapeHtml, formatTime, formatBytes, toast, clamp, uid } from './utils.js';
 
 const PANEL_TITLES = {
   media: 'Archivos multimedia',
@@ -1147,6 +1147,7 @@ export function mountLeftPanel(host) {
       <div class="cat-main">
         ${sourceTabs}
         <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-search placeholder="Buscar en CapCut" value="${escapeHtml(capcutSearch)}" /><span class="filter-count">${list.length}</span></label>
+        ${(state.project?.effectClips?.length ?? 0) > 0 ? `<button class="btn btn-small fx-clear" data-clear-fx>Quitar efectos de la línea de tiempo (${state.project.effectClips.length})</button>` : ''}
         <div class="effect-grid">
           ${list.map((item) => `
             <button class="effect-card" data-capcut-effect="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
@@ -2083,6 +2084,18 @@ export function mountLeftPanel(host) {
       return;
     }
 
+    const clearFxButton = event.target.closest('[data-clear-fx]');
+    if (clearFxButton) {
+      if (state.project) {
+        state.project.effectClips = [];
+        saveNow();
+        window.dispatchEvent(new CustomEvent('opencup:glfx'));
+        render();
+        toast('Efectos quitados de la línea de tiempo', 'success', 1800);
+      }
+      return;
+    }
+
     const capcutEffectButton = event.target.closest('[data-capcut-effect]');
     if (capcutEffectButton) {
       const capcutClip = selectedClip();
@@ -2095,11 +2108,24 @@ export function mountLeftPanel(host) {
       const glId = capcutEffectToGL(capcutName);
       state.glEffect = glId;
       state.glAmount = 1;
+      if (state.project) {
+        const fxClip = {
+          id: uid('fx'),
+          name: capcutName || 'Efecto',
+          glEffect: glId,
+          start: Math.max(0, state.playhead),
+          duration: 5,
+          amount: 1,
+        };
+        state.project.effectClips = [...(state.project.effectClips ?? []), fxClip];
+        saveNow();
+        render();
+      }
       updateClip(capcutClip.clip.id, { effect: glId ? 'none' : mapped, glEffect: glId || null });
       seek(state.playhead);
       window.dispatchEvent(new CustomEvent('opencup:glfx'));
       if (glId) {
-        toast(`“${capcutName}”: shader GPU ${glId} aplicado`, 'success', 2200);
+        toast(`“${capcutName}”: shader ${glId} añadido a la línea de tiempo`, 'success', 2200);
       } else if (mapped === 'none') {
         toast(`“${capcutName}”: shader de CapCut pendiente de portar`, 'warning', 2400);
       } else {

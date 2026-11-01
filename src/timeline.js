@@ -186,6 +186,10 @@ export function mountTimeline(host) {
     if (!state.project) return;
     labels.innerHTML = `
       <div class="track-label-spacer"></div>
+      <div class="track-label fx-label" title="Efectos aplicados en la línea de tiempo">
+        <span class="t-icon">${icon('sparkles', 13)}</span>
+        <span class="t-name">Efectos</span>
+      </div>
       ${state.project.tracks.map((track) => {
         const meta = TRACK_META[track.type] || TRACK_META.video;
         const showMute = track.type === 'audio';
@@ -212,7 +216,14 @@ export function mountTimeline(host) {
 
   function renderTracks(px) {
     if (!state.project) return;
-    tracksEl.innerHTML = state.project.tracks.map((track) => {
+    const fxClips = state.project.effectClips ?? [];
+    const fxRow = `<div class="track-row fx-row${fxClips.length ? '' : ' is-empty'}" data-fx-row>
+      ${fxClips.map((fx) => `<div class="clip effect fx-clip" data-fx-id="${fx.id}" style="left:${fx.start * px}px;width:${Math.max(24, fx.duration * px)}px" title="${escapeHtml(fx.name)} — doble clic para quitar">
+        <span class="fx-clip-label">${escapeHtml(fx.name)}</span>
+        <button class="fx-x" data-fx-remove="${fx.id}" title="Quitar efecto">×</button>
+      </div>`).join('')}
+    </div>`;
+    tracksEl.innerHTML = fxRow + state.project.tracks.map((track) => {
       const meta = TRACK_META[track.type] || TRACK_META.video;
       const clips = [...track.clips].sort((a, b) => a.start - b.start);
       return `
@@ -431,12 +442,51 @@ export function mountTimeline(host) {
     beginDrag(event, clipEl, found, handle ? 'trim' : 'move', handle?.dataset.edge);
   });
 
+  window.addEventListener('opencup:glfx', () => {
+    if (!destroyed) render();
+  });
+
+  tracksEl.addEventListener('pointerdown', (event) => {
+    const removeFx = event.target.closest('[data-fx-remove]');
+    if (!removeFx || !state.project) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.project.effectClips = (state.project.effectClips ?? []).filter((fx) => fx.id !== removeFx.dataset.fxRemove);
+    saveNow();
+    render();
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    toast('Efecto quitado de la línea de tiempo', 'success', 1600);
+  }, true);
+
   tracksEl.addEventListener('click', (event) => {
+    const removeFx = event.target.closest('[data-fx-remove]');
+    if (removeFx && state.project) {
+      event.preventDefault();
+      event.stopPropagation();
+      state.project.effectClips = (state.project.effectClips ?? []).filter((fx) => fx.id !== removeFx.dataset.fxRemove);
+      saveNow();
+      render();
+      window.dispatchEvent(new CustomEvent('opencup:glfx'));
+      toast('Efecto quitado de la línea de tiempo', 'success', 1600);
+      return;
+    }
     if (event.target.closest('.clip')) return;
     if (!state.project) return;
     selectClip(null);
     if (state.playing) pause();
     seek(timeFromX(event.clientX));
+  });
+
+  tracksEl.addEventListener('dblclick', (event) => {
+    const fxEl = event.target.closest('[data-fx-id]');
+    if (!fxEl || !state.project) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state.project.effectClips = (state.project.effectClips ?? []).filter((fx) => fx.id !== fxEl.dataset.fxId);
+    saveNow();
+    render();
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    toast('Efecto quitado de la línea de tiempo', 'success', 1600);
   });
 
   content.addEventListener('pointerdown', (event) => {

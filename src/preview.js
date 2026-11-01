@@ -379,10 +379,12 @@ export function mountPreview(host) {
     renderFrame(ctx, rect.width, rect.height, state.project, pool, state.playhead, {
       animClock: state.playing ? 0 : animClockValue,
     });
-    if (state.glEffect) {
+    const activeFx = (state.project?.effectClips ?? []).find((fx) => state.playhead >= fx.start && state.playhead < fx.start + fx.duration);
+    const glEffect = activeFx?.glEffect ?? state.glEffect;
+    if (glEffect) {
       try {
         const post = getGLPost();
-        if (post.apply(canvas, state.glEffect, state.playhead, state.glAmount ?? 1)) {
+        if (post.apply(canvas, glEffect, state.playhead, activeFx?.amount ?? state.glAmount ?? 1)) {
           ctx.save();
           ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.drawImage(post.canvasEl, 0, 0);

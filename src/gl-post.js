@@ -183,7 +183,14 @@ class GLPost {
   }
 
   apply(sourceCanvas, effectId, time = 0, amount = 1) {
-    if (this.failed || !SHADERS[effectId]) return false;
+    if (this.failed) {
+      console.warn('[openCUP][gl] runner deshabilitado tras un fallo previo; efecto ignorado:', effectId);
+      return false;
+    }
+    if (!SHADERS[effectId]) {
+      console.warn('[openCUP][gl] no hay shader portado para:', effectId);
+      return false;
+    }
     const gl = this.gl;
     try {
       if (this.canvas.width !== sourceCanvas.width || this.canvas.height !== sourceCanvas.height) {
@@ -206,16 +213,21 @@ class GLPost {
       if (a) gl.uniform1f(a, amount);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       return true;
-    } catch {
+    } catch (error) {
+      console.error('[openCUP][gl] fallo el shader ' + effectId + ': ' + (error && error.message ? error.message : error));
       this.failed = true;
       return false;
     }
   }
+
+  /** Canvas WebGL con el fotograma ya procesado. */
+  get canvasEl() {
+    return this.canvas;
+  }
 }
 
 let instance = null;
-export function getGLPost() {
-  if (!instance) instance = new GLPost();
+export function getGLPost() {  if (!instance) instance = new GLPost();
   return instance;
 }
 

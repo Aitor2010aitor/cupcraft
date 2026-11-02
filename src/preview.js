@@ -398,7 +398,7 @@ export function mountPreview(host) {
       .filter((track) => track.type === 'video' || track.type === 'overlay')
       .flatMap((track) => track.clips)
       .find((clip) => clip.lut && state.playhead >= clip.start && state.playhead < clip.start + clip.duration);
-    if (state.lutEnabled && lutClip) {
+    if (lutClip) {
       try {
         const post = getGLPost();
         if (post.applyLut(canvas, lutClip.lut, lutClip.lutAmount ?? 1)) {

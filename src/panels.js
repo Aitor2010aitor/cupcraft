@@ -2330,9 +2330,22 @@ export function mountLeftPanel(host) {
     if (capcutFilterButton) {
       const item = CAPCUT_FILTER_ITEMS.find((entry) => entry.id === capcutFilterButton.dataset.capcutFilter);
       if (item) {
-        const mapped = capcutFilterToLocal(item);
-        applyFilter(mapped);
-        if (mapped === 'none') toast(`“${item.name}”: filtro de CapCut pendiente de LUT`, 'warning', 2200);
+        const target = selectedClip();
+        if (!target || !['video', 'image'].includes(target.clip.kind)) {
+          toast('Selecciona un clip de vídeo o imagen para aplicar el filtro', 'warning');
+          return;
+        }
+        if (!item.lut) {
+          const local = capcutFilterToLocal(item);
+          applyFilter(local);
+          toast(`“${item.name}”: este filtro usa otro shader; aplicado el equivalente local`, 'warning', 2600);
+          return;
+        }
+        const lutUrl = `assets/luts/${item.id}.png`;
+        updateClip(target.clip.id, { filter: 'none', lut: lutUrl, lutName: item.name, lutAmount: 1 });
+        seek(state.playhead);
+        window.dispatchEvent(new CustomEvent('opencup:glfx'));
+        toast(`Filtro “${item.name}” aplicado con su LUT real`, 'success', 2000);
       }
       return;
     }

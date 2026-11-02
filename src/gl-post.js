@@ -134,6 +134,36 @@ void main() {
   glow /= float(n);
   outColor = vec4(base + max(glow - 0.55, 0.0) * 1.4 * u_amount, 1.0);
 }`,
+
+  // LUT de CapCut: mismo algoritmo que pass6.frag de sus paquetes de filtro
+  // (cubo 64x64x64 repartido en 8x8 celdas de una textura 512x512).
+  'capcut-lut': HEAD + `uniform sampler2D u_lut;
+vec4 takeFilter(sampler2D filterTex, vec4 inputColor, float alpha) {
+  highp vec4 textureColor = inputColor;
+  highp float blueColor = textureColor.b * 63.0;
+  highp vec2 quad1;
+  quad1.y = floor(floor(blueColor) / 8.0);
+  quad1.x = floor(blueColor) - (quad1.y * 8.0);
+  highp vec2 quad2;
+  quad2.y = floor(ceil(blueColor) / 8.0);
+  quad2.x = ceil(blueColor) - (quad2.y * 8.0);
+  highp vec2 texPos1;
+  texPos1.x = (quad1.x * 1.0 / 8.0) + 0.5 / 512.0 + ((1.0 / 8.0 - 1.0 / 512.0) * textureColor.r);
+  texPos1.y = (quad1.y * 1.0 / 8.0) + 0.5 / 512.0 + ((1.0 / 8.0 - 1.0 / 512.0) * textureColor.g);
+  highp vec2 texPos2;
+  texPos2.x = (quad2.x * 1.0 / 8.0) + 0.5 / 512.0 + ((1.0 / 8.0 - 1.0 / 512.0) * textureColor.r);
+  texPos2.y = (quad2.y * 1.0 / 8.0) + 0.5 / 512.0 + ((1.0 / 8.0 - 1.0 / 512.0) * textureColor.g);
+  vec4 newColor1 = texture(filterTex, texPos1);
+  vec4 newColor2 = texture(filterTex, texPos2);
+  vec4 newColor = mix(newColor1, newColor2, fract(blueColor));
+  return mix(textureColor, vec4(newColor.rgb, textureColor.w), alpha);
+}
+void main() {
+  vec4 curColor = texture(u_tex, v_uv);
+  vec4 resultColor = takeFilter(u_lut, curColor, u_amount);
+  resultColor.rgb = mix(curColor.rgb, resultColor.rgb, curColor.a);
+  outColor = vec4(resultColor.rgb, curColor.a);
+}`,
 };
 
 function compile(gl, type, src) {
@@ -220,10 +250,73 @@ class GLPost {
     }
   }
 
+  /** Aplica un LUT de CapCut (imagen 512x512 con cubo 64^3) al fotograma. */
+  applyLut(sourceCanvas, lutUrl, amount = 1) {
+    if (this.failed || !lutUrl) return false;
+    const img = lutImage(lutUrl);
+    if (!img.complete || !img.naturalWidth) return false;
+    const gl = this.gl;
+    try {
+      if (this.canvas.width !== sourceCanvas.width || this.canvas.height !== sourceCanvas.height) {
+        this.canvas.width = sourceCanvas.width;
+        this.canvas.height = sourceCanvas.height;
+      }
+      gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, sourceCanvas);
+
+      if (!this.lutTex) {
+        this.lutTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.lutTex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      }
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, this.lutTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+
+      const prog = this.program('capcut-lut');
+      if (!prog) return false;
+      gl.useProgram(prog);
+      gl.uniform1i(gl.getUniformLocation(prog, 'u_tex'), 0);
+      gl.uniform1i(gl.getUniformLocation(prog, 'u_lut'), 1);
+      const a = gl.getUniformLocation(prog, 'u_amount');
+      if (a) gl.uniform1f(a, amount);
+      const r = gl.getUniformLocation(prog, 'u_res');
+      if (r) gl.uniform2f(r, this.canvas.width, this.canvas.height);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.activeTexture(gl.TEXTURE0);
+      return true;
+    } catch (error) {
+      console.error('[openCUP][gl] LUT: ' + (error && error.message ? error.message : error));
+      return false;
+    }
+  }
+
   /** Canvas WebGL con el fotograma ya procesado. */
   get canvasEl() {
     return this.canvas;
   }
+}
+
+const lutCache = new Map();
+
+function lutImage(url) {
+  let img = lutCache.get(url);
+  if (!img) {
+    img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    img.onerror = () => console.warn('[openCUP][gl] no se pudo cargar el LUT', url);
+    img.src = url;
+    lutCache.set(url, img);
+  }
+  return img;
 }
 
 let instance = null;

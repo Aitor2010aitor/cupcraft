@@ -392,6 +392,23 @@ export function mountPreview(host) {
         }
       } catch { /* el previo sigue funcionando sin GL */ }
     }
+
+    // Filtro de CapCut: LUT real del paquete del filtro aplicado al clip en curso.
+    const lutClip = (state.project?.tracks ?? [])
+      .filter((track) => track.type === 'video' || track.type === 'overlay')
+      .flatMap((track) => track.clips)
+      .find((clip) => clip.lut && state.playhead >= clip.start && state.playhead < clip.start + clip.duration);
+    if (state.lutEnabled && lutClip) {
+      try {
+        const post = getGLPost();
+        if (post.applyLut(canvas, lutClip.lut, lutClip.lutAmount ?? 1)) {
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.drawImage(post.canvasEl, 0, 0);
+          ctx.restore();
+        }
+      } catch { /* sin filtro si el LUT falla */ }
+    }
     updateOverlay();
   }
 

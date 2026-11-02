@@ -24,6 +24,7 @@ import {
   updateProject,
   formatTime,
   setPanel,
+  saveNow,
 } from './store.js';
 import { icon } from './icons.js';
 import { escapeHtml, clamp, toast } from './utils.js';

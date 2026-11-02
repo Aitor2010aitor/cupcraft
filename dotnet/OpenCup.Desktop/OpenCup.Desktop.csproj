@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>openCUP</AssemblyName>
+    <RootNamespace>OpenCup.Desktop</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenCup.Server\OpenCup.Server.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\index.html" Link="index.html" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\**\*.js" LinkBase="src" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\**\*.css" LinkBase="src" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\src\**\*.svg" LinkBase="src" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\assets\previews\**\*" LinkBase="assets\previews" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

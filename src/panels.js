@@ -71,6 +71,7 @@ import {
   CAPCUT_TEXT_CATEGORIES,
 } from './capcut-panels.js';
 import { capcutEffectToGL } from './gl-post.js';
+import { prepareStickerSrc } from './sticker-image.js';
 
 const CAPCUT_TRANSITION_MAP = [
   [/negro/i, 'black'],
@@ -2190,7 +2191,21 @@ export function mountLeftPanel(host) {
     const capcutStickerButton = event.target.closest('[data-capcut-sticker]');
     if (capcutStickerButton) {
       const item = CAPCUT_STICKER_ITEMS.find((entry) => entry.id === capcutStickerButton.dataset.capcutSticker);
-      if (item) toast(`“${item.name}”: sticker de CapCut pendiente de asset`, 'warning', 2200);
+      if (item) {
+        const clip = addStickerClip(item.name, {
+          start: state.playhead,
+          duration: 4,
+          preset: { src: item.img, srcFallback: item.url || null, size: 460 },
+        });
+        if (clip) {
+          toast(`Sticker “${item.name}” añadido`, 'success', 1600);
+          prepareStickerSrc(item.img)
+            .then((clean) => {
+              if (clean && clean !== item.img) updateClip(clip.id, { sticker: { ...clip.sticker, src: clean, srcFallback: null } });
+            })
+            .catch(() => { /* se queda la imagen original */ });
+        }
+      }
       return;
     }
 

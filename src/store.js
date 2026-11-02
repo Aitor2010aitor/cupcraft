@@ -891,6 +891,8 @@ export function addStickerClip(content = '✨', options = {}) {
     fadeOut: 0,
     sticker: {
       content: String(content || '✨'),
+      src: preset.src || null,
+      srcFallback: preset.srcFallback || null,
       size: preset.size || 220,
       background: preset.background || 'transparent',
       shape: preset.shape || 'none',

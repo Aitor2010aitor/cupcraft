@@ -1599,6 +1599,28 @@ function drawMediaLayer(ctx, layer, width, height, pool, options = {}) {
   drawEffectOverlay(ctx, clip, local, width, height, alpha);
 }
 
+const stickerImageCache = new Map();
+
+function stickerImage(src, fallback = null) {
+  const key = src + '|' + (fallback || '');
+  let img = stickerImageCache.get(key);
+  if (!img) {
+    img = new Image();
+    img.onload = () => window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    img.onerror = () => {
+      if (fallback && !img.dataset.retried) {
+        img.dataset.retried = '1';
+        img.src = `/api/img?u=${encodeURIComponent(fallback)}`;
+        return;
+      }
+      console.warn('[openCUP] no se pudo cargar el sticker', src);
+    };
+    img.src = src;
+    stickerImageCache.set(key, img);
+  }
+  return img;
+}
+
 function drawStickerLayer(ctx, layer, width, height, options = {}) {
   const { clip, local } = layer;
   const sticker = clip.sticker || {};
@@ -1624,6 +1646,21 @@ function drawStickerLayer(ctx, layer, width, height, options = {}) {
   }
   ctx.scale(sx, sy);
   wipeClip(ctx, anim, width, height);
+  if (sticker.src) {
+    const img = stickerImage(sticker.src, sticker.srcFallback);
+    if (img.complete && img.naturalWidth) {
+      const box = fontSize * 2.4;
+      ctx.drawImage(img, -box / 2, -box / 2, box, box);
+    } else {
+      ctx.font = `${Math.max(10, fontSize * 0.35)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.fillText('cargando…', 0, 0);
+    }
+    ctx.restore();
+    return;
+  }
   const content = String(sticker.content || '✨');
   const family = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
   ctx.font = `${fontSize}px ${family}`;

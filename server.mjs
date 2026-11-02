@@ -74,6 +74,34 @@ function readBody(req, limit = 4_000_000) {
 async function handleApi(req, res, url) {
   const { pathname } = url;
 
+  if (pathname === '/api/img' && req.method === 'GET') {
+    const target = url.searchParams.get('u') || '';
+    try {
+      const remote = new URL(target);
+      if (!/(^|\.)ibyteimg\.com$/i.test(remote.hostname)) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('host no permitido');
+        return true;
+      }
+      const upstream = await fetch(remote.href);
+      if (!upstream.ok) {
+        res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('no se pudo descargar');
+        return true;
+      }
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      res.writeHead(200, {
+        'Content-Type': upstream.headers.get('content-type') || 'image/webp',
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end(buffer);
+    } catch {
+      res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('url no válida');
+    }
+    return true;
+  }
+
   if (pathname === '/api/capcut/roots' && req.method === 'GET') {
     json(res, 200, { ok: true, roots: capcutRoots });
     return true;

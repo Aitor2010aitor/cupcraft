@@ -1049,7 +1049,7 @@ button.ai-card:hover { background: #122326; border-color: #243638; }
 .panel-body.cat .cat-main .filter-search { flex: 0 0 auto; }
 
 .effect-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; }
-.effect-thumb { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #1c1c1c; border-radius: 3px; }
+.effect-thumb { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: #1c1c1c; border-radius: 3px; -webkit-user-drag: none; user-select: none; }
 .effect-thumb.capcut { object-fit: cover; background: #15191b url("/assets/previews/base.png") center / cover no-repeat; }
 .effect-card .filter-name { padding: 3px 4px 4px; font-size: 10px; line-height: 1.15; }
 .effect-card .filter-name span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

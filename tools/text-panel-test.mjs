@@ -106,8 +106,10 @@ try {
 
   const tabs = await page.$$eval('[data-text-tab]', (items) => items.map((item) => item.textContent.trim()));
   check(
-    JSON.stringify(tabs) === JSON.stringify(['Texto', 'Animación', 'Seguimiento', 'Texto a voz', 'Avatares de IA']),
-    'el panel Texto muestra las cinco pestañas de CapCut',
+    JSON.stringify(tabs.slice(0, 5)) === JSON.stringify(['Texto', 'Animación', 'Seguimiento', 'Texto a voz', 'Avatares de IA'])
+      && tabs.length === 6
+      && /^\d+ de CapCut$/.test(tabs[5]),
+    'el panel Texto muestra las cinco pestañas de CapCut más el catálogo',
     JSON.stringify(tabs),
   );
   const subtabs = await page.$$eval('[data-text-subtab]', (items) => items.map((item) => item.textContent.trim()));

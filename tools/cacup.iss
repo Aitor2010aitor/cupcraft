@@ -2,7 +2,7 @@
 ; Generado por tools/build-installer.ps1
 
 #define MyAppName "openCUP"
-#define MyAppVersion "0.4.2"
+#define MyAppVersion "0.4.3"
 #define MyAppPublisher "AITOR2010 (Aitor2010aitor)"
 #define MyAppURL "https://github.com/Aitor2010aitor/openCUP"
 #define MyAppExeName "openCUP.exe"

@@ -164,6 +164,14 @@ void main() {
   resultColor.rgb = mix(curColor.rgb, resultColor.rgb, curColor.a);
   outColor = vec4(resultColor.rgb, curColor.a);
 }`,
+
+  // Curva tonal (sigmoid) de los filtros "curvas" de CapCut.
+  'curve': HEAD + `void main() {
+  vec4 c = texture(u_tex, v_uv);
+  float slope = 4.0 + u_amount * 6.0;
+  vec3 s = 1.0 / (1.0 + exp(-slope * (c.rgb - 0.5)));
+  outColor = vec4(mix(c.rgb, s, 0.6 + 0.4 * u_amount), c.a);
+}`,
 };
 
 function compile(gl, type, src) {

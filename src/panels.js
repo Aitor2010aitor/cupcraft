@@ -2336,9 +2336,16 @@ export function mountLeftPanel(host) {
           return;
         }
         if (!item.lut) {
+          if (item.family === 'curve' || item.family === 'grain') {
+            updateClip(target.clip.id, { filter: 'none', lut: null, glFilter: item.family, glFilterName: item.name, glFilterAmount: 1 });
+            seek(state.playhead);
+            window.dispatchEvent(new CustomEvent('opencup:glfx'));
+            toast(`Filtro “${item.name}” (${item.family}) aplicado`, 'success', 2000);
+            return;
+          }
           const local = capcutFilterToLocal(item);
           applyFilter(local);
-          toast(`“${item.name}”: este filtro usa otro shader; aplicado el equivalente local`, 'warning', 2600);
+          toast(`“${item.name}”: shader aún sin portar; equivalente local`, 'warning', 2600);
           return;
         }
         const lutUrl = `assets/luts/${item.id}.png`;

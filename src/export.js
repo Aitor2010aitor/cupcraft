@@ -6,6 +6,7 @@ import {
   formatTime,
 } from './store.js';
 import { MediaPool, renderFrame, renderStill } from './renderer.js';
+import { getGLPost } from './gl-post.js';
 import { openModal } from './modal.js';
 import { icon } from './icons.js';
 import { downloadBlob, toast } from './utils.js';
@@ -87,6 +88,27 @@ async function preloadProject(pool, project) {
   await Promise.allSettled(jobs);
 }
 
+/** Aplica al canvas de salida los filtros GL del clip en `time` (LUT de CapCut y shader propio). */
+function applyClipFilters(canvas, ctx, project, time) {
+  const clips = (project?.tracks ?? [])
+    .filter((track) => track.type === 'video' || track.type === 'overlay')
+    .flatMap((track) => track.clips);
+  const active = clips.find((clip) => time >= clip.start && time < clip.start + clip.duration);
+  if (!active) return;
+  try {
+    const post = getGLPost();
+    let done = false;
+    if (active.lut) done = post.applyLut(canvas, active.lut, active.lutAmount ?? 1) || done;
+    if (active.glFilter) done = post.apply(canvas, active.glFilter, time, active.glFilterAmount ?? 1) || done;
+    if (done) {
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(post.canvasEl, 0, 0);
+      ctx.restore();
+    }
+  } catch { /* la exportacion sigue sin filtro si GL falla */ }
+}
+
 async function recordProject({ project, mediaMap, width, height, fps, bitrate, onProgress, controller }) {
   if (!window.MediaRecorder) throw new Error('Tu navegador no soporta MediaRecorder');
   const canvas = document.createElement('canvas');
@@ -156,6 +178,7 @@ async function recordProject({ project, mediaMap, width, height, fps, bitrate, o
       const elapsed = (performance.now() - startedAt) / 1000;
       const time = Math.min(duration, elapsed);
       renderFrame(ctx, width, height, project, pool, time);
+      applyClipFilters(canvas, ctx, project, time);
       pool.syncPlayback(project, time, true, false);
       const progress = Math.min(1, time / duration);
       if (progress - lastReport > 0.002 || progress >= 1) {

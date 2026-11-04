@@ -409,6 +409,23 @@ export function mountPreview(host) {
         }
       } catch { /* sin filtro si el LUT falla */ }
     }
+
+    // Filtro de shader propio (familias curve/grain/other) guardado en el clip.
+    const gfClip = (state.project?.tracks ?? [])
+      .filter((track) => track.type === 'video' || track.type === 'overlay')
+      .flatMap((track) => track.clips)
+      .find((clip) => clip.glFilter && state.playhead >= clip.start && state.playhead < clip.start + clip.duration);
+    if (gfClip) {
+      try {
+        const post = getGLPost();
+        if (post.apply(canvas, gfClip.glFilter, state.playhead, gfClip.glFilterAmount ?? 1)) {
+          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.drawImage(post.canvasEl, 0, 0);
+          ctx.restore();
+        }
+      } catch { /* sin shader si falla */ }
+    }
     updateOverlay();
   }
 

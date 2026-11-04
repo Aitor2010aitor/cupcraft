@@ -62,6 +62,8 @@ try {
   };
 
   await clickTab('stickers');
+  await page.click('[data-sticker-source="local"]');
+  await new Promise((resolve) => setTimeout(resolve, 150));
   const stickerButtons = await page.$$('.sticker-grid .sticker-btn');
   const stickerChips = await page.$$('.category-chips .category-chip');
   check(stickerButtons.length >= 12, `panel stickers: ${stickerButtons.length} stickers en la categoría`);
@@ -93,6 +95,8 @@ try {
   if (imageClipId) await page.evaluate(async (id) => { await window.openCUP.command('selectClip', { id }); }, imageClipId);
 
   await clickTab('effects');
+  await page.click('[data-effect-source="local"]');
+  await new Promise((resolve) => setTimeout(resolve, 150));
   const effectCards = await page.$$('.effect-grid .effect-card');
   const effectChips = await page.$$('.category-chips .category-chip');
   check(effectCards.length >= 160, `panel efectos: ${effectCards.length} efectos`);
@@ -107,6 +111,8 @@ try {
   await page.screenshot({ path: path.join(SHOTS, 'new-effects.png') });
 
   await clickTab('transitions');
+  await page.click('[data-transition-source="local"]');
+  await new Promise((resolve) => setTimeout(resolve, 150));
   const transitionCards = await page.$$('.transition-grid .transition-card');
   check(transitionCards.length === 16, `panel transiciones: ${transitionCards.length} transiciones`);
   await page.screenshot({ path: path.join(SHOTS, 'new-transitions.png') });
@@ -143,6 +149,8 @@ try {
   }), 'avatar insertado con fondo circular');
 
   await clickTab('filters');
+  await page.click('[data-filter-source="local"]');
+  await new Promise((resolve) => setTimeout(resolve, 150));
   const filterCards = await page.$$('.filter-grid .filter-card');
   const filterChips = await page.$$('.category-chips .category-chip');
   check(filterCards.length === 51, `panel filtros: ${filterCards.length} filtros en Destacado`);

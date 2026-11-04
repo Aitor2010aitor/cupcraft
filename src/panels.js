@@ -70,7 +70,7 @@ import {
   CAPCUT_TEXT_ITEMS,
   CAPCUT_TEXT_CATEGORIES,
 } from './capcut-panels.js';
-import { capcutEffectToGL } from './gl-post.js';
+import { capcutEffectToGL, CAPCUT_SHADER_MAP } from './gl-post.js';
 import { prepareStickerSrc } from './sticker-image.js';
 
 const CAPCUT_TRANSITION_MAP = [
@@ -271,7 +271,7 @@ function filterGallery(activeFilter, includeNone, category = 'Destacado') {
       <div class="effect-grid">
         ${list.map((item) => capcutCard(item, 'data-capcut-filter')).join('')}
       </div>
-      <div class="panel-empty" style="padding-top:2px">Filtros reales de CapCut (${CAPCUT_FILTER_ITEMS.length}). Al elegir uno se aplica el equivalente local.</div>
+      <div class="panel-empty" style="padding-top:2px">Filtros reales de CapCut (${CAPCUT_FILTER_ITEMS.length}). Al elegir uno se aplica su LUT o shader portado.</div>
     </div>`;
   }
   const categories = ['Todos', ...CAPCUT_FILTER_CATEGORIES];
@@ -2336,11 +2336,13 @@ export function mountLeftPanel(host) {
           return;
         }
         if (!item.lut) {
-          if (item.family === 'curve' || item.family === 'grain') {
-            updateClip(target.clip.id, { filter: 'none', lut: null, glFilter: item.family, glFilterName: item.name, glFilterAmount: 1 });
+          const ownShader = CAPCUT_SHADER_MAP[item.id]
+            || ((item.family === 'curve' || item.family === 'grain') ? item.family : null);
+          if (ownShader) {
+            updateClip(target.clip.id, { filter: 'none', lut: null, glFilter: ownShader, glFilterName: item.name, glFilterAmount: 1 });
             seek(state.playhead);
             window.dispatchEvent(new CustomEvent('opencup:glfx'));
-            toast(`Filtro “${item.name}” (${item.family}) aplicado`, 'success', 2000);
+            toast(`Filtro “${item.name}” aplicado (shader portado: ${ownShader})`, 'success', 2000);
             return;
           }
           const local = capcutFilterToLocal(item);

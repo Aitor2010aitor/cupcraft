@@ -35,7 +35,7 @@ const sample = () => page.evaluate(() => {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   let sum = 0, n = 0;
-  const hist = new Array(16).fill(0);
+  const hist = new Array(24).fill(0);
   for (let i = 0; i < d.length; i += 4 * 131) {
     sum += d[i] + d[i + 1] + d[i + 2];
     hist[(d[i] + d[i + 1] + d[i + 2]) >> 5]++;
@@ -88,6 +88,49 @@ const run = async (match, label) => {
 await run('Fiesta metálica', 'curve ');
 await run('Espejismo somnoliento', 'grain ');
 await run('Calabaza', 'LUT   ');
+
+// Los 8 filtros "other" sin LUT: ahora con su propio shader portado.
+const OTHERS = [
+  ['Lienzo embrujado', 'lienzo'],
+  ['Cariño retro', 'retro '],
+  ['Sueño caqui', 'caqui '],
+  ['Jengibre suave', 'jengi '],
+  ['Bruma borgoña', 'bruma '],
+  ['Atardecer de ensueño', 'atard '],
+  ['Brillo brumoso', 'brillo'],
+  ['Píxel estilo noir', 'noir  '],
+];
+const bad = [];
+for (const [name, label] of OTHERS) {
+  const before = errors.length;
+  const res = await (async () => {
+    const b = await sample();
+    const clicked = await page.evaluate((n) => {
+      const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === n);
+      if (!card) return null;
+      card.click();
+      return card.dataset.capcutName;
+    }, name);
+    await wait(700);
+    const a = await sample();
+    const clip = await page.evaluate(() => {
+      const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
+      return c ? { glFilter: c.glFilter ?? null, glFilterName: c.glFilterName ?? null, lut: c.lut ?? null } : null;
+    });
+    await page.evaluate(() => {
+      const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
+      if (c) { c.filter = 'none'; c.lut = null; c.glFilter = null; c.glFilterName = null; }
+      window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    });
+    await wait(400);
+    return { clicked, clip, d: diff(b, a), err: errors.length - before };
+  })();
+  const ok = res.clicked && res.clip && res.clip.glFilter && res.d > 0 && res.err === 0;
+  if (!ok) bad.push(name);
+  console.log(`${label}: tarjeta="${res.clicked}" glFilter=${res.clip && res.clip.glFilter} deltaPixeles=${res.d} erroresNuevos=${res.err} ${ok ? 'OK' : 'FALLO'}`);
+}
+
+console.log('otros 8 →', bad.length ? 'FALLO: ' + bad.join(', ') : 'OK (8/8)');
 
 console.log('errores:', errors.length ? errors.slice(0, 8) : []);
 await browser.close();

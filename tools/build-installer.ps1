@@ -16,7 +16,8 @@ Write-Output "Compilando instalador con Inno Setup..."
 & $iscc $iss
 if ($LASTEXITCODE -ne 0) { throw 'Falló ISCC (error ' + $LASTEXITCODE + ')' }
 
-$installer = Join-Path $root 'dist\openCUP-Setup-0.4.2.exe'
+$version = (Get-Content (Join-Path $root 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json).version
+$installer = Join-Path $root "dist\openCUP-Setup-$version.exe"
 if (!(Test-Path $installer)) { throw 'No se generó el instalador.' }
 $size = [math]::Round((Get-Item $installer).Length / 1MB, 1)
 Write-Output "Instalador listo: $installer ($size MB)"

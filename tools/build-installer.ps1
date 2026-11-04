@@ -13,6 +13,34 @@ if (!(Test-Path $exe)) {
 
 $iss = Join-Path $PSScriptRoot 'cacup.iss'
 $version = (Get-Content (Join-Path $root 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json).version
+
+# Sincroniza la app web. Si openCUP.exe ya existía, antes se saltaba la copia y
+# el instalador empaquetaba un src antiguo: ahora se refresca siempre.
+$dist = Split-Path $exe
+foreach ($item in 'server.mjs', 'index.html', 'package.json', 'README.md', 'src', 'server') {
+  $from = Join-Path $root $item
+  if (!(Test-Path $from)) { continue }
+  if (Test-Path (Join-Path $dist $item)) { Remove-Item (Join-Path $dist $item) -Recurse -Force }
+  Copy-Item $from $dist -Recurse -Force
+}
+foreach ($asset in 'previews', 'luts', 'capcut\panels\filters') {
+  $from = Join-Path $root "assets\$asset"
+  if (!(Test-Path $from)) { continue }
+  $parent = Split-Path (Join-Path $dist "assets\$asset")
+  New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  Copy-Item $from $parent -Recurse -Force
+}
+& node (Join-Path $PSScriptRoot 'package-catalog.mjs') $dist
+if ($LASTEXITCODE -ne 0) { throw 'Falló package-catalog.mjs' }
+foreach ($check in 'src\gl-post.js', 'src\panels.js', 'assets\luts', 'assets\capcut\panels\filters') {
+  $a = Join-Path $root $check
+  $b = Join-Path $dist $check
+  if (!(Test-Path $b)) { throw "Falta $check en la app empaquetada." }
+  if (!(Get-Item $a).PSIsContainer -and (Get-FileHash $a).Hash -ne (Get-FileHash $b).Hash) {
+    throw "$check del paquete no coincide con el repositorio."
+  }
+}
+
 Write-Output "Compilando instalador con Inno Setup (versión $version)..."
 & $iscc $iss "/DMyAppVersion=$version"
 if ($LASTEXITCODE -ne 0) { throw 'Falló ISCC (error ' + $LASTEXITCODE + ')' }

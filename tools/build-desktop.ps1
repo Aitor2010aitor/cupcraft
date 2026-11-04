@@ -48,10 +48,19 @@ Copy-Item "$root\package.json" $OutDir
 Copy-Item "$root\README.md" $OutDir
 Copy-Item "$root\src" $OutDir -Recurse
 Copy-Item "$root\server" $OutDir -Recurse
-if (Test-Path "$root\assets\previews") {
-  New-Item -ItemType Directory -Force -Path (Join-Path $OutDir 'assets') | Out-Null
-  Copy-Item "$root\assets\previews" (Join-Path $OutDir 'assets') -Recurse
+# Recursos: previos locales + biblioteca LUT real + miniaturas de filtros.
+# Los packs grandes (efectos/transitions/stickers/covers: +2 GB) no se
+# empaquetan: sus miniaturas caen a la URL remota con onerror.
+New-Item -ItemType Directory -Force -Path (Join-Path $OutDir 'assets') | Out-Null
+foreach ($asset in 'previews', 'luts', 'capcut\panels\filters') {
+  $from = Join-Path $root "assets\$asset"
+  if (!(Test-Path $from)) { continue }
+  $parent = Split-Path (Join-Path $OutDir "assets\$asset")
+  New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  Copy-Item $from $parent -Recurse -Force
 }
+& node (Join-Path $PSScriptRoot 'package-catalog.mjs') $OutDir
+if ($LASTEXITCODE -ne 0) { throw 'Falló package-catalog.mjs' }
 
 $node = 'C:\Program Files\nodejs\node.exe'
 if (Test-Path $node) {

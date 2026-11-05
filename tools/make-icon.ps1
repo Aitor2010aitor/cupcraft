@@ -1,45 +1,31 @@
 param(
-  [string]$Out = "C:\Users\aitor\Desktop\openCUP\build\openCUP.ico"
+  [string]$Out = "C:\Users\aitor\Desktop\openCUP\build\openCUP.ico",
+  [string]$Logo = ""
 )
+
+$ErrorActionPreference = 'Stop'
+$root = Split-Path -Parent $PSScriptRoot
+if (-not $Logo) { $Logo = Join-Path $root 'src\logo.png' }
+if (!(Test-Path $Logo)) { throw "No se encontró el logo: $Logo (ejecuta tools\make-logo.ps1 antes)" }
 
 Add-Type -AssemblyName System.Drawing
 
 $sizes = @(16, 24, 32, 48, 64, 128, 256)
-$master = New-Object System.Drawing.Bitmap 256, 256
+# El maestro es el logo generado (256x256 con esquinas redondeadas transparentes).
+$master = [System.Drawing.Bitmap]::new(256, 256, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
 $g = [System.Drawing.Graphics]::FromImage($master)
 $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 $g.Clear([System.Drawing.Color]::Transparent)
-
-$path = New-Object System.Drawing.Drawing2D.GraphicsPath
-$radius = 56
-$diameter = $radius * 2
-$path.AddArc(0, 0, $diameter, $diameter, 180, 90)
-$path.AddArc(256 - $diameter, 0, $diameter, $diameter, 270, 90)
-$path.AddArc(256 - $diameter, 256 - $diameter, $diameter, $diameter, 0, 90)
-$path.AddArc(0, 256 - $diameter, $diameter, $diameter, 90, 90)
-$path.CloseFigure()
-
-$gradient = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-  (New-Object System.Drawing.Point 12, 10),
-  (New-Object System.Drawing.Point 244, 246),
-  ([System.Drawing.Color]::FromArgb(77, 245, 230)),
-  ([System.Drawing.Color]::FromArgb(57, 189, 248))
-)
-$g.FillPath($gradient, $path)
-$g.DrawPath((New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(120, 255, 255, 255)), 3), $path)
-
-$triangle = @(
-  (New-Object System.Drawing.PointF 102, 76),
-  (New-Object System.Drawing.PointF 190, 128),
-  (New-Object System.Drawing.PointF 102, 180)
-)
-$g.FillPolygon((New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(6, 22, 20))), $triangle)
+$src = [System.Drawing.Bitmap]::FromFile($Logo)
+$g.DrawImage($src, 0, 0, 256, 256)
+$src.Dispose()
 $g.Dispose()
 
 $images = @()
 foreach ($size in $sizes) {
-  $bmp = New-Object System.Drawing.Bitmap $size, $size
+  $bmp = [System.Drawing.Bitmap]::new($size, $size, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $ctx = [System.Drawing.Graphics]::FromImage($bmp)
   $ctx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $ctx.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -53,7 +39,6 @@ foreach ($size in $sizes) {
   $bmp.Dispose()
 }
 $master.Dispose()
-$gradient.Dispose()
 
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Out) | Out-Null
 $file = [System.IO.File]::Create($Out)

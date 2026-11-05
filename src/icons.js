@@ -107,11 +107,4 @@ export function icon(name, size = 18, cls = '') {
   return `<svg class="icon ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
 }
 
-export const logo = `<svg class="logo-mark" width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
-  <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#19f5e4"/><stop offset="1" stop-color="#4d8dff"/>
-  </linearGradient></defs>
-  <rect width="32" height="32" rx="9" fill="#0d0f10"/>
-  <path d="M12 9.5v13l10-6.5Z" fill="url(#lg)"/>
-  <circle cx="23.5" cy="8.5" r="2.6" fill="#19f5e4"/>
-</svg>`;
+export const logo = '<img class="logo-mark" src="./src/logo.png" alt="" aria-hidden="true" width="26" height="26">';

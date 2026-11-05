@@ -822,6 +822,37 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .clip-handle.left { left: 0; }
 .clip-handle.right { right: 0; }
 .clip-wave { position: absolute; inset: 8px 4px 4px; width: calc(100% - 8px); height: calc(100% - 12px); opacity: 0.55; pointer-events: none; }
+/* Barra de filtro aplicado sobre el clip (como en CapCut): nombre + intensidad. */
+.clip-filter {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 12px; z-index: 2;
+  display: flex; align-items: center; gap: 4px; padding: 0 5px;
+  background: linear-gradient(90deg, rgba(123, 70, 214, .92), rgba(90, 47, 168, .92));
+  border-top: 1px solid rgba(166, 120, 255, .8);
+  font-size: 8px; font-weight: 600; color: #f3ecff; overflow: hidden; cursor: pointer;
+}
+.clip-filter:hover { filter: brightness(1.18); }
+.clip-filter-dot { flex: 0 0 auto; width: 4px; height: 4px; border-radius: 50%; background: #d9c6ff; }
+.clip-filter-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clip-filter-amount { flex: 0 0 auto; font-variant-numeric: tabular-nums; opacity: .82; }
+.clip.has-filter .clip-meta { bottom: 15px; }
+.clip.has-filter .kf-diamond { bottom: 15px; }
+/* Editor flotante de intensidad del filtro. */
+.filter-editor {
+  position: absolute; z-index: 60; min-width: 168px; padding: 7px 8px 8px;
+  background: #26262b; border: 1px solid #4a4560; border-radius: 6px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .55);
+  display: flex; flex-direction: column; gap: 7px;
+}
+.fe-head { display: flex; align-items: center; gap: 6px; }
+.fe-dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: #a678ff; }
+.fe-name { flex: 1 1 auto; min-width: 0; font-size: 10px; font-weight: 700; color: #efeaff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fe-close { flex: 0 0 auto; width: 16px; height: 16px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #9a97a8; font-size: 13px; line-height: 1; cursor: pointer; }
+.fe-close:hover { background: #3a3746; color: #fff; }
+.fe-row { display: flex; align-items: center; gap: 7px; }
+.fe-range { flex: 1 1 auto; min-width: 0; height: 3px; }
+.fe-val { flex: 0 0 auto; min-width: 30px; text-align: right; font-size: 9.5px; color: #b9b4c9; font-variant-numeric: tabular-nums; }
+.fe-clear { height: 24px; border: 1px solid #4a4560; border-radius: 4px; background: #332f42; color: #d9d3ec; font-size: 10px; cursor: pointer; }
+.fe-clear:hover { background: #453e5c; border-color: #6a5f92; }
 /* Rombos de fotograma clave sobre el clip (parte inferior, como en CapCut). */
 .kf-diamond {
   position: absolute; bottom: 3px; width: 7px; height: 7px; margin-left: -3.5px;

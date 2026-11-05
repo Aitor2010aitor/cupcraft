@@ -22,9 +22,11 @@ import {
   toggleSnap,
   importFiles,
   updateProject,
+  updateClip,
   formatTime,
   setPanel,
   saveNow,
+  FILTERS,
 } from './store.js';
 import { icon } from './icons.js';
 import { escapeHtml, clamp, toast } from './utils.js';
@@ -84,7 +86,19 @@ export function mountTimeline(host) {
         <span>Arrastra el material aquí y empieza a crear</span>
       </div>
     </div>
-    <input type="file" class="hidden" multiple data-file-input />`;
+    <input type="file" class="hidden" multiple data-file-input />
+    <div class="filter-editor hidden" data-filter-editor role="dialog" aria-label="Ajustar filtro">
+      <div class="fe-head">
+        <span class="fe-dot"></span>
+        <span class="fe-name" data-fe-name>Filtro</span>
+        <button class="fe-close" data-fe-close title="Cerrar">×</button>
+      </div>
+      <div class="fe-row" data-fe-row>
+        <input type="range" class="fe-range" min="0" max="100" step="1" data-fe-range aria-label="Intensidad del filtro" />
+        <span class="fe-val" data-fe-val>100%</span>
+      </div>
+      <button class="fe-clear" data-fe-clear>Quitar filtro</button>
+    </div>`;
 
   const scroll = host.querySelector('[data-scroll]');
   const content = host.querySelector('[data-content]');
@@ -151,8 +165,20 @@ export function mountTimeline(host) {
     return width;
   }
 
+  /* Filtro activo del clip (CapCut lo pinta como barra sobre el clip).
+     Prioriza el shader propio, luego el LUT real y por último el filtro local. */
+  function activeFilter(clip) {
+    if (clip.glFilter) return { kind: 'gl', label: clip.glFilterName || 'Filtro', amount: clip.glFilterAmount ?? 1 };
+    if (clip.lut) return { kind: 'lut', label: clip.lutName || 'Filtro', amount: clip.lutAmount ?? 1 };
+    if (clip.filter && clip.filter !== 'none') {
+      return { kind: 'css', label: FILTERS[clip.filter]?.label || clip.filter, amount: 1 };
+    }
+    return null;
+  }
+
   function clipMarkup(clip, px) {
     const selected = state.selection === clip.id;
+    const filter = activeFilter(clip);
     const width = Math.max(8, clip.duration * px);
     const media = clip.mediaId ? state.media.get(clip.mediaId) : null;
     const thumb = media?.thumb;
@@ -169,7 +195,7 @@ export function mountTimeline(host) {
         ? `<div class="clip-text-preview sticker-preview">${escapeHtml(clip.sticker?.content || clip.name || '')}</div>`
         : '';
     return `
-      <div class="clip ${clip.kind}${selected ? ' selected' : ''}" data-clip-id="${clip.id}" style="left:${clip.start * px}px;width:${width}px">
+      <div class="clip ${clip.kind}${selected ? ' selected' : ''}${filter ? ' has-filter' : ''}" data-clip-id="${clip.id}" style="left:${clip.start * px}px;width:${width}px">
         ${thumb ? `<div class="clip-thumb"${thumbStyle}></div>` : ''}
         <div class="clip-shade"></div>
         ${diamonds}
@@ -178,6 +204,11 @@ export function mountTimeline(host) {
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-label">${escapeHtml(clip.name || 'Clip')}</div>` : ''}
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-meta">${formatTime(clip.duration)}</div>` : ''}
         ${clip.effect && clip.effect !== 'none' ? `<div class="clip-fx" title="Efecto: ${escapeHtml(clip.effect)}">fx</div>` : (clip.glEffect ? `<div class="clip-fx" title="Shader: ${escapeHtml(clip.glEffect)}">fx</div>` : '')}
+        ${filter ? `<div class="clip-filter${filter.kind === 'css' ? '' : ' adjustable'}" data-clip-filter="${clip.id}" title="${escapeHtml(filter.kind === 'css' ? `Filtro: ${filter.label}` : `Filtro: ${filter.label} — clic para ajustar la intensidad`)}">
+          <span class="clip-filter-dot"></span>
+          <span class="clip-filter-name">${escapeHtml(filter.label)}</span>
+          ${filter.kind === 'css' ? '' : `<span class="clip-filter-amount">${Math.round(filter.amount * 100)}%</span>`}
+        </div>` : ''}
         <div class="clip-handle left" data-edge="left"></div>
         <div class="clip-handle right" data-edge="right"></div>
       </div>`;
@@ -434,7 +465,115 @@ export function mountTimeline(host) {
     document.addEventListener('pointerup', up, { once: true });
   }
 
+  /* --- Editor de intensidad del filtro (barra sobre el clip, estilo CapCut) --- */
+  const filterEditor = host.querySelector('[data-filter-editor]');
+  const feName = filterEditor.querySelector('[data-fe-name]');
+  const feRow = filterEditor.querySelector('[data-fe-row]');
+  const feRange = filterEditor.querySelector('[data-fe-range]');
+  const feVal = filterEditor.querySelector('[data-fe-val]');
+  let openFilterId = null;
+  let filterBaseline = null; // intensidad al abrir, para crear UNA entrada de deshacer
+
+  function closeFilterEditor() {
+    openFilterId = null;
+    filterBaseline = null;
+    filterEditor.classList.add('hidden');
+  }
+
+  function positionFilterEditor(bar) {
+    const hostRect = host.getBoundingClientRect();
+    const barRect = bar.getBoundingClientRect();
+    const width = filterEditor.offsetWidth || 180;
+    const height = filterEditor.offsetHeight || 70;
+    let left = barRect.left - hostRect.left;
+    left = Math.min(Math.max(6, left), Math.max(6, hostRect.width - width - 6));
+    let top = barRect.top - hostRect.top - height - 8;
+    if (top < 38) top = barRect.bottom - hostRect.top + 8;
+    filterEditor.style.left = `${left}px`;
+    filterEditor.style.top = `${top}px`;
+  }
+
+  /* Escribe la intensidad en el clip. history:false durante el arrastre y
+     true al soltar, para que Ctrl+Z revierta el cambio completo. */
+  function applyFilterAmount(clipId, amount, { history = false } = {}) {
+    const found = findClip(clipId);
+    if (!found) return;
+    const info = activeFilter(found.clip);
+    if (!info || info.kind === 'css') return;
+    const patch = info.kind === 'gl' ? { glFilterAmount: amount } : { lutAmount: amount };
+    updateClip(clipId, patch, { history });
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+  }
+
+  function openFilterEditor(clipId, bar) {
+    const found = findClip(clipId);
+    if (!found) return;
+    const info = activeFilter(found.clip);
+    if (!info) return;
+    openFilterId = clipId;
+    feName.textContent = info.label;
+    const adjustable = info.kind !== 'css';
+    feRow.classList.toggle('hidden', !adjustable);
+    filterBaseline = adjustable ? info.amount : null;
+    if (adjustable) {
+      feRange.value = String(Math.round(info.amount * 100));
+      feVal.textContent = `${feRange.value}%`;
+    }
+    filterEditor.classList.remove('hidden');
+    positionFilterEditor(bar);
+  }
+
+  feRange.addEventListener('input', () => {
+    if (!openFilterId) return;
+    feVal.textContent = `${feRange.value}%`;
+    applyFilterAmount(openFilterId, Number(feRange.value) / 100, { history: false });
+  });
+
+  feRange.addEventListener('change', () => {
+    if (!openFilterId || filterBaseline === null) return;
+    const final = Number(feRange.value) / 100;
+    if (Math.abs(final - filterBaseline) < 0.0001) return;
+    const id = openFilterId;
+    applyFilterAmount(id, filterBaseline, { history: false }); // revertimos…
+    applyFilterAmount(id, final, { history: true });           // …y creamos el paso de deshacer
+    filterBaseline = final;
+  });
+
+  filterEditor.querySelector('[data-fe-clear]').addEventListener('click', () => {
+    if (!openFilterId) return;
+    const id = openFilterId;
+    updateClip(id, {
+      filter: 'none',
+      lut: null,
+      lutName: null,
+      lutAmount: 1,
+      glFilter: null,
+      glFilterName: null,
+      glFilterAmount: 1,
+    });
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    closeFilterEditor();
+    toast('Filtro quitado del clip', 'success', 1600);
+  });
+
+  filterEditor.querySelector('[data-fe-close]').addEventListener('click', closeFilterEditor);
+
+  const onDocumentClick = (event) => {
+    if (!openFilterId) return;
+    if (event.target.closest('[data-filter-editor]')) return;
+    closeFilterEditor();
+  };
+  document.addEventListener('click', onDocumentClick);
+
+  const onFilterKey = (event) => {
+    if (event.key !== 'Escape' || !openFilterId) return;
+    event.stopPropagation();
+    closeFilterEditor();
+  };
+  document.addEventListener('keydown', onFilterKey);
+
   tracksEl.addEventListener('pointerdown', (event) => {
+    if (event.target.closest('[data-clip-filter]')) return; // la barra abre su editor, no arrastra el clip
     const handle = event.target.closest('.clip-handle');
     const clipEl = event.target.closest('.clip');
     if (!clipEl) return;
@@ -460,6 +599,16 @@ export function mountTimeline(host) {
   }, true);
 
   tracksEl.addEventListener('click', (event) => {
+    const filterBar = event.target.closest('[data-clip-filter]');
+    if (filterBar) {
+      event.preventDefault();
+      event.stopPropagation();
+      const clipId = filterBar.dataset.clipFilter;
+      selectClip(clipId);
+      if (openFilterId === clipId) closeFilterEditor();
+      else openFilterEditor(clipId, filterBar);
+      return;
+    }
     const removeFx = event.target.closest('[data-fx-remove]');
     if (removeFx && state.project) {
       event.preventDefault();

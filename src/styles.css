@@ -822,20 +822,26 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .clip-handle.left { left: 0; }
 .clip-handle.right { right: 0; }
 .clip-wave { position: absolute; inset: 8px 4px 4px; width: calc(100% - 8px); height: calc(100% - 12px); opacity: 0.55; pointer-events: none; }
-/* Barra de filtro aplicado sobre el clip (como en CapCut): nombre + intensidad. */
+/* Chip de filtro aplicado sobre el clip (como en CapCut): flota sobre él, se arrastra
+   para recolocarlo dentro del clip y un clic abre el editor de intensidad. */
 .clip-filter {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 12px; z-index: 2;
-  display: flex; align-items: center; gap: 4px; padding: 0 5px;
-  background: linear-gradient(90deg, rgba(123, 70, 214, .92), rgba(90, 47, 168, .92));
-  border-top: 1px solid rgba(166, 120, 255, .8);
-  font-size: 8px; font-weight: 600; color: #f3ecff; overflow: hidden; cursor: pointer;
+  position: absolute; z-index: 2; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 4px;
+  max-width: calc(100% - 6px); padding: 1px 5px;
+  background: linear-gradient(90deg, rgba(123, 70, 214, .95), rgba(90, 47, 168, .95));
+  border: 1px solid rgba(166, 120, 255, .8); border-radius: 5px;
+  font-size: 8px; font-weight: 600; color: #f3ecff;
+  white-space: nowrap; overflow: hidden;
+  cursor: grab; touch-action: none; user-select: none;
 }
 .clip-filter:hover { filter: brightness(1.18); }
+.clip-filter.dragging {
+  cursor: grabbing; z-index: 5; filter: brightness(1.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .5);
+}
 .clip-filter-dot { flex: 0 0 auto; width: 4px; height: 4px; border-radius: 50%; background: #d9c6ff; }
-.clip-filter-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clip-filter-name { flex: 0 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .clip-filter-amount { flex: 0 0 auto; font-variant-numeric: tabular-nums; opacity: .82; }
-.clip.has-filter .clip-meta { bottom: 15px; }
-.clip.has-filter .kf-diamond { bottom: 15px; }
 /* Editor flotante de intensidad del filtro. */
 .filter-editor {
   position: absolute; z-index: 60; min-width: 168px; padding: 7px 8px 8px;

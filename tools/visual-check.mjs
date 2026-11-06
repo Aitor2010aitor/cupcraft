@@ -40,6 +40,23 @@ await page.evaluate(() => {
 await wait(700);
 await page.screenshot({ path: path.join(OUT, 'clip-filter-bar.png') });
 
+// El indicador es un chip flotante: captura del clip con el chip centrado…
+const clipEl = await page.$('.clip.has-filter');
+if (clipEl) await clipEl.screenshot({ path: path.join(OUT, 'clip-filter-chip.png') });
+
+// …y tras arrastrarlo a otra zona del clip.
+const chipEl = await page.$('.clip-filter');
+if (chipEl) {
+  const box = await chipEl.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 26, box.y + box.height / 2 - 5, { steps: 6 });
+  await page.mouse.up();
+  await wait(500);
+  const clip2 = await page.$('.clip.has-filter');
+  if (clip2) await clip2.screenshot({ path: path.join(OUT, 'clip-filter-chip-moved.png') });
+}
+
 await page.click('.clip-filter');
 await wait(300);
 await page.evaluate(() => {

@@ -73,6 +73,58 @@ check(bar1?.name === 'Calabaza', 'la barra muestra el nombre del filtro', JSON.s
 check(bar1?.amount === '100%', 'la barra muestra la intensidad 100%', JSON.stringify(bar1));
 check(bar1?.hasFilterClass === true, 'el clip tiene la clase has-filter');
 
+// --- 1b. El indicador es un chip flotante que se arrastra para recolocarlo. ---
+const chipPos = () => page.evaluate(() => {
+  const chip = document.querySelector('.clip-filter');
+  const clip = chip?.closest('.clip');
+  if (!chip || !clip) return null;
+  const id = chip.dataset.clipFilter;
+  const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === id);
+  const cr = chip.getBoundingClientRect();
+  const lr = clip.getBoundingClientRect();
+  return {
+    x: Number.isFinite(c?.filterChipX) ? c.filterChipX : 0.5,
+    y: Number.isFinite(c?.filterChipY) ? c.filterChipY : 0.5,
+    rect: { left: cr.left, right: cr.right, top: cr.top, bottom: cr.bottom },
+    clipRect: { left: lr.left, right: lr.right, top: lr.top, bottom: lr.bottom },
+  };
+});
+
+const pos0 = await chipPos();
+check(pos0 && Math.abs(pos0.x - 0.5) < 0.001 && Math.abs(pos0.y - 0.5) < 0.001,
+  'el chip arranca centrado en el clip (0.5 / 0.5)', JSON.stringify(pos0));
+
+const editorBeforeDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(!editorBeforeDrag, 'el editor está cerrado antes de arrastrar el chip');
+
+const chipEl = await page.$('.clip-filter');
+const chipBox = await chipEl.boundingBox();
+await page.mouse.move(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
+await page.mouse.down();
+await page.mouse.move(chipBox.x + chipBox.width / 2 + 30, chipBox.y + chipBox.height / 2 - 6, { steps: 6 });
+await page.mouse.up();
+await wait(500);
+
+const pos1 = await chipPos();
+check(pos1 && (Math.abs(pos1.x - 0.5) > 0.01 || Math.abs(pos1.y - 0.5) > 0.01),
+  'el arrastre guarda la nueva posición (filterChipX / filterChipY)', JSON.stringify(pos1 && { x: pos1.x, y: pos1.y }));
+check(pos1 && pos1.rect.left >= pos1.clipRect.left - 0.5 && pos1.rect.right <= pos1.clipRect.right + 0.5
+  && pos1.rect.top >= pos1.clipRect.top - 0.5 && pos1.rect.bottom <= pos1.clipRect.bottom + 0.5,
+  'el chip queda dentro del rectángulo del clip', JSON.stringify(pos1 && { rect: pos1.rect, clipRect: pos1.clipRect }));
+const editorAfterDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(!editorAfterDrag, 'el arrastre NO abre el editor de intensidad');
+
+// Un clic (sin mover) tras arrastrar sí abre el editor.
+await wait(400);
+await page.click('.clip-filter');
+await wait(300);
+const clickAfterDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(clickAfterDrag, 'un clic sobre el chip tras arrastrarlo abre el editor');
+await page.keyboard.press('Escape');
+await wait(250);
+const closedClean = await page.evaluate(() => document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(closedClean === true, 'Escape deja el editor cerrado para el resto del test');
+
 // --- 2. Clic en la barra abre el editor de intensidad. ---
 await page.click('.clip-filter');
 await wait(300);

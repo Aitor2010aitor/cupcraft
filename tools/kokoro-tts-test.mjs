@@ -55,7 +55,7 @@ await page.evaluate(() => { document.querySelector('[data-text-tab="tts"]')?.cli
 await wait(300);
 await page.evaluate(() => {
   const area = document.querySelector('[data-tts-text]');
-  area.value = 'Hola, esta es la voz de openCUP generada con Kokoro.';
+  area.value = 'Hola, esta es la voz de cupcraft generada con Kokoro.';
   document.querySelector('[data-kokoro-voice]').value = 'ef_dora';
 });
 await page.evaluate(() => { document.querySelector('[data-tts-generate]')?.click(); });

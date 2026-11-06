@@ -1,4 +1,4 @@
-/* Fotogramas clave de openCUP.
+/* Fotogramas clave de cupcraft.
    Cada clip puede guardar ``clip.keyframes = { x: [{ t, v }], ... }`` donde
    ``t`` es el tiempo absoluto en el proyecto y ``v`` el valor de la propiedad.
    La interpolación es lineal y la evalúa el renderer en cada fotograma. */

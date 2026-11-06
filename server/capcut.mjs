@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 /* ------------------------------------------------------------------ */
 /*  CapCut native draft reader                                         */
 /*  Lee la carpeta de borradores de CapCut y la convierte al modelo    */
-/*  interno de openCUP. No modifica ningún archivo de CapCut.            */
+/*  interno de cupcraft. No modifica ningún archivo de CapCut.            */
 /* ------------------------------------------------------------------ */
 
 const local = process.env.LOCALAPPDATA || '';

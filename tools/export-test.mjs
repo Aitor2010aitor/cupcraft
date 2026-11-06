@@ -47,7 +47,7 @@ await page.evaluate(() => {
   area.focus();
   area.select();
 });
-await page.keyboard.type('Exportación openCUP');
+await page.keyboard.type('Exportación cupcraft');
 await page.evaluate(() => {
   const clip = window.openCUP.state.project.tracks.find((track) => track.type === 'text').clips[0];
   clip.duration = 3;
@@ -59,7 +59,7 @@ await page.click('[data-act="export"]');
 await page.waitForSelector('.modal');
 await page.select('[data-export-resolution]', '480p');
 await page.select('[data-export-quality]', 'alta');
-await page.evaluate(() => { document.querySelector('[data-export-name]').value = 'openCUP-export-test'; });
+await page.evaluate(() => { document.querySelector('[data-export-name]').value = 'cupcraft-export-test'; });
 await page.click('[data-export-start]');
 console.log('export started');
 

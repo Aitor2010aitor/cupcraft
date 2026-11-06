@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 namespace OpenCup.Server;
 
 /// <summary>
-/// Servidor que sirve la interfaz de openCUP (index.html, src/ y assets/)
+/// Servidor que sirve la interfaz de cupcraft (index.html, src/ y assets/)
 /// y expone una API mínima. Es el equivalente en C#/.NET de server.mjs.
 /// </summary>
 public static class ServerApp
@@ -39,7 +39,7 @@ public static class ServerApp
             port,
         }));
 
-        app.MapGet("/api/version", () => Results.Json(new { name = "openCUP", version = "0.4.2", backend = "csharp" }));
+        app.MapGet("/api/version", () => Results.Json(new { name = "cupcraft", version = "0.4.2", backend = "csharp" }));
 
         // La importación de borradores de CapCut sigue en el servidor Node hasta su porte.
         app.MapGet("/api/capcut/roots", () => Results.Json(new

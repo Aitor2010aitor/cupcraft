@@ -49,7 +49,7 @@ export function mountEditor(root) {
     <div class="editor">
       <header class="titlebar">
         <div class="titlebar-left">
-          <button class="app-brand" data-act="home" title="Volver al inicio">${logo}<span>openCUP</span></button>
+          <button class="app-brand" data-act="home" title="Volver al inicio">${logo}<span>cupcraft</span></button>
           <button class="menu-btn" data-act="menu">Menú ${icon('chevronDown', 12)}</button>
           <button class="menu-btn" data-act="log" title="Ver el registro de la app">Registro</button>
         </div>
@@ -210,7 +210,7 @@ export function mountEditor(root) {
       '-',
       { id: 'home', label: 'Ir al inicio', icon: 'home' },
       { id: 'shortcuts', label: 'Atajos de teclado', icon: 'keyboard' },
-      { id: 'about', label: 'Acerca de openCUP', icon: 'info' },
+      { id: 'about', label: 'Acerca de cupcraft', icon: 'info' },
     ]);
   }
 
@@ -220,17 +220,17 @@ export function mountEditor(root) {
       { id: 'shortcuts', label: 'Atajos de teclado', icon: 'keyboard' },
       { id: 'storage', label: 'Espacio de almacenamiento', icon: 'cloud' },
       '-',
-      { id: 'about', label: 'Acerca de openCUP', icon: 'info' },
+      { id: 'about', label: 'Acerca de cupcraft', icon: 'info' },
     ], { width: 240 });
   }
 
   function showProDialog() {
     openModal({
-      title: 'openCUP Pro',
+      title: 'cupcraft Pro',
       width: 440,
       body: `
         <div style="font-size:12px;line-height:1.6;color:#c7c7cf;margin-bottom:12px">
-          Esta versión de openCUP incluye todas las funciones <b>sin suscripción</b> y funciona completamente en tu navegador.
+          Esta versión de cupcraft incluye todas las funciones <b>sin suscripción</b> y funciona completamente en tu navegador.
         </div>
         <div class="modal-note">
           No hay pagos, cuentas ni límites de exportación. Tus archivos nunca salen de tu equipo.
@@ -248,7 +248,7 @@ export function mountEditor(root) {
       width: 440,
       body: `
         <div style="font-size:12px;line-height:1.6;color:#c7c7cf;margin-bottom:12px">
-          openCUP guarda este proyecto únicamente en tu navegador. Para compartirlo, exporta el video y envía el archivo.
+          cupcraft guarda este proyecto únicamente en tu navegador. Para compartirlo, exporta el video y envía el archivo.
         </div>
         <div class="modal-note">Nombre del proyecto: <b>${escapeHtml(state.project?.name || '')}</b></div>`,
       footer: `<button class="btn" data-share-close>Cerrar</button><button class="btn btn-primary" data-share-export>Exportar video</button>`,
@@ -278,7 +278,7 @@ export function mountEditor(root) {
   function syncProjectName() {
     if (document.activeElement === projectName) return;
     if (state.project && projectName.value !== state.project.name) projectName.value = state.project.name;
-    document.title = state.project ? `${state.project.name} — openCUP` : 'openCUP — Editor de video';
+    document.title = state.project ? `${state.project.name} — cupcraft` : 'cupcraft — Editor de video';
   }
 
   function setDetailsVisible(visible) {

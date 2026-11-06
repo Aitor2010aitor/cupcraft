@@ -178,7 +178,7 @@ try {
   await page.evaluate(() => { void window.openCUP.openBridge(); });
   await page.waitForSelector('.bridge-modal .bridge-hero, .bridge-modal .bridge-offline', { timeout: 8000 });
   const bridgeText = await page.$eval('.bridge-modal .modal-body', (el) => el.textContent);
-  check(bridgeText.includes('openCUP AI Bridge'), 'diálogo IA muestra el puente');
+  check(bridgeText.includes('cupcraft AI Bridge'), 'diálogo IA muestra el puente');
   check(bridgeText.includes('8790'), 'diálogo IA muestra el puerto 8790');
   check(await page.$('.bridge-actions .bridge-action') !== null, 'diálogo IA lista acciones');
   await page.screenshot({ path: path.join(SHOTS, 'new-bridge.png') });
@@ -262,7 +262,7 @@ try {
   await page.waitForFunction(() => window.openCUP.state.view === 'editor');
   await new Promise((resolve) => setTimeout(resolve, 250));
   const transformClipId = await page.evaluate(async () => {
-    const added = await window.openCUP.command('addText', { content: 'openCUP', start: 0, duration: 5 });
+    const added = await window.openCUP.command('addText', { content: 'cupcraft', start: 0, duration: 5 });
     window.openCUP.command('selectClip', { id: added.clip.id });
     window.openCUP.command('seek', { time: 0.5 });
     return added.clip.id;

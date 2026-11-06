@@ -10,7 +10,7 @@ using OpenCup.Server;
 namespace OpenCup.Desktop;
 
 /// <summary>
-/// App de escritorio de openCUP escrita en C#/.NET: arranca el servidor Kestrel
+/// App de escritorio de cupcraft escrita en C#/.NET: arranca el servidor Kestrel
 /// en segundo plano y muestra la interfaz en una ventana WebView2.
 /// Sustituye al lanzador C++ (launcher/main.cpp) y al arranque con Node.
 /// </summary>
@@ -30,7 +30,7 @@ internal static class Program
         {
             MessageBox.Show(
                 $"No se pudo abrir ningún puerto entre {FirstPort} y {LastPort}.",
-                "openCUP", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "cupcraft", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
 
@@ -56,7 +56,7 @@ internal sealed class MainForm : Form
     public MainForm(string url)
     {
         _url = url;
-        Text = "openCUP";
+        Text = "cupcraft";
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(1440, 900);
         MinimumSize = new Size(960, 600);
@@ -89,7 +89,7 @@ internal sealed class MainForm : Form
         {
             MessageBox.Show(
                 $"No se pudo iniciar WebView2.\r\n\r\n{ex.Message}\r\n\r\nInstala el runtime de Microsoft Edge WebView2.",
-                "openCUP", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                "cupcraft", MessageBoxButtons.OK, MessageBoxIcon.Error);
             Close();
         }
     }

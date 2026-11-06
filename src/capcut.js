@@ -222,7 +222,7 @@ export function openCapCutImportDialog() {
                 <strong>No hay proyectos de CapCut</strong>
                 Abre CapCut, crea un borrador y vuelve a buscar. También puedes indicar otra carpeta con la variable <code>openCUP_CAPCUT_ROOT</code> antes de iniciar el servidor.
               </div>`}
-          <div class="capcut-note">${icon('info', 13)} openCUP lee <code>draft_content.json</code> y copia los medios a su almacenamiento local. Los archivos originales de CapCut no se modifican.</div>`;
+          <div class="capcut-note">${icon('info', 13)} cupcraft lee <code>draft_content.json</code> y copia los medios a su almacenamiento local. Los archivos originales de CapCut no se modifican.</div>`;
         if (!projects.length) return;
         body.querySelectorAll('[data-capcut-open]').forEach((button) => {
           button.addEventListener('click', () => {

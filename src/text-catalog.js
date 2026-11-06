@@ -1,4 +1,4 @@
-/* Catálogo de estilos de texto de openCUP.
+/* Catálogo de estilos de texto de cupcraft.
    Los valores son originales: imitan la organización del panel de texto de
    CapCut (estilo, burbuja, efecto, animación y fuente) sin reutilizar sus
    recursos ni sus archivos. */

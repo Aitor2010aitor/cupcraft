@@ -324,7 +324,7 @@ try {
       opacity: 1,
       filter: 'none',
       text: {
-        content: 'openCUP',
+        content: 'cupcraft',
         size: 96,
         weight: 900,
         color: '#ffffff',
@@ -392,7 +392,7 @@ try {
       plain: render(),
       bordered: render({ text: { background: '#3355ff', backgroundAlpha: 0.85, backgroundRadius: 0.3, backgroundPadding: 0.3 } }),
       glow: render({ text: { glow: true, glowColor: '#ff3300', glowBlur: 0.9, color: '#ffffff', size: 170 } }),
-      stroked: render({ text: { strokeWidth: 0.12, strokeColor: '#ffffff', color: '#000000' } }),
+      stroked: render({ text: { strokeWidth: 0.25, strokeColor: '#ffffff', color: '#000000' } }),
       flat: render({ text: { curve: 0 } }),
       curved: render({ text: { curve: 70 } }),
       typeStart: render({ text: { animation: 'in-typewriter', animationPhase: 'in', animationDuration: 1.2 } }, 0.06),

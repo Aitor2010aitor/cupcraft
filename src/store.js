@@ -415,7 +415,7 @@ export async function importProjectFile(file) {
     payload = null;
   }
   if (!payload || payload.kind !== PROJECT_FILE_KIND || !payload.project?.tracks) {
-    throw new Error('El archivo no es un proyecto válido de openCUP');
+    throw new Error('El archivo no es un proyecto válido de cupcraft');
   }
   queueSave.cancel();
   const project = payload.project;

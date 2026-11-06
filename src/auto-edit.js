@@ -1,4 +1,4 @@
-// Editor automático con IA para openCUP.
+// Editor automático con IA para cupcraft.
 // Análisis real en el navegador (metadatos, escenas, silencios, ritmo) + planificador
 // determinista + ejecución sobre el proyecto real mediante las acciones del store.
 // El modelo de lenguaje es opcional (Ollama local / OpenAI); si no está disponible se
@@ -318,7 +318,7 @@ export async function planEdit(instruction, analysis) {
 
   // Títulos
   if (/t[ií]tulo|title/.test(text)) {
-    plan.operations.push({ op: 'addTitle', text: state.project?.name || 'openCUP' });
+    plan.operations.push({ op: 'addTitle', text: state.project?.name || 'cupcraft' });
   }
 
   // Audio: mezcla voz/música

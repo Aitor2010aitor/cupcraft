@@ -193,7 +193,7 @@ const fileResult = await page.evaluate(async () => {
   };
 });
 console.log('export/import', JSON.stringify(fileResult));
-check(!fileResult.exportError && fileResult.kind === 'openCUP-project', 'el proyecto se exporta como archivo openCUP', fileResult.exportError || '');
+check(!fileResult.exportError && fileResult.kind === 'openCUP-project', 'el proyecto se exporta como archivo cupcraft', fileResult.exportError || '');
 check(/^Prueba capas y archivo.*\.opencup\.json$/.test(fileResult.fileName || ''), 'el archivo descargado lleva el nombre del proyecto', fileResult.fileName);
 check(fileResult.embedded, 'los medios viajan incrustados dentro del archivo');
 check(fileResult.info?.embedded >= 1, 'se incrusta al menos el vídeo importado', JSON.stringify(fileResult.info));

@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 
 # Limpieza: retira procesos antiguos que ocupen los puertos de prueba.
-Get-Process openCUP -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process cupcraft -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 foreach ($port in 8787, 8790) {
   $linea = netstat -ano | Select-String (":$port\s.*LISTENING")
   foreach ($l in $linea) {

@@ -65,7 +65,7 @@ await page.click('[data-act="export"]');
 await page.waitForSelector('.modal');
 await page.select('[data-export-resolution]', '480p');
 await page.select('[data-export-quality]', 'media');
-await page.evaluate(() => { document.querySelector('[data-export-name]').value = 'openCUP-audio-test'; });
+await page.evaluate(() => { document.querySelector('[data-export-name]').value = 'cupcraft-audio-test'; });
 await page.click('[data-export-start]');
 console.log('export started');
 

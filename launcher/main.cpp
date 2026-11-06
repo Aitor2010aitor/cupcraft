@@ -1,4 +1,4 @@
-/* openCUP — launcher de escritorio 100% C++ nativo (Win32 + WebView2 COM).
+/* cupcraft — launcher de escritorio 100% C++ nativo (Win32 + WebView2 COM).
    Sustituye al antiguo launcher C#/.NET: mismo comportamiento (instancia única,
    servidor local propio, WebView2 oscuro) sin dependencia de .NET ni de DLLs
    gestionadas. Compilar con MSVC x64 y WebView2LoaderStatic.lib. */
@@ -43,7 +43,7 @@ namespace {
 constexpr wchar_t kAppUrl[]      = L"http://127.0.0.1:8787/";
 constexpr wchar_t kWindowClass[] = L"openCUPDesktopWindow";
 constexpr wchar_t kInstanceMutex[] = L"openCUP.Desktop.SingleInstance";
-constexpr wchar_t kWindowTitle[] = L"openCUP";
+constexpr wchar_t kWindowTitle[] = L"cupcraft";
 
 constexpr int kClientWidth  = 1460;
 constexpr int kClientHeight = 900;
@@ -68,7 +68,7 @@ HBRUSH   g_bgBrush     = nullptr;
 
 std::atomic<bool> g_stoppingServer{false};   // cierre ordenado del servidor
 std::vector<HANDLE> g_pendingReads;          // descriptores sin hilo lector
-HANDLE   g_jobObject = nullptr;              // Job: node muere con openCUP
+HANDLE   g_jobObject = nullptr;              // Job: node muere con cupcraft
 
 ComPtr<ICoreWebView2Controller> g_controller;
 ComPtr<ICoreWebView2>           g_webView;
@@ -255,7 +255,7 @@ void StartServer() {
   CloseHandle(process.hThread);
   g_serverJob = process.hProcess;
   g_ownsServer = true;
-  // El hijo pasa al Job: si openCUP muere, Windows lo termina con él.
+  // El hijo pasa al Job: si cupcraft muere, Windows lo termina con él.
   if (g_jobObject && !AssignProcessToJobObject(g_jobObject, process.hProcess)) {
     LogLine("Aviso: no se pudo asociar el servidor al Job (error " +
             std::to_string(GetLastError()) + ")");
@@ -294,7 +294,7 @@ void StartServer() {
   }
 }
 
-// Job object: si openCUP muere (incluso a la fuerza), Windows mata al servidor
+// Job object: si cupcraft muere (incluso a la fuerza), Windows mata al servidor
 // hijo. Evita quedarse con un node huérfano ocupando los puertos 8787/8790.
 void CreateServerJob() {
   g_jobObject = CreateJobObjectW(nullptr, nullptr);
@@ -380,7 +380,7 @@ void InitializeWebView() {
             LogWide(L"WebView2 entorno: ", std::to_wstring(result));
             if (g_statusLabel) {
               SetWindowTextW(g_statusLabel,
-                             L"No se pudo abrir la interfaz de openCUP.\r\n"
+                             L"No se pudo abrir la interfaz de cupcraft.\r\n"
                              L"Comprueba que WebView2 Runtime esté instalado.");
             }
             return S_OK;
@@ -393,7 +393,7 @@ void InitializeWebView() {
                     LogWide(L"WebView2 controlador: ", std::to_wstring(result));
                     if (g_statusLabel) {
                       SetWindowTextW(g_statusLabel,
-                                     L"No se pudo abrir la interfaz de openCUP.\r\n"
+                                     L"No se pudo abrir la interfaz de cupcraft.\r\n"
                                      L"Comprueba que WebView2 Runtime esté instalado.");
                     }
                     return S_OK;
@@ -433,7 +433,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
   switch (message) {
     case WM_CREATE:
       g_statusLabel = CreateWindowExW(
-          0, L"STATIC", L"Iniciando openCUP…",
+          0, L"STATIC", L"Iniciando cupcraft…",
           WS_CHILD | WS_VISIBLE | SS_CENTER | SS_CENTERIMAGE,
           0, 0, 0, 0, window, nullptr, g_instance, nullptr);
       return 0;
@@ -493,7 +493,7 @@ bool AlreadyRunning() {
   if (!mutex) return false;
   if (GetLastError() == ERROR_ALREADY_EXISTS) {
     CloseHandle(mutex);
-    MessageBoxW(nullptr, L"openCUP ya está abierto.", kWindowTitle,
+    MessageBoxW(nullptr, L"cupcraft ya está abierto.", kWindowTitle,
                 MB_OK | MB_ICONINFORMATION);
     return true;
   }
@@ -552,7 +552,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int showCommand) {
       LogLine("El servidor local no respondió en 30 s");
       if (g_statusLabel) {
         SetWindowTextW(g_statusLabel,
-                       L"No se pudo iniciar el servidor local de openCUP.\r\n"
+                       L"No se pudo iniciar el servidor local de cupcraft.\r\n"
                        L"Revisa %LOCALAPPDATA%\\openCUP\\openCUP.log");
       }
     }

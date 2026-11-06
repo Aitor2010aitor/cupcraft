@@ -64,7 +64,7 @@ export async function prepareStickerSrc(src) {
     ctx.putImageData(frame, 0, 0);
     return canvas.toDataURL('image/png');
   } catch (error) {
-    console.warn('[openCUP] sticker sin recorte de fondo:', error.message);
+    console.warn('[cupcraft] sticker sin recorte de fondo:', error.message);
     return src;
   }
 }

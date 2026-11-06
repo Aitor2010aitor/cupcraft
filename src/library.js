@@ -343,7 +343,7 @@ export const TRANSITIONS = [
 
 export const TRANSITION_IDS = TRANSITIONS.map((item) => item.id);
 
-/* Presets de ajuste originales de openCUP. Cada uno fija valores de
+/* Presets de ajuste originales de cupcraft. Cada uno fija valores de
    brillo/contraste/saturación/gris/sepia/tono sobre el clip seleccionado. */
 export const ADJUST_PRESETS = [
   { id: 'custom', label: 'Ajuste personalizado', category: 'Tuyos', adjust: null },

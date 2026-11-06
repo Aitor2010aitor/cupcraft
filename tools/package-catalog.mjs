@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const dist = process.argv[2] || 'dist/openCUP';
+const dist = process.argv[2] || 'dist/cupcraft';
 const file = path.join(dist, 'src', 'capcut-panels.js');
 if (!fs.existsSync(file)) {
   console.log('package-catalog: no existe', file);

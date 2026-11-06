@@ -45,7 +45,7 @@ function render() {
           ${icon('alert', 34)}
           <strong style="color:#f2f2f4">No se pudo abrir el editor</strong>
           <span style="font-size:12px">${error?.message || 'Error inesperado'}</span>
-          <button class="btn btn-primary" onclick="location.reload()">Recargar openCUP</button>
+          <button class="btn btn-primary" onclick="location.reload()">Recargar cupcraft</button>
         </div>`;
     }
   } else {

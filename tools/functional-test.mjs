@@ -248,12 +248,12 @@ await page.evaluate(() => {
   area.focus();
   area.select();
 });
-await page.keyboard.type('Hola openCUP');
+await page.keyboard.type('Hola cupcraft');
 await wait(250);
 data = await state();
 const textClip = data.tracks.find((track) => track.type === 'text').clips[0];
-check(textClip?.text === 'Hola openCUP', 'editing text updates the clip', textClip?.text);
-check(await page.evaluate(() => document.querySelector('.clip-text-preview')?.textContent) === 'Hola openCUP', 'timeline preview reflects text');
+check(textClip?.text === 'Hola cupcraft', 'editing text updates the clip', textClip?.text);
+check(await page.evaluate(() => document.querySelector('.clip-text-preview')?.textContent) === 'Hola cupcraft', 'timeline preview reflects text');
 const styleAfterEdit = await page.evaluate(() => {
   const clip = window.openCUP.state.project.tracks.find((track) => track.type === 'text').clips[0];
   if (!clip?.text) return null;

@@ -1,4 +1,4 @@
-// Runner WebGL de openCUP: post-proceso por shader sobre el fotograma ya compuesto.
+// Runner WebGL de cupcraft: post-proceso por shader sobre el fotograma ya compuesto.
 // Los .frag son portes de shaders de CapCut extraídos de sus paquetes (AmazingFeature/InfoSticker).
 
 const VERT = `#version 300 es
@@ -567,11 +567,11 @@ class GLPost {
 
   apply(sourceCanvas, effectId, time = 0, amount = 1) {
     if (this.failed) {
-      console.warn('[openCUP][gl] runner deshabilitado tras un fallo previo; efecto ignorado:', effectId);
+      console.warn('[cupcraft][gl] runner deshabilitado tras un fallo previo; efecto ignorado:', effectId);
       return false;
     }
     if (!SHADERS[effectId]) {
-      console.warn('[openCUP][gl] no hay shader portado para:', effectId);
+      console.warn('[cupcraft][gl] no hay shader portado para:', effectId);
       return false;
     }
     const gl = this.gl;
@@ -597,7 +597,7 @@ class GLPost {
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       return true;
     } catch (error) {
-      console.error('[openCUP][gl] fallo el shader ' + effectId + ': ' + (error && error.message ? error.message : error));
+      console.error('[cupcraft][gl] fallo el shader ' + effectId + ': ' + (error && error.message ? error.message : error));
       this.failed = true;
       return false;
     }
@@ -646,7 +646,7 @@ class GLPost {
       gl.activeTexture(gl.TEXTURE0);
       return true;
     } catch (error) {
-      console.error('[openCUP][gl] LUT: ' + (error && error.message ? error.message : error));
+      console.error('[cupcraft][gl] LUT: ' + (error && error.message ? error.message : error));
       return false;
     }
   }
@@ -665,7 +665,7 @@ function lutImage(url) {
     img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => window.dispatchEvent(new CustomEvent('opencup:glfx'));
-    img.onerror = () => console.warn('[openCUP][gl] no se pudo cargar el LUT', url);
+    img.onerror = () => console.warn('[cupcraft][gl] no se pudo cargar el LUT', url);
     img.src = url;
     lutCache.set(url, img);
   }

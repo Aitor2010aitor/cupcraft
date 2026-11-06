@@ -1,6 +1,6 @@
 # Catálogo de CapCut
 
-openCUP puede mostrar los paneles reales de CapCut (efectos, transiciones, filtros,
+cupcraft puede mostrar los paneles reales de CapCut (efectos, transiciones, filtros,
 stickers y plantillas de texto) con sus nombres, categorías originales y portadas.
 
 ## De dónde sale
@@ -23,7 +23,7 @@ Los paquetes descargados se descomprimen en `Cache\effect\<id>\` e incluyen
 # 1. Leer la caché de CapCut y construir el catálogo normalizado
 node tools/capcut/build-catalog.mjs          # -> catalog/capcut-catalog.json
 
-# 2. Agrupar por panel de openCUP y conservar el orden de categorías de CapCut
+# 2. Agrupar por panel de cupcraft y conservar el orden de categorías de CapCut
 node tools/capcut/build-panels.mjs           # -> catalog/panels.json
 
 # 3. Descargar las portadas

@@ -59,7 +59,7 @@ const SHOWCASES = [
     title: 'Plantillas destacadas',
     subtitle: 'Composiciones listas para tu historia',
     art: 'linear-gradient(120deg,#2a163e 0%,#7b3fa8 46%,#f0a6ff 60%,#2d1a44 100%)',
-    mark: '<span class="art-word">openCUP</span>',
+    mark: '<span class="art-word">cupcraft</span>',
     caption: 'Empieza con una plantilla',
   },
 ];
@@ -289,11 +289,11 @@ function openSettingsModal() {
 
 function openProModal() {
   openModal({
-    title: 'openCUP Pro',
+    title: 'cupcraft Pro',
     width: 440,
     body: `
       <div style="font-size:12px;line-height:1.6;color:#c7c7c7;margin-bottom:12px">
-        openCUP es un editor local y gratuito. No hay cuentas, anuncios ni límites de exportación.
+        cupcraft es un editor local y gratuito. No hay cuentas, anuncios ni límites de exportación.
       </div>
       <div class="modal-note">
         Todas las funciones de esta versión están disponibles sin suscripción. Tus archivos nunca salen de tu equipo.
@@ -309,7 +309,7 @@ function openNotificationsModal() {
   openModal({
     title: 'Notificaciones',
     width: 420,
-    body: `<div class="panel-empty" style="padding:28px 14px">${icon('bell', 30)}<strong>Estás al día</strong>No hay notificaciones nuevas. openCUP funciona sin conexión.</div>`,
+    body: `<div class="panel-empty" style="padding:28px 14px">${icon('bell', 30)}<strong>Estás al día</strong>No hay notificaciones nuevas. cupcraft funciona sin conexión.</div>`,
     footer: `<button class="btn btn-primary" data-notifications-close>Cerrar</button>`,
     onMount(instance) {
       instance.foot.querySelector('[data-notifications-close]').addEventListener('click', instance.close);
@@ -350,12 +350,12 @@ async function quickStart(kind) {
 }
 
 export function mountHome(root) {
-  document.title = 'openCUP — Editor de video';
+  document.title = 'cupcraft — Editor de video';
   const home = document.createElement('div');
   home.className = 'home';
   home.innerHTML = `
     <aside class="home-sidebar">
-      <button class="home-brand" data-home-action="top">${logo}<span>openCUP</span></button>
+      <button class="home-brand" data-home-action="top">${logo}<span>cupcraft</span></button>
       <div class="side-user">
         <div class="side-user-row">
           <div class="avatar">${logo}</div>
@@ -382,8 +382,8 @@ export function mountHome(root) {
         <button class="side-item" data-home-action="library">${icon('library', 16)}<span>Biblioteca</span></button>
         <button class="side-item" data-home-action="capcut">${icon('folderOpen', 16)}<span>Proyectos de CapCut</span></button>
         <button class="side-item side-ai" data-home-action="ai-bridge">${icon('link', 16)}<span>Puente IA</span><span class="side-live-dot" title="Puerto local para IA"></span></button>
-        <a class="side-item" href="https://github.com/Aitor2010aitor/openCUP" target="_blank" rel="noopener" title="Repositorio en GitHub">${icon('github', 16)}<span>GitHub</span></a>
-        <a class="side-item" href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener" title="Servidor de Discord de openCUP">${icon('discord', 16)}<span>Discord</span></a>
+        <a class="side-item" href="https://github.com/Aitor2010aitor/cupcraft" target="_blank" rel="noopener" title="Repositorio en GitHub">${icon('github', 16)}<span>GitHub</span></a>
+        <a class="side-item" href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener" title="Servidor de Discord de cupcraft">${icon('discord', 16)}<span>Discord</span></a>
       </nav>
       <div class="side-foot">
         <button class="invite-card" data-home-action="invite">${icon('user', 15)}<span style="flex:1">Invitar a amigos</span><span class="invite-new">NUEVO</span></button>
@@ -596,7 +596,7 @@ export function mountHome(root) {
     else if (action === 'capcut') openCapCutImportDialog();
     else if (action === 'ai-bridge') void openAiBridgeDialog();
     else if (action === 'library') openUnavailable('Biblioteca', 'Abre un proyecto para ver su biblioteca de medios local. No hay contenido en la nube.');
-    else if (action === 'invite') openUnavailable('Invitar a amigos', 'openCUP funciona sin cuentas. Comparte el proyecto exportado como archivo de video para colaborar.');
+    else if (action === 'invite') openUnavailable('Invitar a amigos', 'cupcraft funciona sin cuentas. Comparte el proyecto exportado como archivo de video para colaborar.');
     else if (action === 'more-tools') moreToolsPanel.classList.toggle('hidden');
     else if (action === 'editpilot') focusEditPilot();
     else if (action === 'ai-tools' || action === 'ai-image' || action === 'ai-expand') {

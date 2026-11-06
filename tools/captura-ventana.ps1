@@ -12,7 +12,7 @@ public class Cap32 {
 }
 "@
 
-$p = Get-Process openCUP -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$p = Get-Process cupcraft -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { Write-Output "SIN VENTANA"; exit 1 }
 $hwnd = $p.MainWindowHandle
 
@@ -36,7 +36,7 @@ $g = [System.Drawing.Graphics]::FromImage($bmp)
 $hdc = $g.GetHdc()
 [Cap32]::PrintWindow($hwnd, $hdc, [Cap32]::PW_RENDERFULLCONTENT) | Out-Null
 $g.ReleaseHdc($hdc); $g.Dispose()
-$out = "$env:TEMP\openCUP_ventana.png"
+$out = "$env:TEMP\cupcraft_ventana.png"
 $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()
 Write-Output "captura $w x $h -> $out"

@@ -1613,7 +1613,7 @@ function stickerImage(src, fallback = null) {
         img.src = `/api/img?u=${encodeURIComponent(fallback)}`;
         return;
       }
-      console.warn('[openCUP] no se pudo cargar el sticker', src);
+      console.warn('[cupcraft] no se pudo cargar el sticker', src);
     };
     img.src = src;
     stickerImageCache.set(key, img);

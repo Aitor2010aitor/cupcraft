@@ -1,5 +1,5 @@
 param(
-  [string]$Out = "C:\Users\aitor\Desktop\openCUP\build\openCUP.ico",
+  [string]$Out = "C:\Users\aitor\Desktop\cupcraft\build\openCUP.ico",
   [string]$Logo = ""
 )
 

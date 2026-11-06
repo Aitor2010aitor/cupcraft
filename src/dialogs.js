@@ -32,7 +32,7 @@ export function openShortcutsDialog() {
 
 export function openAboutDialog() {
   openModal({
-    title: 'Acerca de openCUP',
+    title: 'Acerca de cupcraft',
     width: 460,
     body: `
       <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
@@ -40,7 +40,7 @@ export function openAboutDialog() {
           ${icon('play', 26)}
         </div>
         <div>
-          <div style="font-size:17px;font-weight:800">openCUP</div>
+          <div style="font-size:17px;font-weight:800">cupcraft</div>
           <div class="muted" style="font-size:11px;margin-top:2px">Editor de video local · versión 0.4.2</div>
         </div>
       </div>
@@ -49,7 +49,7 @@ export function openAboutDialog() {
         ajusta color, texto y audio, y exporta tu proyecto sin subir nada a un servidor.
       </p>
       <div class="modal-note">
-        openCUP está inspirado en el flujo de trabajo de editores de video modernos, pero su código,
+        cupcraft está inspirado en el flujo de trabajo de editores de video modernos, pero su código,
         interfaz y recursos son originales. No está afiliado a CapCut ni a ByteDance.
         Tus proyectos se guardan en el almacenamiento local de este navegador.
       </div>`,

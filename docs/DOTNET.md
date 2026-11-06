@@ -1,4 +1,4 @@
-# openCUP en C# / .NET
+# cupcraft en C# / .NET
 
 Migración del backend y del lanzador a **C# con .NET 8**. La interfaz web (`src/`)
 sigue siendo JavaScript por ahora: portarla módulo a módulo es la siguiente fase.
@@ -33,7 +33,7 @@ dotnet/
 dotnet build dotnet/OpenCup.Desktop/OpenCup.Desktop.csproj -c Release
 ```
 
-Salida: `dotnet/OpenCup.Desktop/bin/Release/net8.0-windows/openCUP.exe`.
+Salida: `dotnet/OpenCup.Desktop/bin/Release/net8.0-windows/cupcraft.exe`.
 
 Si el usuario no tiene permisos en `%APPDATA%`, define un `NuGet.config` propio
 (ya incluido) y compila con `-p:RestoreConfigFile=NuGet.config`.
@@ -41,7 +41,7 @@ Si el usuario no tiene permisos en `%APPDATA%`, define un `NuGet.config` propio
 ## Probar
 
 ```powershell
-.\openCUP.exe --server-only      # solo servidor (sin ventana)
+.\cupcraft.exe --server-only      # solo servidor (sin ventana)
 curl http://127.0.0.1:8787/api/health
 ```
 

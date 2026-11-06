@@ -280,7 +280,7 @@ createServer(async (req, res) => {
     res.end(code === 404 ? 'Not found' : 'Internal error');
   }
 }).listen(port, '127.0.0.1', async () => {
-  console.log(`openCUP listo en http://127.0.0.1:${port}`);
+  console.log(`cupcraft listo en http://127.0.0.1:${port}`);
   try {
     const bridge = await startAiBridge();
     console.log(`Puente IA en http://127.0.0.1:${bridge.port} (token: ${aiToken})`);

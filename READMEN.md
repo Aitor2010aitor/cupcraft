@@ -1,17 +1,17 @@
-# openCUP
+# cupcraft
 
-![READ IN ENGLISH](https://github.com/Aitor2010aitor/openCUP/blob/version.04/READMEN.md)
+![READ IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/version.04/READMEN.md)
 
 
 
 
 <img width="1686" height="934" alt="{9E045220-ABD4-45D7-AB6E-E135D48AB93C}" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
 
-A local video editor that runs in the browser, inspired by CapCut's workflow and dark interface. openCUP is an original implementation: it does not include CapCut binaries, logos, typefaces, or proprietary assets.
+A local video editor that runs in the browser, inspired by CapCut's workflow and dark interface. cupcraft is an original implementation: it does not include CapCut binaries, logos, typefaces, or proprietary assets.
 
-![openCUP home screen](shots/01-home.png)
+![cupcraft home screen](shots/01-home.png)
 
-![openCUP editor with the text panel](shots/20-template.png)
+![cupcraft editor with the text panel](shots/20-template.png)
 
 ## Features
 
@@ -26,10 +26,10 @@ A local video editor that runs in the browser, inspired by CapCut's workflow and
 
 - Detects native drafts from CapCut installed on Windows (`%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`).
 - Displays the name, date, aspect ratio, duration, thumbnail, and number of clips before importing.
-- Creates a new openCUP project without modifying the original draft: it copies media to IndexedDB, remaps tracks, and preserves text clips and their timings.
+- Creates a new cupcraft project without modifying the original draft: it copies media to IndexedDB, remaps tracks, and preserves text clips and their timings.
 - Import works offline and does not use CapCut cloud services.
 
-![List of native CapCut drafts in openCUP](shots/new-capcut-list.png)
+![List of native CapCut drafts in cupcraft](shots/new-capcut-list.png)
 
 ### Editing
 
@@ -53,12 +53,12 @@ A local video editor that runs in the browser, inspired by CapCut's workflow and
 
 ### AI control bridge
 
-openCUP includes a local HTTP bridge that allows another AI, agent, or script to read the editor's state and perform actions on the session open in the browser. The bridge listens only on `127.0.0.1:8790` and requires a token.
+cupcraft includes a local HTTP bridge that allows another AI, agent, or script to read the editor's state and perform actions on the session open in the browser. The bridge listens only on `127.0.0.1:8790` and requires a token.
 
 - The token is stored in `.openCUP-ai-token` or set using `openCUP_AI_TOKEN`. It is also displayed under **Menu → AI Bridge**.
 - The port can be changed using `openCUP_AI_PORT`. If it is already in use, the server tries subsequent ports and displays the selected port at startup.
 - The application must be open in the browser. Commands are queued, and the browser retrieves them during its next poll.
-- If multiple openCUP tabs are open, the bridge controls the most recently loaded tab, and `/status` reports its `target`.
+- If multiple cupcraft tabs are open, the bridge controls the most recently loaded tab, and `/status` reports its `target`.
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -111,9 +111,9 @@ $env:PORT=9000; npm start
 
 ## Desktop application
 
-The `dist/openCUP` folder contains a native application for Windows x64:
+The `dist/cupcraft` folder contains a native application for Windows x64:
 
-- `openCUP.exe` is a **native C++ executable** (Win32 + WebView2 COM): it does not use .NET, requires no managed DLLs, and is approximately 330 KB in size.
+- `cupcraft.exe` is a **native C++ executable** (Win32 + WebView2 COM): it does not use .NET, requires no managed DLLs, and is approximately 330 KB in size.
 - It opens the interface in its own dark-themed window using WebView2 (embedded Edge).
 - It includes `node.exe`, so Node.js does not need to be installed.
 - The local server starts hidden when the app opens and stops when the window closes. It runs inside a Windows Job Object: if the app is forcibly terminated, the child server process is closed as well (no orphaned processes remain).
@@ -133,9 +133,9 @@ To also build an installer (Inno Setup 6, downloaded automatically if necessary)
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-installer.ps1
 ```
 
-The output is `dist/openCUP-Setup-0.3.0.exe` (~24 MB): an installer wizard in Spanish, an icon on the desktop and in the Start menu, and an uninstaller integrated into "Apps & features". Administrator privileges are required to install to `Program Files`.
+The output is `dist/cupcraft-Setup-0.3.0.exe` (~24 MB): an installer wizard in Spanish, an icon on the desktop and in the Start menu, and an uninstaller integrated into "Apps & features". Administrator privileges are required to install to `Program Files`.
 
-The build script locates the MSVC C++ tools (Visual Studio / Build Tools), downloads the WebView2 SDK using `tools/fetch-webview2.ps1` if it is missing, compiles `launcher/main.cpp` and embeds the icon (`rc.exe`), then copies the application, server, and Node.js into `dist/openCUP`. The Visual Studio **Desktop development with C++** workload is required. The installer requires Inno Setup 6 (`tools/build-installer.ps1` downloads and installs it automatically if it is not already present).
+The build script locates the MSVC C++ tools (Visual Studio / Build Tools), downloads the WebView2 SDK using `tools/fetch-webview2.ps1` if it is missing, compiles `launcher/main.cpp` and embeds the icon (`rc.exe`), then copies the application, server, and Node.js into `dist/cupcraft`. The Visual Studio **Desktop development with C++** workload is required. The installer requires Inno Setup 6 (`tools/build-installer.ps1` downloads and installs it automatically if it is not already present).
 
 ## Keyboard shortcuts
 
@@ -172,7 +172,7 @@ The right-hand panel lets you edit the project or selected clip without leaving 
 
 - CapCut cloud AI features (automatic transcription, animated avatars, background removal, and video generation) are not included. The interface marks them as unavailable offline.
 - The CapCut importer is designed for native drafts from the Windows desktop version. It reconstructs media, tracks, text, and timings; CapCut's proprietary effects, transitions, and animations are not recreated.
-- The AI bridge only works while openCUP is open in the browser and the local server is running. It is not designed to be exposed to the Internet.
+- The AI bridge only works while cupcraft is open in the browser and the local server is running. It is not designed to be exposed to the Internet.
 - Export uses `MediaRecorder`; the output container is WebM. MP4 would require transcoding outside the browser.
 - Export runs in real time and does not use GPU acceleration beyond what the browser provides.
 - Supported audio and video formats depend on the codecs supported by the browser.
@@ -181,7 +181,7 @@ The right-hand panel lets you edit the project or selected clip without leaving 
 ## Project structure
 
 ```text
-openCUP/
+cupcraft/
 ├─ index.html
 ├─ server.mjs              Static server, CapCut API, and internal AI API
 ├─ server/
@@ -211,9 +211,9 @@ openCUP/
 │  └─ styles.css           Dark theme and responsive layout
 ├─ launcher/main.cpp        Native Win32 + WebView2 launcher written in pure C++
 ├─ tools/                  Browser tests and packaging scripts
-│  ├─ build-desktop.ps1    Compiles the C++ executable and assembles dist/openCUP
-│  ├─ build-installer.ps1  Generates dist/openCUP-Setup-0.3.0.exe with Inno Setup 6
-│  ├─ openCUP.iss            Inno Setup script (Spanish, uninstaller)
+│  ├─ build-desktop.ps1    Compiles the C++ executable and assembles dist/cupcraft
+│  ├─ build-installer.ps1  Generates dist/cupcraft-Setup-0.3.0.exe with Inno Setup 6
+│  ├─ cacup.iss            Inno Setup script (Spanish, uninstaller)
 │  ├─ fetch-webview2.ps1   Downloads the native WebView2 SDK from nuget.org
 │  ├─ run-all-tests.ps1    Starts the server and runs all 11 test suites
 │  ├─ make-icon.ps1        Generates the multi-resolution icon
@@ -251,4 +251,4 @@ Notes:
 
 ## Notice
 
-openCUP is an independent educational project. CapCut is a trademark of ByteDance. This repository is not affiliated with CapCut and does not distribute its assets.
+cupcraft is an independent educational project. CapCut is a trademark of ByteDance. This repository is not affiliated with CapCut and does not distribute its assets.

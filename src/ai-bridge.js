@@ -36,7 +36,7 @@ import { listCapCutProjects, importCapCutProject } from './capcut.js';
 
 export const AI_ACTIONS = [
   { action: 'getState', description: 'Estado completo: proyecto, pistas, clips, medios, selección, cursor y panel.' },
-  { action: 'listProjects', description: 'Proyectos guardados en openCUP.' },
+  { action: 'listProjects', description: 'Proyectos guardados en cupcraft.' },
   { action: 'newProject', params: { name: 'string' }, description: 'Crea un proyecto y abre el editor.' },
   { action: 'openProject', params: { id: 'string', name: 'string (alternativa)' }, description: 'Abre un proyecto guardado.' },
   { action: 'goHome', description: 'Vuelve al inicio.' },
@@ -571,7 +571,7 @@ function bridgeMarkup(status) {
   if (!status?.ok) {
     return `
       <div class="bridge-offline">${icon('alert', 22)}<strong>Puente no disponible</strong>
-        <span>${escapeHtml(status?.error || 'Inicia openCUP con node server.mjs.')}</span>
+        <span>${escapeHtml(status?.error || 'Inicia cupcraft con node server.mjs.')}</span>
       </div>`;
   }
   const endpoint = `http://127.0.0.1:${status.port}`;
@@ -579,7 +579,7 @@ function bridgeMarkup(status) {
     <div class="bridge-hero">
       <div class="bridge-pulse"></div>
       <div class="bridge-hero-text">
-        <strong>openCUP AI Bridge</strong>
+        <strong>cupcraft AI Bridge</strong>
         <span>${status.connected ? 'Aplicación conectada y escuchando órdenes' : 'Servidor activo · esperando a la aplicación'}</span>
       </div>
       <span class="bridge-badge">${status.connected ? 'CONECTADO' : 'ESPERANDO'}</span>

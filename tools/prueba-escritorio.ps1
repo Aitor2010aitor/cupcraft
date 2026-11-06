@@ -20,25 +20,25 @@ public class Dlg32 {
 "@
 
 # 1) Cierre limpio: la ventana debe matar a node.
-$p = Get-Process openCUP -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$p = Get-Process cupcraft -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if ($p) { $p.CloseMainWindow() | Out-Null; Start-Sleep -Seconds 4 }
-$rest = Get-Process openCUP -ErrorAction SilentlyContinue
-Write-Output ("tras cerrar: procesos openCUP=" + $(if ($rest) { $rest.Count } else { 0 }))
+$rest = Get-Process cupcraft -ErrorAction SilentlyContinue
+Write-Output ("tras cerrar: procesos cupcraft=" + $(if ($rest) { $rest.Count } else { 0 }))
 $nodeReciente = Get-Process node -ErrorAction SilentlyContinue | Where-Object { $_.StartTime -gt (Get-Date).AddSeconds(-120) }
 Write-Output ("node reciente=" + $(if ($nodeReciente) { $nodeReciente.Count } else { 0 }))
 Write-Output ("puerto 8787: " + $(if (netstat -ano | Select-String ':8787.*LISTENING') { "ocupado" } else { "libre" }))
 
 # 2) Instancia única: el segundo arranque debe mostrar el aviso y salir.
-Start-Process -FilePath (Resolve-Path dist\openCUP\openCUP.exe).Path
+Start-Process -FilePath (Resolve-Path dist\cupcraft\cupcraft.exe).Path
 Start-Sleep -Seconds 9
-$uno = Get-Process openCUP -ErrorAction SilentlyContinue
+$uno = Get-Process cupcraft -ErrorAction SilentlyContinue
 Write-Output ("instancia 1: PID " + (($uno | ForEach-Object { $_.Id }) -join ','))
-$segundo = Start-Process -FilePath (Resolve-Path dist\openCUP\openCUP.exe).Path -PassThru
+$segundo = Start-Process -FilePath (Resolve-Path dist\cupcraft\cupcraft.exe).Path -PassThru
 Start-Sleep -Seconds 4
-$todos = @(Get-Process openCUP -ErrorAction SilentlyContinue)
+$todos = @(Get-Process cupcraft -ErrorAction SilentlyContinue)
 Write-Output ("procesos tras 2º arranque: " + $todos.Count)
 Write-Output ("ventanas: " + (($todos | ForEach-Object { "'" + $_.MainWindowTitle + "'" }) -join ' | '))
 [Dlg32]::CerrarDialogos([uint32]$segundo.Id)
 Start-Sleep -Seconds 3
-$despues = @(Get-Process openCUP -ErrorAction SilentlyContinue)
+$despues = @(Get-Process cupcraft -ErrorAction SilentlyContinue)
 Write-Output ("tras descartar aviso: procesos=" + $despues.Count + " (el 2º debe haber salido)")

@@ -6,7 +6,7 @@ param(
   [int]$Width = 3440,
   [int]$Height = 1392,
   [switch]$KeepOnScreen,
-  [string]$Out = "C:\Users\aitor\Desktop\openCUP\shots\capcut-ui.png"
+  [string]$Out = "C:\Users\aitor\Desktop\cupcraft\shots\capcut-ui.png"
 )
 
 Add-Type -AssemblyName System.Drawing

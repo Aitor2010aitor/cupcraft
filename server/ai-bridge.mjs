@@ -7,7 +7,7 @@ import { capcutMime } from './capcut.mjs';
 
 /* ------------------------------------------------------------------ */
 /*  Puente de control para IA                                          */
-/*  Permite que otra IA lea el estado de openCUP y ejecute acciones      */
+/*  Permite que otra IA lea el estado de cupcraft y ejecute acciones      */
 /*  sobre la aplicación abierta en el navegador.                       */
 /* ------------------------------------------------------------------ */
 
@@ -29,7 +29,7 @@ export const aiToken = loadToken();
 
 export const AI_ACTIONS = [
   { action: 'getState', description: 'Devuelve el estado completo: proyecto, clips, medios, selección, cursor y paneles.' },
-  { action: 'listProjects', description: 'Lista los proyectos guardados en openCUP.' },
+  { action: 'listProjects', description: 'Lista los proyectos guardados en cupcraft.' },
   { action: 'newProject', params: { name: 'string' }, description: 'Crea un proyecto nuevo y abre el editor.' },
   { action: 'openProject', params: { id: 'string', name: 'string (alternativa)' }, description: 'Abre un proyecto guardado por id o nombre.' },
   { action: 'goHome', description: 'Vuelve a la pantalla de inicio.' },
@@ -200,7 +200,7 @@ function waitForResult(id, timeout = 25_000) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => {
       waiters.delete(id);
-      resolve({ id, ok: false, pending: true, error: 'Sin respuesta del navegador. Abre openCUP y activa el puente IA.' });
+      resolve({ id, ok: false, pending: true, error: 'Sin respuesta del navegador. Abre cupcraft y activa el puente IA.' });
     }, timeout);
     waiters.set(id, { resolve, timer });
   });
@@ -211,7 +211,7 @@ export function aiStatus({ includeToken = false } = {}) {
   const target = newestClient();
   return {
     ok: true,
-    name: 'openCUP AI Bridge',
+    name: 'cupcraft AI Bridge',
     version: '1.0.0',
     port: bridgePort,
     enabled: true,
@@ -277,10 +277,10 @@ export function bridgeLog() {
 }
 
 function welcomePage() {
-  return `<!doctype html><html lang="es"><meta charset="utf-8"><title>openCUP AI Bridge</title>
+  return `<!doctype html><html lang="es"><meta charset="utf-8"><title>cupcraft AI Bridge</title>
 <style>body{background:#0c1112;color:#e8f4f4;font:14px/1.6 system-ui,sans-serif;padding:40px;max-width:860px;margin:auto}code{background:#132b2e;padding:2px 6px;border-radius:4px;color:#7deff5}pre{background:#101a1c;border:1px solid #1f3a3d;border-radius:8px;padding:16px;overflow:auto}a{color:#57e5ef}h1{font-size:24px}</style>
-<h1>openCUP AI Bridge</h1>
-<p>Puerto <code>${bridgePort}</code>. Requiere el token que aparece en openCUP → Menú → Puente IA.</p>
+<h1>cupcraft AI Bridge</h1>
+<p>Puerto <code>${bridgePort}</code>. Requiere el token que aparece en cupcraft → Menú → Puente IA.</p>
 <pre>curl -H "Authorization: Bearer $openCUP_AI_TOKEN" http://127.0.0.1:${bridgePort}/api/ai/status
 curl -H "Authorization: Bearer $openCUP_AI_TOKEN" http://127.0.0.1:${bridgePort}/api/ai/state
 curl -X POST -H "Authorization: Bearer $openCUP_AI_TOKEN" -H "Content-Type: application/json" \\
@@ -297,7 +297,7 @@ export function startAiBridge(preferredPort = Number(process.env.openCUP_AI_PORT
     const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
     try {
       if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/api/ai')) {
-        if (!authorized(req, url)) { text(res, 401, 'Token requerido. Consulta openCUP → Menú → Puente IA.'); return; }
+        if (!authorized(req, url)) { text(res, 401, 'Token requerido. Consulta cupcraft → Menú → Puente IA.'); return; }
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end(welcomePage());
         return;

@@ -1,5 +1,5 @@
 ﻿param(
-  [string]$OutDir = "C:\Users\aitor\Desktop\cacup\dist\openCUP",
+  [string]$OutDir = "C:\Users\aitor\Desktop\cacup\dist\cupcraft",
   [switch]$NoShortcut
 )
 
@@ -33,15 +33,15 @@ $compile = "rc /nologo /fo `"$resFile`" `"$rcFile`" && " +
   "cl /nologo /utf-8 /std:c++17 /EHsc /O2 /W3 /DUNICODE /D_UNICODE /I `"$include`" " +
   "`"$root\launcher\main.cpp`" /Fo`"$root\build\main.obj`" `"$resFile`" /link /SUBSYSTEM:WINDOWS " +
   "dwmapi.lib winhttp.lib shell32.lib ole32.lib advapi32.lib `"$loader`" " +
-  "/OUT:`"$root\build\openCUP.exe`""
+  "/OUT:`"$root\build\cupcraft.exe`""
 cmd /c "`"$vcvars`" && $compile"
-if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación de openCUP.exe (C++)' }
-if (!(Test-Path "$root\build\openCUP.exe")) { throw 'openCUP.exe no se generó.' }
+if ($LASTEXITCODE -ne 0) { throw 'Falló la compilación de cupcraft.exe (C++)' }
+if (!(Test-Path "$root\build\cupcraft.exe")) { throw 'cupcraft.exe no se generó.' }
 
 if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
-Copy-Item "$root\build\openCUP.exe" $OutDir
+Copy-Item "$root\build\cupcraft.exe" $OutDir
 Copy-Item "$root\server.mjs" $OutDir
 Copy-Item "$root\index.html" $OutDir
 Copy-Item "$root\package.json" $OutDir
@@ -71,11 +71,11 @@ if (Test-Path $node) {
 }
 
 $readme = @"
-openCUP - aplicación de escritorio
+cupcraft - aplicación de escritorio
 ================================
 
 Inicio rapido:
-  Doble clic en openCUP.exe. La app (ejecutable C++ nativo, sin .NET) arranca
+  Doble clic en cupcraft.exe. La app (ejecutable C++ nativo, sin .NET) arranca
   su servidor local e interfaz WebView2. Al cerrar la ventana se detiene el
   servidor.
 
@@ -90,19 +90,19 @@ Datos:
   El registro de arranque esta en %LOCALAPPDATA%\openCUP\openCUP.log.
 
 El puente de IA escucha en 127.0.0.1:8790 y requiere el token que aparece
-en openCUP > Menu > Puente IA.
+en cupcraft > Menu > Puente IA.
 "@
 $readme | Out-File -FilePath (Join-Path $OutDir 'LEEME.txt') -Encoding utf8
 
 if (!$NoShortcut) {
   $desktop = [Environment]::GetFolderPath('Desktop')
-  $shortcutPath = Join-Path $desktop 'openCUP.lnk'
+  $shortcutPath = Join-Path $desktop 'cupcraft.lnk'
   $shell = New-Object -ComObject WScript.Shell
   $shortcut = $shell.CreateShortcut($shortcutPath)
-  $shortcut.TargetPath = Join-Path $OutDir 'openCUP.exe'
+  $shortcut.TargetPath = Join-Path $OutDir 'cupcraft.exe'
   $shortcut.WorkingDirectory = $OutDir
-  $shortcut.IconLocation = (Join-Path $OutDir 'openCUP.exe') + ',0'
-  $shortcut.Description = 'openCUP - editor de vídeo local'
+  $shortcut.IconLocation = (Join-Path $OutDir 'cupcraft.exe') + ',0'
+  $shortcut.Description = 'cupcraft - editor de vídeo local'
   $shortcut.Save()
   Write-Output "acceso directo -> $shortcutPath"
 }

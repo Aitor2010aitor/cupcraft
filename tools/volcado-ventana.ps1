@@ -27,7 +27,7 @@ public class Dump32 {
  }
 }
 "@
-$p = Get-Process openCUP -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+$p = Get-Process cupcraft -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { Write-Output "SIN VENTANA"; exit 1 }
 Write-Output ("ventana principal handle=" + $p.MainWindowHandle + " titulo='" + $p.MainWindowTitle + "'")
 $kids = [Dump32]::Walk($p.MainWindowHandle)

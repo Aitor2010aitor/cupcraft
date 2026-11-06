@@ -49,8 +49,8 @@ await page.waitForSelector('.editor');
 await wait(500);
 
 const labels = () => page.evaluate(
-  // La fila "Efectos" es fija del timeline, no una pista del proyecto.
-  () => [...document.querySelectorAll('.track-label:not(.fx-label) .t-name')].map((el) => el.textContent),
+  // Las filas "Efectos" y "Filtros" son fijas del timeline, no pistas del proyecto.
+  () => [...document.querySelectorAll('.track-label:not(.fx-label):not(.filter-label) .t-name')].map((el) => el.textContent),
 );
 const clickInPage = (selector) => page.evaluate((sel) => {
   const el = document.querySelector(sel);

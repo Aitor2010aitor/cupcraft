@@ -194,11 +194,6 @@ export function mountTimeline(host) {
       : clip.kind === 'sticker'
         ? `<div class="clip-text-preview sticker-preview">${escapeHtml(clip.sticker?.content || clip.name || '')}</div>`
         : '';
-    // Posición del chip de filtro (fracciones 0..1 del clip; se arrastra para recolocarlo).
-    // Por defecto queda a 96 px del inicio del clip: en clips largos (minutos) el centro
-    // quedaría a miles de píxeles y el usuario no vería ningún indicador.
-    const chipX = Number.isFinite(clip.filterChipX) ? clip.filterChipX : Math.min(0.5, 96 / Math.max(1, width));
-    const chipY = Number.isFinite(clip.filterChipY) ? clip.filterChipY : 0.5;
     return `
       <div class="clip ${clip.kind}${selected ? ' selected' : ''}${filter ? ' has-filter' : ''}" data-clip-id="${clip.id}" style="left:${clip.start * px}px;width:${width}px">
         ${thumb ? `<div class="clip-thumb"${thumbStyle}></div>` : ''}
@@ -209,25 +204,49 @@ export function mountTimeline(host) {
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-label">${escapeHtml(clip.name || 'Clip')}</div>` : ''}
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-meta">${formatTime(clip.duration)}</div>` : ''}
         ${clip.effect && clip.effect !== 'none' ? `<div class="clip-fx" title="Efecto: ${escapeHtml(clip.effect)}">fx</div>` : (clip.glEffect ? `<div class="clip-fx" title="Shader: ${escapeHtml(clip.glEffect)}">fx</div>` : '')}
-        ${filter ? `<div class="clip-filter${filter.kind === 'css' ? '' : ' adjustable'}" data-clip-filter="${clip.id}" data-chip-x="${chipX.toFixed(4)}" style="left:${(chipX * 100).toFixed(2)}%;top:${(chipY * 100).toFixed(2)}%" title="${escapeHtml(filter.kind === 'css' ? `Filtro: ${filter.label} — arrastra para recolocar` : `Filtro: ${filter.label} — clic para ajustar, arrastra para recolocar`)}">
-          <span class="clip-filter-dot"></span>
-          <span class="clip-filter-name">${escapeHtml(filter.label)}</span>
-          ${filter.kind === 'css' ? '' : `<span class="clip-filter-amount">${Math.round(filter.amount * 100)}%</span>`}
-        </div>` : ''}
         <div class="clip-handle left" data-edge="left"></div>
         <div class="clip-handle right" data-edge="right"></div>
       </div>`;
   }
 
+  /* Clips con filtro activo: se listan en su propia fila FUERA de las pistas de vídeo
+     (como la fila Efectos), para no tapar las miniaturas ni el nombre del clip. */
+  function filterEntries() {
+    const out = [];
+    for (const track of state.project?.tracks ?? []) {
+      for (const clip of track.clips) {
+        const filter = activeFilter(clip);
+        if (filter) out.push({ clip, filter });
+      }
+    }
+    return out;
+  }
+
+  function filterRowMarkup(px, entries) {
+    const pills = entries.map(({ clip, filter }) => {
+      const clipWidth = Math.max(8, clip.duration * px);
+      // Fracción 0..1 dentro de la clip (arrastrable); por defecto a 96 px de su inicio.
+      const frac = Number.isFinite(clip.filterChipX) ? clip.filterChipX : Math.min(0.5, 96 / Math.max(1, clipWidth));
+      const left = clip.start * px + frac * clipWidth;
+      return `
+        <div class="filter-zone" style="left:${(clip.start * px).toFixed(1)}px;width:${clipWidth.toFixed(1)}px"></div>
+        <div class="clip-filter filter-pill${filter.kind === 'css' ? '' : ' adjustable'}" data-clip-filter="${clip.id}" data-chip-x="${frac.toFixed(4)}" style="left:${left.toFixed(1)}px;top:50%" title="${escapeHtml(filter.kind === 'css' ? `Filtro: ${filter.label} — arrastra para recolocar` : `Filtro: ${filter.label} — clic para ajustar, arrastra para recolocar`)}">
+          <span class="clip-filter-dot"></span>
+          <span class="clip-filter-name">${escapeHtml(filter.label)}</span>
+          ${filter.kind === 'css' ? '' : `<span class="clip-filter-amount">${Math.round(filter.amount * 100)}%</span>`}
+        </div>`;
+    }).join('');
+    return `<div class="track-row filter-row" data-filter-row>${pills}</div>`;
+  }
+
   function renderLabels() {
     if (!state.project) return;
-    labels.innerHTML = `
-      <div class="track-label-spacer"></div>
-      <div class="track-label fx-label" title="Efectos aplicados en la línea de tiempo">
-        <span class="t-icon">${icon('sparkles', 13)}</span>
-        <span class="t-name">Efectos</span>
-      </div>
-      ${state.project.tracks.map((track) => {
+    // La fila "Filtros" (el chip, fuera de las pistas de vídeo) se coloca justo debajo
+    // de la última pista de vídeo, igual que su etiqueta.
+    const entries = filterEntries();
+    let lastVideo = -1;
+    state.project.tracks.forEach((track, index) => { if (track.type === 'video') lastVideo = index; });
+    const trackLabels = state.project.tracks.map((track) => {
         const meta = TRACK_META[track.type] || TRACK_META.video;
         const showMute = track.type === 'audio';
         return `
@@ -241,7 +260,21 @@ export function mountTimeline(host) {
               <button class="icon-btn sm ${track.locked ? 'active' : ''}" data-track-toggle="locked" title="Bloquear pista">${icon('lock', 12)}</button>
             </span>
           </div>`;
-      }).join('')}
+    });
+    if (entries.length) {
+      trackLabels.splice(lastVideo >= 0 ? lastVideo + 1 : trackLabels.length, 0, `
+      <div class="track-label filter-label" title="Filtros aplicados en la línea de tiempo">
+        <span class="t-icon">${icon('filter', 13)}</span>
+        <span class="t-name">Filtros</span>
+      </div>`);
+    }
+    labels.innerHTML = `
+      <div class="track-label-spacer"></div>
+      <div class="track-label fx-label" title="Efectos aplicados en la línea de tiempo">
+        <span class="t-icon">${icon('sparkles', 13)}</span>
+        <span class="t-name">Efectos</span>
+      </div>
+      ${trackLabels.join('')}
       <div class="track-add-row" title="Añadir pista/capa">
         <span class="t-add-icon">${icon('plus', 13)}</span>
         <button class="t-add-type" data-add-track-type="video" title="Añadir pista de vídeo">${icon('film', 12)}</button>
@@ -260,14 +293,21 @@ export function mountTimeline(host) {
         <button class="fx-x" data-fx-remove="${fx.id}" title="Quitar efecto">×</button>
       </div>`).join('')}
     </div>`;
-    tracksEl.innerHTML = fxRow + state.project.tracks.map((track) => {
+    const rows = state.project.tracks.map((track) => {
       const meta = TRACK_META[track.type] || TRACK_META.video;
       const clips = [...track.clips].sort((a, b) => a.start - b.start);
       return `
         <div class="track-row${clips.length ? '' : ' is-empty'}${track.hidden ? ' hidden-track' : ''}${track.locked ? ' locked-track' : ''}" data-track-id="${track.id}" data-hint="${meta.hint}">
           ${clips.map((clip) => clipMarkup(clip, px)).join('')}
         </div>`;
-    }).join('');
+    });
+    const entries = filterEntries();
+    if (entries.length) {
+      let lastVideo = -1;
+      state.project.tracks.forEach((track, index) => { if (track.type === 'video') lastVideo = index; });
+      rows.splice(lastVideo >= 0 ? lastVideo + 1 : rows.length, 0, filterRowMarkup(px, entries));
+    }
+    tracksEl.innerHTML = fxRow + rows.join('');
     requestAnimationFrame(drawWaveforms);
   }
 
@@ -329,6 +369,14 @@ export function mountTimeline(host) {
     }
   }
 
+  /* El chip ya no vive dentro del clip (está en su propia fila "Filtros"): para encontrarlo
+     se busca el clip por su id dentro de la línea de tiempo. */
+  function chipClipEl(chip) {
+    const id = chip?.dataset?.clipFilter;
+    if (!id) return null;
+    return tracksEl.querySelector(`.clip[data-clip-id="${id}"]`);
+  }
+
   /* El chip se dibuja en su fracción guardada, pero siempre dentro de la parte del clip que
      se ve en la línea de tiempo: en clips largos (minutos) el centro caería a miles de
      píxeles y no se vería ningún indicador. Se recalcula al renderizar, al hacer scroll,
@@ -339,7 +387,7 @@ export function mountTimeline(host) {
     if (!view.width || !view.height) return;
     for (const chip of tracksEl.querySelectorAll('.clip-filter')) {
       if (chip.classList.contains('dragging')) continue;
-      const clipEl = chip.closest('.clip');
+      const clipEl = chipClipEl(chip); // el chip ya no vive dentro del clip: está en su fila
       if (!clipEl) continue;
       const stored = parseFloat(chip.dataset.chipX);
       const frac = Number.isFinite(stored) ? stored : 0.5;
@@ -359,7 +407,10 @@ export function mountTimeline(host) {
         const b = Math.min(clip.right, view.right);
         cx = b > a ? (a + b) / 2 : clip.left + clip.width / 2;
       }
-      chip.style.left = `${(cx - clip.left).toFixed(1)}px`;
+      // El chip se posiciona respecto a su fila (el offsetParent), no respecto al clip.
+      const origin = chip.offsetParent?.getBoundingClientRect() || view;
+      chip.style.left = `${(cx - origin.left).toFixed(1)}px`;
+      chip.style.top = '50%';
     }
   }
 
@@ -612,13 +663,18 @@ export function mountTimeline(host) {
   };
   document.addEventListener('keydown', onFilterKey);
 
-  /* Chip de filtro: arrastrar lo recoloca dentro del clip; un clic (sin mover) abre el editor. */
+  /* Chip de filtro: está en su propia fila "Filtros" (fuera de las pistas de vídeo).
+     Arrastrarlo lo recoloca dentro del tramo visible de su clip; un clic (sin mover)
+     abre el editor de intensidad. */
   let chipSuppressClickUntil = 0;
   function beginChipDrag(event, chip, clipId) {
     event.preventDefault();
     event.stopPropagation();
-    const clipEl = chip.closest('.clip');
+    const clipEl = chipClipEl(chip);
+    if (!clipEl) return;
+    const row = chip.parentElement; // .track-row.filter-row (contenedor del chip)
     const clipRect = clipEl.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
     const chipRect = chip.getBoundingClientRect();
     const startX = event.clientX;
     const startY = event.clientY;
@@ -630,7 +686,7 @@ export function mountTimeline(host) {
     const onMove = (moveEvent) => {
       if (!moved && Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 4) return;
       moved = true;
-      // El centro del chip queda dentro del clip y dentro de la zona visible
+      // Horizontal: dentro del clip y dentro de la zona visible
       // (si no, al soltarlo se vería obligado a reajustarse a otro sitio).
       const halfW = chipRect.width / 2;
       const viewRect = scroll.getBoundingClientRect();
@@ -639,12 +695,15 @@ export function mountTimeline(host) {
       let cx = originX + (moveEvent.clientX - startX);
       if (hiX >= loX) cx = Math.min(Math.max(cx, loX), hiX);
       else cx = Math.min(Math.max(cx, clipRect.left + halfW + 2), clipRect.right - halfW - 2);
-      const cy = Math.min(
-        Math.max(originY + (moveEvent.clientY - startY), clipRect.top + chipRect.height / 2),
-        clipRect.bottom - chipRect.height / 2,
-      );
-      chip.style.left = `${(((cx - clipRect.left) / clipRect.width) * 100).toFixed(2)}%`;
-      chip.style.top = `${(((cy - clipRect.top) / clipRect.height) * 100).toFixed(2)}%`;
+      // Vertical: siempre dentro de su propia fila.
+      const halfH = chipRect.height / 2;
+      const loY = rowRect.top + halfH + 2;
+      const hiY = rowRect.bottom - halfH - 2;
+      let cy = originY + (moveEvent.clientY - startY);
+      if (hiY >= loY) cy = Math.min(Math.max(cy, loY), hiY);
+      // El offsetParent del chip es la fila: las coordenadas son relativas a ella.
+      chip.style.left = `${(cx - rowRect.left).toFixed(1)}px`;
+      chip.style.top = `${(cy - rowRect.top).toFixed(1)}px`;
     };
     const onUp = () => {
       document.removeEventListener('pointermove', onMove);
@@ -656,10 +715,10 @@ export function mountTimeline(host) {
       const cr = clipEl.getBoundingClientRect();
       const nr = chip.getBoundingClientRect();
       const filterChipX = Math.min(1, Math.max(0, (nr.left + nr.width / 2 - cr.left) / Math.max(1, cr.width)));
-      const filterChipY = Math.min(1, Math.max(0, (nr.top + nr.height / 2 - cr.top) / Math.max(1, cr.height)));
       chip.dataset.chipX = filterChipX.toFixed(4);
+      chip.style.top = '50%'; // siempre al centro vertical de la fila
       selectClip(clipId);
-      updateClip(clipId, { filterChipX, filterChipY }, { history: true });
+      updateClip(clipId, { filterChipX }, { history: true });
     };
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp, { once: true });

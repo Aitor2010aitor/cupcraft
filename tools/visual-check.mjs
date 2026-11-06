@@ -40,9 +40,11 @@ await page.evaluate(() => {
 await wait(700);
 await page.screenshot({ path: path.join(OUT, 'clip-filter-bar.png') });
 
-// El indicador es un chip flotante: captura del clip con el chip centrado…
+// El indicador vive en su propia fila "Filtros", FUERA de las pistas de vídeo.
+const rowEl = await page.$('.track-row.filter-row');
+if (rowEl) await rowEl.screenshot({ path: path.join(OUT, 'clip-filter-chip.png') });
 const clipEl = await page.$('.clip.has-filter');
-if (clipEl) await clipEl.screenshot({ path: path.join(OUT, 'clip-filter-chip.png') });
+if (clipEl) await clipEl.screenshot({ path: path.join(OUT, 'clip-filter-clip.png') });
 
 // …y tras arrastrarlo a otra zona del clip.
 const chipEl = await page.$('.clip-filter');
@@ -53,8 +55,8 @@ if (chipEl) {
   await page.mouse.move(box.x + box.width / 2 - 26, box.y + box.height / 2 - 5, { steps: 6 });
   await page.mouse.up();
   await wait(500);
-  const clip2 = await page.$('.clip.has-filter');
-  if (clip2) await clip2.screenshot({ path: path.join(OUT, 'clip-filter-chip-moved.png') });
+  const row2 = await page.$('.track-row.filter-row');
+  if (row2) await row2.screenshot({ path: path.join(OUT, 'clip-filter-chip-moved.png') });
 }
 
 await page.click('.clip-filter');

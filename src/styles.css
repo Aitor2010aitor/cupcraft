@@ -789,6 +789,16 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .fx-x { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; border: 0; border-radius: 3px; background: rgba(0, 0, 0, .35); color: #f3ecff; font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
 .fx-x:hover { background: rgba(0, 0, 0, .6); }
 .track-label.fx-label .t-name { color: #c9a9ff; }
+/* Fila propia "Filtros": el indicador vive FUERA de las pistas de vídeo, en su fila. */
+.track-row.filter-row { background-color: #15121c; background-image: none; }
+.track-label.filter-label .t-name { color: #c9a9ff; }
+.track-label.filter-label .t-icon { background: #2a2138; color: #c9a9ff; }
+.filter-zone {
+  position: absolute; top: 7px; bottom: 7px; border-radius: 4px; pointer-events: none;
+  background: repeating-linear-gradient(90deg, rgba(166, 120, 255, .10) 0 7px, transparent 7px 14px);
+  border: 1px dashed rgba(166, 120, 255, .38);
+}
+.filter-row .clip-filter { padding: 3px 9px; font-size: 9.5px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
 .track-row.is-empty::after { content: attr(data-hint); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4f4f4f; pointer-events: none; }
 .tl-empty .track-row.is-empty::after { display: none; }
 .tl-empty .track-label { visibility: hidden; }
@@ -822,8 +832,8 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .clip-handle.left { left: 0; }
 .clip-handle.right { right: 0; }
 .clip-wave { position: absolute; inset: 8px 4px 4px; width: calc(100% - 8px); height: calc(100% - 12px); opacity: 0.55; pointer-events: none; }
-/* Chip de filtro aplicado sobre el clip (como en CapCut): flota sobre él, se arrastra
-   para recolocarlo dentro del clip y un clic abre el editor de intensidad. */
+/* Chip de filtro aplicado (como en CapCut): vive en su propia fila "Filtros", FUERA de
+   las pistas de vídeo; se arrastra para recolocarlo y un clic abre el editor de intensidad. */
 .clip-filter {
   position: absolute; z-index: 2; transform: translate(-50%, -50%);
   display: flex; align-items: center; gap: 4px;

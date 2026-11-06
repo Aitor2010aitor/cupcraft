@@ -48,10 +48,14 @@ const clipState = () => page.evaluate(() => {
 const barInfo = () => page.evaluate(() => {
   const bar = document.querySelector('.clip-filter');
   if (!bar) return null;
+  const id = bar.dataset.clipFilter;
+  const clip = [...document.querySelectorAll('.clip')].find((c) => c.dataset.clipId === id);
   return {
     name: bar.querySelector('.clip-filter-name')?.textContent ?? '',
     amount: bar.querySelector('.clip-filter-amount')?.textContent ?? '',
-    hasFilterClass: bar.closest('.clip')?.classList.contains('has-filter') ?? false,
+    hasFilterClass: clip?.classList.contains('has-filter') ?? false,
+    insideClip: !!bar.closest('.clip'),
+    inOwnRow: !!bar.closest('.track-row.filter-row'),
   };
 });
 
@@ -68,21 +72,50 @@ await wait(700);
 check(applied === 'Calabaza', 'se aplica el filtro CapCut "Calabaza"');
 
 const bar1 = await barInfo();
-check(!!bar1, 'la barra .clip-filter aparece sobre el clip', JSON.stringify(bar1));
+check(!!bar1, 'la barra .clip-filter aparece en la línea de tiempo', JSON.stringify(bar1));
 check(bar1?.name === 'Calabaza', 'la barra muestra el nombre del filtro', JSON.stringify(bar1));
 check(bar1?.amount === '100%', 'la barra muestra la intensidad 100%', JSON.stringify(bar1));
 check(bar1?.hasFilterClass === true, 'el clip tiene la clase has-filter');
+check(bar1?.insideClip === false, 'la barra NO está dentro del clip (está fuera de las pistas de vídeo)', JSON.stringify(bar1));
+check(bar1?.inOwnRow === true, 'la barra vive en su propia fila "Filtros"', JSON.stringify(bar1));
+
+// La fila "Filtros" se coloca justo debajo de la pista de vídeo (y su etiqueta también).
+const rowOrder = await page.evaluate(() => {
+  const videoId = window.openCUP.state.project.tracks.find((t) => t.type === 'video')?.id || 'track_video';
+  const rows = [...document.querySelectorAll('[data-tracks] > .track-row')].map((r) => (
+    r.classList.contains('filter-row') ? 'filter'
+      : r.classList.contains('fx-row') ? 'fx'
+        : r.dataset.trackId || 'track'
+  ));
+  const labelNames = [...document.querySelectorAll('[data-labels] .track-label')].map((l) => (
+    l.classList.contains('fx-label') ? 'fx'
+      : l.classList.contains('filter-label') ? 'filter'
+        : l.dataset.trackId || l.querySelector('.t-name')?.textContent || 'label'
+  ));
+  const labels = [...document.querySelectorAll('[data-labels] .track-label')];
+  const fi = labels.findIndex((l) => l.classList.contains('filter-label'));
+  const filterLabelVisible = fi >= 0 ? labels[fi].getBoundingClientRect().height > 0 : false;
+  return { videoId, rows, labelNames, filterLabelVisible };
+});
+check(rowOrder.rows.includes('filter') && rowOrder.rows.indexOf('filter') === rowOrder.rows.indexOf(rowOrder.videoId) + 1,
+  'la fila "Filtros" queda justo debajo de la pista de vídeo', JSON.stringify(rowOrder.rows));
+check(rowOrder.labelNames.includes('filter') && rowOrder.labelNames.indexOf('filter') === rowOrder.labelNames.indexOf(rowOrder.videoId) + 1,
+  'la etiqueta "Filtros" acompaña a su fila en la columna de etiquetas', JSON.stringify(rowOrder.labelNames));
+check(rowOrder.filterLabelVisible === true, 'la etiqueta "Filtros" es visible');
 
 // --- 1b. El indicador es un chip flotante que se arrastra para recolocarlo. ---
 const chipPos = () => page.evaluate(() => {
   const chip = document.querySelector('.clip-filter');
-  const clip = chip?.closest('.clip');
   const scroller = document.querySelector('[data-scroll]');
-  if (!chip || !clip || !scroller) return null;
+  if (!chip || !scroller) return null;
   const id = chip.dataset.clipFilter;
+  const clip = [...document.querySelectorAll('.clip')].find((c) => c.dataset.clipId === id);
+  if (!clip) return null;
+  const row = chip.closest('.track-row');
   const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === id);
   const cr = chip.getBoundingClientRect();
   const lr = clip.getBoundingClientRect();
+  const rr = row.getBoundingClientRect();
   const vr = scroller.getBoundingClientRect();
   const dataX = parseFloat(chip.dataset.chipX);
   return {
@@ -92,6 +125,7 @@ const chipPos = () => page.evaluate(() => {
     scrollLeft: scroller.scrollLeft,
     rect: { left: cr.left, right: cr.right, top: cr.top, bottom: cr.bottom },
     clipRect: { left: lr.left, right: lr.right, top: lr.top, bottom: lr.bottom },
+    rowRect: { left: rr.left, right: rr.right, top: rr.top, bottom: rr.bottom },
     viewRect: { left: vr.left, right: vr.right, top: vr.top, bottom: vr.bottom },
   };
 });
@@ -114,11 +148,12 @@ await page.mouse.up();
 await wait(500);
 
 const pos1 = await chipPos();
-check(pos1 && pos0 && (Math.abs(pos1.x - pos0.x) > 0.01 || Math.abs(pos1.y - pos0.y) > 0.01),
-  'el arrastre guarda la nueva posición (filterChipX / filterChipY)', JSON.stringify(pos1 && { x: pos1.x, y: pos1.y }));
-check(pos1 && pos1.rect.left >= pos1.clipRect.left - 0.5 && pos1.rect.right <= pos1.clipRect.right + 0.5
-  && pos1.rect.top >= pos1.clipRect.top - 0.5 && pos1.rect.bottom <= pos1.clipRect.bottom + 0.5,
-  'el chip queda dentro del rectángulo del clip', JSON.stringify(pos1 && { rect: pos1.rect, clipRect: pos1.clipRect }));
+check(pos1 && pos0 && Math.abs(pos1.x - pos0.x) > 0.01,
+  'el arrastre guarda la nueva posición (filterChipX)', JSON.stringify(pos1 && { x: pos1.x, y: pos1.y }));
+check(pos1 && pos1.rect.left >= pos1.clipRect.left - 0.5 && pos1.rect.right <= pos1.clipRect.right + 0.5,
+  'el chip queda dentro del tramo horizontal de su clip', JSON.stringify(pos1 && { rect: pos1.rect, clipRect: pos1.clipRect }));
+check(pos1 && pos1.rect.top >= pos1.rowRect.top - 0.5 && pos1.rect.bottom <= pos1.rowRect.bottom + 0.5,
+  'el chip queda dentro de su propia fila "Filtros"', JSON.stringify(pos1 && { rect: pos1.rect, rowRect: pos1.rowRect }));
 const editorAfterDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
 check(!editorAfterDrag, 'el arrastre NO abre el editor de intensidad');
 

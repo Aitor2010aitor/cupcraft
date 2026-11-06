@@ -1,6 +1,13 @@
 # cupcraft
 ![README IN ENGLISH](https://github.com/Aitor2010aitor/openCUP/blob/version.04/READMEN.md)
 
+
+
+<img width="1024" height="768" alt="hola" src="https://github.com/user-attachments/assets/703ab96c-4646-4207-ae87-d8cc019c4994" />
+
+
+
+
 <img width="1686" height="934" alt="{9E045220-ABD4-45D7-AB6E-E135D48AB93C}" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
 
 Editor de video local en el navegador, inspirado en el flujo de trabajo y la interfaz oscura de CapCut. openCUP es una implementación original: no incluye binarios, logotipos, tipografías ni recursos propietarios de CapCut.

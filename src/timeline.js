@@ -195,7 +195,9 @@ export function mountTimeline(host) {
         ? `<div class="clip-text-preview sticker-preview">${escapeHtml(clip.sticker?.content || clip.name || '')}</div>`
         : '';
     // Posición del chip de filtro (fracciones 0..1 del clip; se arrastra para recolocarlo).
-    const chipX = Number.isFinite(clip.filterChipX) ? clip.filterChipX : 0.5;
+    // Por defecto queda a 96 px del inicio del clip: en clips largos (minutos) el centro
+    // quedaría a miles de píxeles y el usuario no vería ningún indicador.
+    const chipX = Number.isFinite(clip.filterChipX) ? clip.filterChipX : Math.min(0.5, 96 / Math.max(1, width));
     const chipY = Number.isFinite(clip.filterChipY) ? clip.filterChipY : 0.5;
     return `
       <div class="clip ${clip.kind}${selected ? ' selected' : ''}${filter ? ' has-filter' : ''}" data-clip-id="${clip.id}" style="left:${clip.start * px}px;width:${width}px">
@@ -207,7 +209,7 @@ export function mountTimeline(host) {
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-label">${escapeHtml(clip.name || 'Clip')}</div>` : ''}
         ${clip.kind !== 'text' && clip.kind !== 'sticker' ? `<div class="clip-meta">${formatTime(clip.duration)}</div>` : ''}
         ${clip.effect && clip.effect !== 'none' ? `<div class="clip-fx" title="Efecto: ${escapeHtml(clip.effect)}">fx</div>` : (clip.glEffect ? `<div class="clip-fx" title="Shader: ${escapeHtml(clip.glEffect)}">fx</div>` : '')}
-        ${filter ? `<div class="clip-filter${filter.kind === 'css' ? '' : ' adjustable'}" data-clip-filter="${clip.id}" style="left:${(chipX * 100).toFixed(2)}%;top:${(chipY * 100).toFixed(2)}%" title="${escapeHtml(filter.kind === 'css' ? `Filtro: ${filter.label} — arrastra para recolocar` : `Filtro: ${filter.label} — clic para ajustar, arrastra para recolocar`)}">
+        ${filter ? `<div class="clip-filter${filter.kind === 'css' ? '' : ' adjustable'}" data-clip-filter="${clip.id}" data-chip-x="${chipX.toFixed(4)}" style="left:${(chipX * 100).toFixed(2)}%;top:${(chipY * 100).toFixed(2)}%" title="${escapeHtml(filter.kind === 'css' ? `Filtro: ${filter.label} — arrastra para recolocar` : `Filtro: ${filter.label} — clic para ajustar, arrastra para recolocar`)}">
           <span class="clip-filter-dot"></span>
           <span class="clip-filter-name">${escapeHtml(filter.label)}</span>
           ${filter.kind === 'css' ? '' : `<span class="clip-filter-amount">${Math.round(filter.amount * 100)}%</span>`}
@@ -327,6 +329,40 @@ export function mountTimeline(host) {
     }
   }
 
+  /* El chip se dibuja en su fracción guardada, pero siempre dentro de la parte del clip que
+     se ve en la línea de tiempo: en clips largos (minutos) el centro caería a miles de
+     píxeles y no se vería ningún indicador. Se recalcula al renderizar, al hacer scroll,
+     al cambiar el zoom y al redimensionar la ventana. */
+  function clampFilterChips() {
+    if (destroyed || !state.project) return;
+    const view = scroll.getBoundingClientRect();
+    if (!view.width || !view.height) return;
+    for (const chip of tracksEl.querySelectorAll('.clip-filter')) {
+      if (chip.classList.contains('dragging')) continue;
+      const clipEl = chip.closest('.clip');
+      if (!clipEl) continue;
+      const stored = parseFloat(chip.dataset.chipX);
+      const frac = Number.isFinite(stored) ? stored : 0.5;
+      const clip = clipEl.getBoundingClientRect();
+      const box = chip.getBoundingClientRect();
+      const half = (box.width || 72) / 2;
+      const inset = 3;
+      const low = Math.max(clip.left + half + inset, view.left + half + inset);
+      const high = Math.min(clip.right - half - inset, view.right - half - inset);
+      const want = clip.left + frac * clip.width;
+      let cx;
+      if (high >= low) {
+        cx = Math.min(Math.max(want, low), high);
+      } else {
+        // Ni el trozo visible del clip cabe el chip: se centra en la intersección visible.
+        const a = Math.max(clip.left, view.left);
+        const b = Math.min(clip.right, view.right);
+        cx = b > a ? (a + b) / 2 : clip.left + clip.width / 2;
+      }
+      chip.style.left = `${(cx - clip.left).toFixed(1)}px`;
+    }
+  }
+
   function render() {
     if (!state.project || destroyed) return;
     const px = pxPerSecond();
@@ -350,6 +386,7 @@ export function mountTimeline(host) {
     }
     updatePlayhead();
     updateSelection();
+    clampFilterChips();
     if (duration <= 0) lastPlayheadTime = -1;
   }
 
@@ -593,11 +630,15 @@ export function mountTimeline(host) {
     const onMove = (moveEvent) => {
       if (!moved && Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY) < 4) return;
       moved = true;
-      // El centro del chip se mantiene dentro del rectángulo del clip.
-      const cx = Math.min(
-        Math.max(originX + (moveEvent.clientX - startX), clipRect.left + chipRect.width / 2),
-        clipRect.right - chipRect.width / 2,
-      );
+      // El centro del chip queda dentro del clip y dentro de la zona visible
+      // (si no, al soltarlo se vería obligado a reajustarse a otro sitio).
+      const halfW = chipRect.width / 2;
+      const viewRect = scroll.getBoundingClientRect();
+      const loX = Math.max(clipRect.left + halfW + 2, viewRect.left + halfW + 3);
+      const hiX = Math.min(clipRect.right - halfW - 2, viewRect.right - halfW - 3);
+      let cx = originX + (moveEvent.clientX - startX);
+      if (hiX >= loX) cx = Math.min(Math.max(cx, loX), hiX);
+      else cx = Math.min(Math.max(cx, clipRect.left + halfW + 2), clipRect.right - halfW - 2);
       const cy = Math.min(
         Math.max(originY + (moveEvent.clientY - startY), clipRect.top + chipRect.height / 2),
         clipRect.bottom - chipRect.height / 2,
@@ -611,8 +652,12 @@ export function mountTimeline(host) {
       chip.classList.remove('dragging');
       if (!moved) return; // fue un clic normal → el manejador click abre el editor
       chipSuppressClickUntil = Date.now() + 350;
-      const filterChipX = Math.min(1, Math.max(0, parseFloat(chip.style.left) / 100));
-      const filterChipY = Math.min(1, Math.max(0, parseFloat(chip.style.top) / 100));
+      // La fracción se mide sobre los rectángulos (el chip puede estar en px por el reajuste).
+      const cr = clipEl.getBoundingClientRect();
+      const nr = chip.getBoundingClientRect();
+      const filterChipX = Math.min(1, Math.max(0, (nr.left + nr.width / 2 - cr.left) / Math.max(1, cr.width)));
+      const filterChipY = Math.min(1, Math.max(0, (nr.top + nr.height / 2 - cr.top) / Math.max(1, cr.height)));
+      chip.dataset.chipX = filterChipX.toFixed(4);
       selectClip(clipId);
       updateClip(clipId, { filterChipX, filterChipY }, { history: true });
     };
@@ -822,11 +867,16 @@ export function mountTimeline(host) {
   subscriptions.push(on('zoom', render));
   subscriptions.push(on('snap', updateToolbar));
 
+  // El chip se mantiene en la zona visible también al desplazar la línea de tiempo.
+  const onScroll = () => clampFilterChips();
+  scroll.addEventListener('scroll', onScroll, { passive: true });
+
   const onResize = () => {
     if (!state.project) return;
     const px = pxPerSecond();
     const length = timelineLength();
     content.style.width = `${Math.max(length * px, scroll.clientWidth)}px`;
+    clampFilterChips();
   };
   window.addEventListener('resize', onResize);
 
@@ -837,6 +887,7 @@ export function mountTimeline(host) {
     destroy() {
       destroyed = true;
       window.removeEventListener('resize', onResize);
+      scroll.removeEventListener('scroll', onScroll);
       subscriptions.forEach((off) => off());
     },
   };

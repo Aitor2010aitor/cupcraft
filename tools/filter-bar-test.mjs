@@ -77,22 +77,30 @@ check(bar1?.hasFilterClass === true, 'el clip tiene la clase has-filter');
 const chipPos = () => page.evaluate(() => {
   const chip = document.querySelector('.clip-filter');
   const clip = chip?.closest('.clip');
-  if (!chip || !clip) return null;
+  const scroller = document.querySelector('[data-scroll]');
+  if (!chip || !clip || !scroller) return null;
   const id = chip.dataset.clipFilter;
   const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === id);
   const cr = chip.getBoundingClientRect();
   const lr = clip.getBoundingClientRect();
+  const vr = scroller.getBoundingClientRect();
+  const dataX = parseFloat(chip.dataset.chipX);
   return {
-    x: Number.isFinite(c?.filterChipX) ? c.filterChipX : 0.5,
+    x: Number.isFinite(c?.filterChipX) ? c.filterChipX : dataX,
     y: Number.isFinite(c?.filterChipY) ? c.filterChipY : 0.5,
+    dataX,
+    scrollLeft: scroller.scrollLeft,
     rect: { left: cr.left, right: cr.right, top: cr.top, bottom: cr.bottom },
     clipRect: { left: lr.left, right: lr.right, top: lr.top, bottom: lr.bottom },
+    viewRect: { left: vr.left, right: vr.right, top: vr.top, bottom: vr.bottom },
   };
 });
 
 const pos0 = await chipPos();
-check(pos0 && Math.abs(pos0.x - 0.5) < 0.001 && Math.abs(pos0.y - 0.5) < 0.001,
-  'el chip arranca centrado en el clip (0.5 / 0.5)', JSON.stringify(pos0));
+check(pos0 && pos0.dataX > 0 && pos0.dataX <= 0.5,
+  'el chip arranca cerca del inicio del clip (no en un centro lejano)', JSON.stringify(pos0 && { dataX: pos0.dataX }));
+check(pos0 && pos0.rect.left >= pos0.viewRect.left - 0.5 && pos0.rect.right <= pos0.viewRect.right + 0.5,
+  'el chip es visible dentro de la línea de tiempo', JSON.stringify(pos0 && { rect: pos0.rect, viewRect: pos0.viewRect }));
 
 const editorBeforeDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
 check(!editorBeforeDrag, 'el editor está cerrado antes de arrastrar el chip');
@@ -106,7 +114,7 @@ await page.mouse.up();
 await wait(500);
 
 const pos1 = await chipPos();
-check(pos1 && (Math.abs(pos1.x - 0.5) > 0.01 || Math.abs(pos1.y - 0.5) > 0.01),
+check(pos1 && pos0 && (Math.abs(pos1.x - pos0.x) > 0.01 || Math.abs(pos1.y - pos0.y) > 0.01),
   'el arrastre guarda la nueva posición (filterChipX / filterChipY)', JSON.stringify(pos1 && { x: pos1.x, y: pos1.y }));
 check(pos1 && pos1.rect.left >= pos1.clipRect.left - 0.5 && pos1.rect.right <= pos1.clipRect.right + 0.5
   && pos1.rect.top >= pos1.clipRect.top - 0.5 && pos1.rect.bottom <= pos1.clipRect.bottom + 0.5,
@@ -246,6 +254,42 @@ await page.keyboard.press('Escape');
 await wait(250);
 const escHidden = await page.evaluate(() => document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
 check(escHidden === true, 'Escape cierra el editor de intensidad');
+
+// --- 8. Clip largo (minutos): el chip sigue visible al desplazar la línea de tiempo. ---
+const clipId8 = await page.evaluate(() => window.openCUP.state.selection);
+const longDone = await page.evaluate(async (id) => {
+  try {
+    await window.openCUP.command('updateClip', { id, patch: { duration: 60 } });
+    const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === id);
+    return c ? c.duration : null;
+  } catch (e) { return 'ERR: ' + e.message; }
+}, clipId8);
+await wait(500);
+const wide = await chipPos();
+check(longDone === 60, 'el clip pasa a durar 60 s (más ancho que la línea de tiempo)', JSON.stringify({ longDone }));
+check(wide && (wide.clipRect.right - wide.clipRect.left) > (wide.viewRect.right - wide.viewRect.left),
+  'el clip es más ancho que la zona visible', JSON.stringify(wide && { clipW: Math.round(wide.clipRect.right - wide.clipRect.left), viewW: Math.round(wide.viewRect.right - wide.viewRect.left) }));
+check(wide && wide.rect.left >= wide.viewRect.left - 0.5 && wide.rect.right <= wide.viewRect.right + 0.5,
+  'con el clip largo el chip se ve junto a su inicio', JSON.stringify(wide && { rect: wide.rect, viewRect: wide.viewRect }));
+
+// Desplazar la línea de tiempo hacia el interior del clip.
+const scrolled = await page.evaluate(() => {
+  const scroller = document.querySelector('[data-scroll]');
+  scroller.scrollLeft = Math.min(2000, Math.max(0, scroller.scrollWidth - scroller.clientWidth));
+  return scroller.scrollLeft;
+});
+await wait(450);
+const deep = await chipPos();
+check(typeof scrolled === 'number' && scrolled > 500, 'la línea de tiempo queda desplazada dentro del clip', JSON.stringify({ scrolled, scrollLeft: deep && deep.scrollLeft }));
+check(deep && deep.rect.left >= deep.viewRect.left - 0.5 && deep.rect.right <= deep.viewRect.right + 0.5,
+  'el chip se reajusta a la zona visible tras el scroll', JSON.stringify(deep && { rect: deep.rect, viewRect: deep.viewRect }));
+
+// Volver al principio: el chip recupera su sitio junto al inicio del clip.
+await page.evaluate(() => { document.querySelector('[data-scroll]').scrollLeft = 0; });
+await wait(450);
+const back = await chipPos();
+check(back && back.rect.left >= back.viewRect.left - 0.5 && back.rect.right <= back.viewRect.right + 0.5,
+  'el chip vuelve a verse junto al inicio al volver al principio', JSON.stringify(back && { rect: back.rect, viewRect: back.viewRect }));
 
 console.log(`\nfilter-bar-test: ${pass} pass / ${fail} fail`);
 console.log('errores de consola:', errors.length ? errors.slice(0, 8) : 'ninguno');

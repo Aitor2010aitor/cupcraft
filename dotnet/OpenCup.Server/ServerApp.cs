@@ -39,7 +39,7 @@ public static class ServerApp
             port,
         }));
 
-        app.MapGet("/api/version", () => Results.Json(new { name = "cupcraft", version = "0.4.2", backend = "csharp" }));
+        app.MapGet("/api/version", () => Results.Json(new { name = "cupcraft", version = "0.4.5", backend = "csharp" }));
 
         // La importación de borradores de CapCut sigue en el servidor Node hasta su porte.
         app.MapGet("/api/capcut/roots", () => Results.Json(new

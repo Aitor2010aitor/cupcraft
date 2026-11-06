@@ -133,7 +133,7 @@ To also build an installer (Inno Setup 6, downloaded automatically if necessary)
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-installer.ps1
 ```
 
-The output is `dist/cupcraft-Setup-0.3.0.exe` (~24 MB): an installer wizard in Spanish, an icon on the desktop and in the Start menu, and an uninstaller integrated into "Apps & features". Administrator privileges are required to install to `Program Files`.
+The output is `dist/cupcraft-Setup-0.4.5.exe` (~110 MB): an installer wizard in Spanish, an icon on the desktop and in the Start menu, and an uninstaller integrated into "Apps & features". Administrator privileges are required to install to `Program Files`.
 
 The build script locates the MSVC C++ tools (Visual Studio / Build Tools), downloads the WebView2 SDK using `tools/fetch-webview2.ps1` if it is missing, compiles `launcher/main.cpp` and embeds the icon (`rc.exe`), then copies the application, server, and Node.js into `dist/cupcraft`. The Visual Studio **Desktop development with C++** workload is required. The installer requires Inno Setup 6 (`tools/build-installer.ps1` downloads and installs it automatically if it is not already present).
 
@@ -212,7 +212,7 @@ cupcraft/
 ├─ launcher/main.cpp        Native Win32 + WebView2 launcher written in pure C++
 ├─ tools/                  Browser tests and packaging scripts
 │  ├─ build-desktop.ps1    Compiles the C++ executable and assembles dist/cupcraft
-│  ├─ build-installer.ps1  Generates dist/cupcraft-Setup-0.3.0.exe with Inno Setup 6
+│  ├─ build-installer.ps1  Generates dist/cupcraft-Setup-0.4.5.exe with Inno Setup 6
 │  ├─ cacup.iss            Inno Setup script (Spanish, uninstaller)
 │  ├─ fetch-webview2.ps1   Downloads the native WebView2 SDK from nuget.org
 │  ├─ run-all-tests.ps1    Starts the server and runs all 11 test suites

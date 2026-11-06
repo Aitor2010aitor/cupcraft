@@ -41,7 +41,7 @@ export function openAboutDialog() {
         </div>
         <div>
           <div style="font-size:17px;font-weight:800">cupcraft</div>
-          <div class="muted" style="font-size:11px;margin-top:2px">Editor de video local · versión 0.4.2</div>
+          <div class="muted" style="font-size:11px;margin-top:2px">Editor de video local · versión 0.4.5</div>
         </div>
       </div>
       <p style="font-size:11.5px;line-height:1.65;color:#b7b7c0;margin:0 0 12px">

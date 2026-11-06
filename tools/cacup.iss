@@ -3,7 +3,7 @@
 
 #define MyAppName "cupcraft"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.4.3"
+  #define MyAppVersion "0.4.5"
 #endif
 #define MyAppPublisher "AITOR2010 (Aitor2010aitor)"
 #define MyAppURL "https://github.com/Aitor2010aitor/cupcraft"

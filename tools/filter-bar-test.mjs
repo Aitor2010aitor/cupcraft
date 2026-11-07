@@ -103,66 +103,48 @@ check(rowOrder.labelNames.includes('filter') && rowOrder.labelNames.indexOf('fil
   'la etiqueta "Filtros" acompaña a su fila en la columna de etiquetas', JSON.stringify(rowOrder.labelNames));
 check(rowOrder.filterLabelVisible === true, 'la etiqueta "Filtros" es visible');
 
-// --- 1b. El indicador es un chip flotante que se arrastra para recolocarlo. ---
-const chipPos = () => page.evaluate(() => {
-  const chip = document.querySelector('.clip-filter');
+// --- 1b. El indicador es un bloque sólido en su propia fila, cubriendo todo el clip. ---
+const blockPos = () => page.evaluate(() => {
+  const block = document.querySelector('.clip-filter');
   const scroller = document.querySelector('[data-scroll]');
-  if (!chip || !scroller) return null;
-  const id = chip.dataset.clipFilter;
+  if (!block || !scroller) return null;
+  const id = block.dataset.clipFilter;
   const clip = [...document.querySelectorAll('.clip')].find((c) => c.dataset.clipId === id);
   if (!clip) return null;
-  const row = chip.closest('.track-row');
-  const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === id);
-  const cr = chip.getBoundingClientRect();
+  const row = block.closest('.track-row');
+  const br = block.getBoundingClientRect();
   const lr = clip.getBoundingClientRect();
   const rr = row.getBoundingClientRect();
   const vr = scroller.getBoundingClientRect();
-  const dataX = parseFloat(chip.dataset.chipX);
   return {
-    x: Number.isFinite(c?.filterChipX) ? c.filterChipX : dataX,
-    y: Number.isFinite(c?.filterChipY) ? c.filterChipY : 0.5,
-    dataX,
     scrollLeft: scroller.scrollLeft,
-    rect: { left: cr.left, right: cr.right, top: cr.top, bottom: cr.bottom },
-    clipRect: { left: lr.left, right: lr.right, top: lr.top, bottom: lr.bottom },
+    isBlock: block.classList.contains('filter-block'),
+    hasRemove: !!block.querySelector('[data-filter-remove]'),
+    rect: { left: br.left, right: br.right, top: br.top, bottom: br.bottom, width: br.width },
+    clipRect: { left: lr.left, right: lr.right, top: lr.top, bottom: lr.bottom, width: lr.width },
     rowRect: { left: rr.left, right: rr.right, top: rr.top, bottom: rr.bottom },
     viewRect: { left: vr.left, right: vr.right, top: vr.top, bottom: vr.bottom },
   };
 });
 
-const pos0 = await chipPos();
-check(pos0 && pos0.dataX > 0 && pos0.dataX <= 0.5,
-  'el chip arranca cerca del inicio del clip (no en un centro lejano)', JSON.stringify(pos0 && { dataX: pos0.dataX }));
-check(pos0 && pos0.rect.left >= pos0.viewRect.left - 0.5 && pos0.rect.right <= pos0.viewRect.right + 0.5,
-  'el chip es visible dentro de la línea de tiempo', JSON.stringify(pos0 && { rect: pos0.rect, viewRect: pos0.viewRect }));
+const pos0 = await blockPos();
+check(pos0?.isBlock === true, 'el indicador es un bloque sólido (.filter-block)', JSON.stringify(pos0 && { isBlock: pos0.isBlock }));
+check(pos0?.hasRemove === true, 'el bloque lleva su botón × para quitar el filtro');
+check(pos0 && Math.abs(pos0.rect.left - pos0.clipRect.left) <= 1.5 && Math.abs(pos0.rect.width - pos0.clipRect.width) <= 2,
+  'el bloque empieza exactamente donde empieza el clip', JSON.stringify(pos0 && { rect: pos0.rect, clipRect: pos0.clipRect }));
+check(pos0 && pos0.rect.top >= pos0.rowRect.top - 0.5 && pos0.rect.bottom <= pos0.rowRect.bottom + 0.5,
+  'el bloque queda dentro de su propia fila "Filtros"', JSON.stringify(pos0 && { rect: pos0.rect, rowRect: pos0.rowRect }));
+check(pos0 && pos0.rect.left < pos0.viewRect.right && pos0.rect.right > pos0.viewRect.left,
+  'el bloque es visible dentro de la línea de tiempo', JSON.stringify(pos0 && { rect: pos0.rect, viewRect: pos0.viewRect }));
 
-const editorBeforeDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
-check(!editorBeforeDrag, 'el editor está cerrado antes de arrastrar el chip');
+const editorBeforeClick = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(!editorBeforeClick, 'el editor está cerrado antes de hacer clic en el bloque');
 
-const chipEl = await page.$('.clip-filter');
-const chipBox = await chipEl.boundingBox();
-await page.mouse.move(chipBox.x + chipBox.width / 2, chipBox.y + chipBox.height / 2);
-await page.mouse.down();
-await page.mouse.move(chipBox.x + chipBox.width / 2 + 30, chipBox.y + chipBox.height / 2 - 6, { steps: 6 });
-await page.mouse.up();
-await wait(500);
-
-const pos1 = await chipPos();
-check(pos1 && pos0 && Math.abs(pos1.x - pos0.x) > 0.01,
-  'el arrastre guarda la nueva posición (filterChipX)', JSON.stringify(pos1 && { x: pos1.x, y: pos1.y }));
-check(pos1 && pos1.rect.left >= pos1.clipRect.left - 0.5 && pos1.rect.right <= pos1.clipRect.right + 0.5,
-  'el chip queda dentro del tramo horizontal de su clip', JSON.stringify(pos1 && { rect: pos1.rect, clipRect: pos1.clipRect }));
-check(pos1 && pos1.rect.top >= pos1.rowRect.top - 0.5 && pos1.rect.bottom <= pos1.rowRect.bottom + 0.5,
-  'el chip queda dentro de su propia fila "Filtros"', JSON.stringify(pos1 && { rect: pos1.rect, rowRect: pos1.rowRect }));
-const editorAfterDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
-check(!editorAfterDrag, 'el arrastre NO abre el editor de intensidad');
-
-// Un clic (sin mover) tras arrastrar sí abre el editor.
-await wait(400);
+// Un clic sobre el bloque (no sobre la ×) abre el editor de intensidad.
 await page.click('.clip-filter');
 await wait(300);
-const clickAfterDrag = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
-check(clickAfterDrag, 'un clic sobre el chip tras arrastrarlo abre el editor');
+const clickOpens = await page.evaluate(() => !document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
+check(clickOpens, 'un clic sobre el bloque abre el editor de intensidad');
 await page.keyboard.press('Escape');
 await wait(250);
 const closedClean = await page.evaluate(() => document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
@@ -281,6 +263,9 @@ const after = await clipState();
 check(!!after?.glFilter || !!after?.lut, 'el filtro sigue aplicado tras el recorte', JSON.stringify(after));
 const bar6 = await barInfo();
 check(bar6?.name === 'Calabaza', 'la barra sigue visible tras el recorte', JSON.stringify(bar6));
+const span6 = await blockPos();
+check(span6 && Math.abs(span6.rect.left - span6.clipRect.left) <= 1.5 && Math.abs(span6.rect.width - span6.clipRect.width) <= 2,
+  'tras recortar el bloque vuelve a cubrir exactamente el clip', JSON.stringify(span6 && { rect: span6.rect, clipRect: span6.clipRect }));
 
 // --- 7. Escape cierra el editor. ---
 await page.click('.clip-filter');
@@ -290,7 +275,7 @@ await wait(250);
 const escHidden = await page.evaluate(() => document.querySelector('[data-filter-editor]')?.classList.contains('hidden'));
 check(escHidden === true, 'Escape cierra el editor de intensidad');
 
-// --- 8. Clip largo (minutos): el chip sigue visible al desplazar la línea de tiempo. ---
+// --- 8. Clip largo (minutos): el bloque cubre el tramo completo y se ve siempre. ---
 const clipId8 = await page.evaluate(() => window.openCUP.state.selection);
 const longDone = await page.evaluate(async (id) => {
   try {
@@ -300,12 +285,14 @@ const longDone = await page.evaluate(async (id) => {
   } catch (e) { return 'ERR: ' + e.message; }
 }, clipId8);
 await wait(500);
-const wide = await chipPos();
+const wide = await blockPos();
 check(longDone === 60, 'el clip pasa a durar 60 s (más ancho que la línea de tiempo)', JSON.stringify({ longDone }));
 check(wide && (wide.clipRect.right - wide.clipRect.left) > (wide.viewRect.right - wide.viewRect.left),
   'el clip es más ancho que la zona visible', JSON.stringify(wide && { clipW: Math.round(wide.clipRect.right - wide.clipRect.left), viewW: Math.round(wide.viewRect.right - wide.viewRect.left) }));
-check(wide && wide.rect.left >= wide.viewRect.left - 0.5 && wide.rect.right <= wide.viewRect.right + 0.5,
-  'con el clip largo el chip se ve junto a su inicio', JSON.stringify(wide && { rect: wide.rect, viewRect: wide.viewRect }));
+check(wide && Math.abs(wide.rect.left - wide.clipRect.left) <= 1.5 && Math.abs(wide.rect.width - wide.clipRect.width) <= 2,
+  'con el clip largo el bloque sigue cubriendo todo su tramo', JSON.stringify(wide && { rect: wide.rect, clipRect: wide.clipRect }));
+check(wide && wide.rect.left < wide.viewRect.right && wide.rect.right > wide.viewRect.left,
+  'con el clip largo el bloque se ve en la línea de tiempo', JSON.stringify(wide && { rect: wide.rect, viewRect: wide.viewRect }));
 
 // Desplazar la línea de tiempo hacia el interior del clip.
 const scrolled = await page.evaluate(() => {
@@ -314,17 +301,29 @@ const scrolled = await page.evaluate(() => {
   return scroller.scrollLeft;
 });
 await wait(450);
-const deep = await chipPos();
+const deep = await blockPos();
 check(typeof scrolled === 'number' && scrolled > 500, 'la línea de tiempo queda desplazada dentro del clip', JSON.stringify({ scrolled, scrollLeft: deep && deep.scrollLeft }));
-check(deep && deep.rect.left >= deep.viewRect.left - 0.5 && deep.rect.right <= deep.viewRect.right + 0.5,
-  'el chip se reajusta a la zona visible tras el scroll', JSON.stringify(deep && { rect: deep.rect, viewRect: deep.viewRect }));
+check(deep && deep.rect.left < deep.viewRect.right && deep.rect.right > deep.viewRect.left,
+  'el bloque sigue visible tras el scroll', JSON.stringify(deep && { rect: deep.rect, viewRect: deep.viewRect }));
 
-// Volver al principio: el chip recupera su sitio junto al inicio del clip.
+// Volver al principio: el bloque vuelve a cubrir el clip desde su inicio.
 await page.evaluate(() => { document.querySelector('[data-scroll]').scrollLeft = 0; });
 await wait(450);
-const back = await chipPos();
-check(back && back.rect.left >= back.viewRect.left - 0.5 && back.rect.right <= back.viewRect.right + 0.5,
-  'el chip vuelve a verse junto al inicio al volver al principio', JSON.stringify(back && { rect: back.rect, viewRect: back.viewRect }));
+const back = await blockPos();
+check(back && back.rect.left < back.viewRect.right && back.rect.right > back.viewRect.left,
+  'el bloque sigue visible al volver al principio', JSON.stringify(back && { rect: back.rect, viewRect: back.viewRect }));
+
+// --- 9. La × del bloque quita el filtro y la fila desaparece. ---
+const removeBtn = await page.$('.filter-block [data-filter-remove]');
+check(!!removeBtn, 'el bloque tiene su botón ×');
+if (removeBtn) {
+  await removeBtn.click();
+  await wait(600);
+  const st9 = await clipState();
+  const rowGone = await page.evaluate(() => !document.querySelector('.track-row.filter-row'));
+  check(st9?.filter === 'none' && !st9?.lut && !st9?.glFilter, 'la × limpia el filtro del clip', JSON.stringify(st9));
+  check(rowGone, 'la fila "Filtros" desaparece al no haber ningún filtro');
+}
 
 console.log(`\nfilter-bar-test: ${pass} pass / ${fail} fail`);
 console.log('errores de consola:', errors.length ? errors.slice(0, 8) : 'ninguno');

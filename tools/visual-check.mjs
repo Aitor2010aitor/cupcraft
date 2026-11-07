@@ -46,17 +46,15 @@ if (rowEl) await rowEl.screenshot({ path: path.join(OUT, 'clip-filter-chip.png')
 const clipEl = await page.$('.clip.has-filter');
 if (clipEl) await clipEl.screenshot({ path: path.join(OUT, 'clip-filter-clip.png') });
 
-// …y tras arrastrarlo a otra zona del clip.
+// …y captura del bloque tras abrir su editor.
 const chipEl = await page.$('.clip-filter');
 if (chipEl) {
-  const box = await chipEl.boundingBox();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 - 26, box.y + box.height / 2 - 5, { steps: 6 });
-  await page.mouse.up();
-  await wait(500);
+  await chipEl.click();
+  await wait(400);
   const row2 = await page.$('.track-row.filter-row');
   if (row2) await row2.screenshot({ path: path.join(OUT, 'clip-filter-chip-moved.png') });
+  await page.keyboard.press('Escape');
+  await wait(300);
 }
 
 await page.click('.clip-filter');

@@ -793,12 +793,19 @@ input[type="checkbox"] { accent-color: var(--accent-2); }
 .track-row.filter-row { background-color: #15121c; background-image: none; }
 .track-label.filter-label .t-name { color: #c9a9ff; }
 .track-label.filter-label .t-icon { background: #2a2138; color: #c9a9ff; }
-.filter-zone {
-  position: absolute; top: 7px; bottom: 7px; border-radius: 4px; pointer-events: none;
-  background: repeating-linear-gradient(90deg, rgba(166, 120, 255, .10) 0 7px, transparent 7px 14px);
-  border: 1px dashed rgba(166, 120, 255, .38);
+/* Bloque de filtro: sólido y de borde a borde del tramo del clip, como los bloques de Efectos. */
+.clip-filter.filter-block {
+  top: 5px; transform: none;
+  height: calc(var(--track-h) - 12px);
+  max-width: none; gap: 6px; padding: 0 20px 0 8px;
+  border-radius: 4px; font-size: 9px;
+  background: linear-gradient(180deg, #7b46d6, #5a2fa8);
+  border: 1px solid #a678ff;
+  cursor: pointer;
 }
-.filter-row .clip-filter { padding: 3px 9px; font-size: 9.5px; border-radius: 999px; box-shadow: 0 2px 6px rgba(0, 0, 0, .35); }
+.clip-filter.filter-block .clip-filter-name { flex: 0 1 auto; font-weight: 600; }
+.clip-filter.filter-block .clip-filter-amount { margin-left: auto; opacity: .9; }
+.clip-filter.filter-block:hover { filter: brightness(1.14); }
 .track-row.is-empty::after { content: attr(data-hint); position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 9px; color: #4f4f4f; pointer-events: none; }
 .tl-empty .track-row.is-empty::after { display: none; }
 .tl-empty .track-label { visibility: hidden; }

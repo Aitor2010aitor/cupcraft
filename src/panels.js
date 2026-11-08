@@ -20,7 +20,7 @@ import {
   projectDuration,
   seek,
   FILTERS,
-  CAPCUT_FILTER_CATEGORIES,
+  FILTER_LINE_CATEGORIES,
   TEXT_DEFAULTS,
   RESOLUTIONS,
   ASPECTS,
@@ -61,8 +61,6 @@ import {
 import {
   CAPCUT_EFFECT_ITEMS,
   CAPCUT_EFFECT_CATEGORIES,
-  CAPCUT_FILTER_ITEMS,
-  CAPCUT_FILTER_CATEGORIES as CAPCUT_FILTER_PANEL_CATEGORIES,
   CAPCUT_TRANSITION_ITEMS,
   CAPCUT_TRANSITION_CATEGORIES as CAPCUT_TRANSITION_PANEL_CATEGORIES,
   CAPCUT_STICKER_ITEMS,
@@ -70,7 +68,7 @@ import {
   CAPCUT_TEXT_ITEMS,
   CAPCUT_TEXT_CATEGORIES,
 } from './capcut-panels.js';
-import { capcutEffectToGL, CAPCUT_SHADER_MAP } from './gl-post.js';
+import { capcutEffectToGL } from './gl-post.js';
 import { prepareStickerSrc } from './sticker-image.js';
 
 const CAPCUT_TRANSITION_MAP = [
@@ -92,19 +90,17 @@ function capcutTransitionToLocal(name) {
   return hit ? hit[1] : 'fade';
 }
 
-function capcutFilterToLocal(item) {
-  const sameCategory = Object.entries(FILTERS).find(([key, value]) => key !== 'none' && value.category === item.cat);
-  if (sameCategory) return sameCategory[0];
-  const words = String(item.name || '').toLowerCase().split(/\s+/).filter((w) => w.length > 4);
-  const byName = Object.entries(FILTERS).find(([key, value]) => key !== 'none'
-    && words.some((w) => value.label.toLowerCase().includes(w)));
-  return byName ? byName[0] : 'none';
-}
-
+/* Portada de un elemento CapCut: intenta la carátula local y, si no está (los packs
+   grandes no se empaquetan), cae a la URL remota; sin red queda el fondo de respaldo
+   en vez de una imagen rota. */
+const IMG_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function capcutCard(item, attr) {
-  const fallback = item.url ? ` onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${item.url.replace(/'/g, '%27')}'}else{this.onerror=null}"` : '';
+  const remote = item.url ? String(item.url).replace(/'/g, '%27') : '';
+  const onerror = remote
+    ? `if(!this.dataset.fb){this.dataset.fb='1';this.src='${remote}'}else{this.onerror=null;this.src='${IMG_BLANK}'}`
+    : `this.onerror=null;this.src='${IMG_BLANK}'`;
   return `<button class="effect-card" ${attr}="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
-              <img class="effect-thumb capcut" src="${item.img}"${fallback} alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async" />
+              <img class="effect-thumb capcut" src="${item.img}" onerror="${onerror}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async" />
               <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
             </button>`;
 }
@@ -210,9 +206,6 @@ let effectSource = 'capcut';
 let capcutCategory = 'Todos';
 let capcutSearch = '';
 let stickerSearch = '';
-let filterSource = 'capcut';
-let capcutFilterCategory = 'Todos';
-let capcutFilterSearch = '';
 let transitionSource = 'capcut';
 let capcutTransitionCategory = 'Todas';
 let capcutTransitionSearch = '';
@@ -252,29 +245,10 @@ function allAdjustPresets() {
   return [...saved, ...ADJUST_PRESETS];
 }
 
-function filterGallery(activeFilter, includeNone, category = 'Destacado') {
-  if (filterSource === 'capcut') {
-    const q = capcutFilterSearch.trim().toLowerCase();
-    const list = CAPCUT_FILTER_ITEMS.filter((item) => (q
-      ? item.name.toLowerCase().includes(q)
-      : capcutFilterCategory === 'Todos' || item.cats.includes(capcutFilterCategory))).slice(0, 5000);
-    return `
-    <div class="cat-rail category-chips">
-      ${CAPCUT_FILTER_PANEL_CATEGORIES.map((name) => `<button class="category-chip${capcutFilterCategory === name ? ' active' : ''}" data-capcut-filter-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
-    </div>
-    <div class="cat-main">
-      <div class="fx-sources">
-        <button class="fx-source active" data-filter-source="capcut">CapCut</button>
-        <button class="fx-source" data-filter-source="local">Local</button>
-      </div>
-      <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-filter-search placeholder="Buscar filtro CapCut" value="${escapeHtml(capcutFilterSearch)}" /><span class="filter-count">${list.length}</span></label>
-      <div class="effect-grid">
-        ${list.map((item) => capcutCard(item, 'data-capcut-filter')).join('')}
-      </div>
-      <div class="panel-empty" style="padding-top:2px">Filtros reales de CapCut (${CAPCUT_FILTER_ITEMS.length}). Al elegir uno se aplica su LUT o shader portado.</div>
-    </div>`;
-  }
-  const categories = ['Todos', ...CAPCUT_FILTER_CATEGORIES];
+/* Galería del panel Filtros: solo la línea propia de cupcraft (src/filter-line.js).
+   No hay pestaña de origen ni catálogo externo: todo se resuelve localmente. */
+function filterGallery(activeFilter, includeNone, category = 'Todos', hasTarget = false) {
+  const categories = ['Todos', ...FILTER_LINE_CATEGORIES];
   const query = filterSearch.trim().toLowerCase();
   const entries = Object.entries(FILTERS).filter(([key, value]) => {
     if (!includeNone && key === 'none') return false;
@@ -286,22 +260,33 @@ function filterGallery(activeFilter, includeNone, category = 'Destacado') {
       ${categories.map((name) => `<button class="category-chip${category === name ? ' active' : ''}" data-filter-category="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join('')}
     </div>
     <div class="cat-main">
-      <div class="fx-sources">
-        <button class="fx-source" data-filter-source="capcut">CapCut</button>
-        <button class="fx-source active" data-filter-source="local">Local</button>
-      </div>
       <label class="search-box filter-search">${icon('search', 13)}<input data-filter-search placeholder="Buscar filtro" value="${escapeHtml(filterSearch)}" /><span class="filter-count">${entries.length}</span></label>
       <div class="filter-grid">
         ${entries.map(([key, value]) => `
-          <button class="filter-card${activeFilter === key ? ' active' : ''}" data-filter="${key}" data-filter-label="${escapeHtml(value.label.toLowerCase())}">
+          <button class="filter-card${activeFilter === key ? ' active' : ''}" data-filter="${key}" data-filter-label="${escapeHtml(value.label.toLowerCase())}"${value.gl ? ' data-filter-gl="1"' : ''} title="${escapeHtml(value.label)}${value.gl ? ' · shader GL' : ''}">
             <div class="filter-preview" style="filter:${value.css}"></div>
             <div class="filter-name"><span>${value.label}</span>${activeFilter === key ? icon('check', 11) : ''}</div>
           </button>`).join('')}
       </div>
       <div class="panel-empty" style="padding-top:2px">
-        ${activeFilter ? 'Filtro aplicado al clip seleccionado.' : 'Selecciona un clip de video o imagen para aplicarle un filtro.'}
+        ${!hasTarget ? 'Selecciona un clip de video o imagen para aplicarle un filtro.'
+          : activeFilter ? 'Filtro aplicado al clip seleccionado.'
+            : 'Elige un filtro de la línea cupcraft para aplicarlo al clip seleccionado.'}
       </div>
     </div>`;
+}
+
+/* Clave de la línea que corresponde al clip: los filtros GL se guardan en
+   clip.glFilter y los heredados de proyectos antiguos (LUT) no tienen
+   equivalente propio, así que no se marcan ninguna tarjeta. */
+function lineKeyForClip(clip) {
+  if (!clip) return null;
+  if (clip.glFilter) {
+    const hit = Object.entries(FILTERS).find(([, value]) => value.gl === clip.glFilter);
+    return hit ? hit[0] : null;
+  }
+  if (clip.lut) return null;
+  return clip.filter && clip.filter !== 'none' ? clip.filter : null;
 }
 
 function adjustReadout(key, value) {
@@ -471,7 +456,7 @@ export function mountLeftPanel(host) {
   let openGroup = null;
   let stickerCategory = STICKER_CATEGORIES[0].name;
   let effectCategory = 'Todos';
-  let filterCategory = 'Destacado';
+  let filterCategory = 'Todos';
   let transitionCategory = 'Todas';
   let adjustCategory = 'Todos';
   let adjustSearch = '';
@@ -515,8 +500,32 @@ export function mountLeftPanel(host) {
       toast('Selecciona un clip de video o imagen', 'warning');
       return;
     }
-    updateClip(found.clip.id, { filter });
-    toast(`Filtro “${FILTERS[filter]?.label || filter}” aplicado`, 'success', 1800);
+    const def = FILTERS[filter];
+    if (!def) return;
+    // Al cambiar de filtro se limpian los otros motores (GL y LUT) para que no
+    // se quede encima el anterior: el clip termina con exactamente un filtro.
+    if (def.gl) {
+      updateClip(found.clip.id, {
+        filter: 'none',
+        lut: null,
+        lutAmount: 1,
+        glFilter: def.gl,
+        glFilterName: def.label,
+        glFilterAmount: 1,
+      });
+    } else {
+      updateClip(found.clip.id, {
+        filter,
+        lut: null,
+        lutAmount: 1,
+        glFilter: null,
+        glFilterName: null,
+        glFilterAmount: 1,
+      });
+    }
+    seek(state.playhead);
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    toast(`Filtro “${def.label}” aplicado`, 'success', 1800);
   }
 
   function applyAdjustPreset(id) {
@@ -1150,11 +1159,7 @@ export function mountLeftPanel(host) {
         <label class="search-box filter-search">${icon('search', 13)}<input data-capcut-search placeholder="Buscar en CapCut" value="${escapeHtml(capcutSearch)}" /><span class="filter-count">${list.length}</span></label>
         ${(state.project?.effectClips?.length ?? 0) > 0 ? `<button class="btn btn-small fx-clear" data-clear-fx>Quitar efectos de la línea de tiempo (${state.project.effectClips.length})</button>` : ''}
         <div class="effect-grid">
-          ${list.map((item) => `
-            <button class="effect-card" data-capcut-effect="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
-              <img class="effect-thumb capcut" src="${item.img}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async" />
-              <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
-            </button>`).join('')}
+          ${list.map((item) => capcutCard(item, 'data-capcut-effect')).join('')}
         </div>
         <div class="panel-empty" style="padding-top:2px">Catálogo real de CapCut: ${CAPCUT_EFFECT_ITEMS.length} efectos con su portada. Al elegir uno se aplica el equivalente local más cercano.</div>
       </div>`;
@@ -1183,7 +1188,7 @@ export function mountLeftPanel(host) {
         <div class="effect-grid">
           ${entries.map(([key, value]) => `
             <button class="effect-card${active === key ? ' active' : ''}" data-effect="${key}" title="${escapeHtml(value.label)}">
-              <img class="effect-thumb" src="assets/previews/effects/${key}.jpg" alt="${escapeHtml(value.label)}" loading="lazy" decoding="async" />
+              <img class="effect-thumb" src="assets/previews/effects/${key}.jpg" onerror="this.onerror=null;this.src='${IMG_BLANK}'" alt="${escapeHtml(value.label)}" loading="lazy" decoding="async" />
               <div class="filter-name"><span>${value.label}</span>${active === key ? icon('check', 11) : ''}</div>
             </button>`).join('')}
         </div>
@@ -1688,8 +1693,8 @@ export function mountLeftPanel(host) {
     if (panel === 'effects') return effectPanel();
     if (panel === 'filters') {
       const found = selectedClip();
-      const active = found && ['video', 'image'].includes(found.clip.kind) ? found.clip.filter : null;
-      return filterGallery(active, true, filterCategory);
+      const hasTarget = !!found && ['video', 'image'].includes(found.clip.kind);
+      return filterGallery(hasTarget ? lineKeyForClip(found.clip) : null, true, filterCategory, hasTarget);
     }
     if (panel === 'transitions') return transitionPanel();
     if (panel === 'captions') {
@@ -2143,21 +2148,6 @@ export function mountLeftPanel(host) {
       return;
     }
 
-    const filterSourceButton = event.target.closest('[data-filter-source]');
-    if (filterSourceButton) {
-      filterSource = filterSourceButton.dataset.filterSource;
-      render();
-      return;
-    }
-
-    const capcutFilterCategoryButton = event.target.closest('[data-capcut-filter-category]');
-    if (capcutFilterCategoryButton) {
-      capcutFilterCategory = capcutFilterCategoryButton.dataset.capcutFilterCategory;
-      capcutFilterSearch = '';
-      render();
-      return;
-    }
-
     const transitionSourceButton = event.target.closest('[data-transition-source]');
     if (transitionSourceButton) {
       transitionSource = transitionSourceButton.dataset.transitionSource;
@@ -2326,39 +2316,6 @@ export function mountLeftPanel(host) {
     const transitionButton = event.target.closest('[data-transition]');
     if (transitionButton) { applyTransition(transitionButton.dataset.transition); return; }
 
-    const capcutFilterButton = event.target.closest('[data-capcut-filter]');
-    if (capcutFilterButton) {
-      const item = CAPCUT_FILTER_ITEMS.find((entry) => entry.id === capcutFilterButton.dataset.capcutFilter);
-      if (item) {
-        const target = selectedClip();
-        if (!target || !['video', 'image'].includes(target.clip.kind)) {
-          toast('Selecciona un clip de vídeo o imagen para aplicar el filtro', 'warning');
-          return;
-        }
-        if (!item.lut) {
-          const ownShader = CAPCUT_SHADER_MAP[item.id]
-            || ((item.family === 'curve' || item.family === 'grain') ? item.family : null);
-          if (ownShader) {
-            updateClip(target.clip.id, { filter: 'none', lut: null, glFilter: ownShader, glFilterName: item.name, glFilterAmount: 1 });
-            seek(state.playhead);
-            window.dispatchEvent(new CustomEvent('opencup:glfx'));
-            toast(`Filtro “${item.name}” aplicado (shader portado: ${ownShader})`, 'success', 2000);
-            return;
-          }
-          const local = capcutFilterToLocal(item);
-          applyFilter(local);
-          toast(`“${item.name}”: shader aún sin portar; equivalente local`, 'warning', 2600);
-          return;
-        }
-        const lutUrl = `assets/luts/${item.id}.png`;
-        updateClip(target.clip.id, { filter: 'none', lut: lutUrl, lutName: item.name, lutAmount: 1 });
-        seek(state.playhead);
-        window.dispatchEvent(new CustomEvent('opencup:glfx'));
-        toast(`Filtro “${item.name}” aplicado con su LUT real`, 'success', 2000);
-      }
-      return;
-    }
-
     const capcutTransitionButton = event.target.closest('[data-capcut-transition]');
     if (capcutTransitionButton) {
       const item = CAPCUT_TRANSITION_ITEMS.find((entry) => entry.id === capcutTransitionButton.dataset.capcutTransition);
@@ -2470,11 +2427,6 @@ export function mountLeftPanel(host) {
     if (target.matches('[data-filter-search]')) {
       filterSearch = target.value;
       debouncedCatalogRender('[data-filter-search]');
-      return;
-    }
-    if (target.matches('[data-capcut-filter-search]')) {
-      capcutFilterSearch = target.value;
-      debouncedCatalogRender('[data-capcut-filter-search]');
       return;
     }
     if (target.matches('[data-capcut-transition-search]')) {

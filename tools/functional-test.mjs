@@ -273,8 +273,6 @@ await shot('13-text-edited.png');
 await page.click('.clip.video');
 await page.click('[data-panel="filters"]');
 await wait(150);
-await page.click('[data-filter-source="local"]');
-await wait(150);
 await page.click('[data-filter="vivid"]');
 await wait(200);
 data = await state();

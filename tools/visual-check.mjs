@@ -34,8 +34,7 @@ await wait(300);
 await page.click('[data-panel="filters"]');
 await wait(300);
 await page.evaluate(() => {
-  const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === 'Calabaza');
-  card?.click();
+  document.querySelector('.filter-grid [data-filter="burgundyHaze"]')?.click();
 });
 await wait(700);
 await page.screenshot({ path: path.join(OUT, 'clip-filter-bar.png') });

@@ -15,17 +15,38 @@ if (!fs.existsSync(file)) {
 }
 
 const exists = (img) => fs.existsSync(path.join(dist, ...img.split('/')));
-const swap = (m, img, url) => (img.startsWith('assets/') && !exists(img) ? `"img":"${url}","url":"${url}"` : m);
+// Las carátulas grandes no viajan en el paquete, pero sí su miniatura de 320 px
+// (tools/make-thumbs.mjs): se prefiere la miniatura y solo se cae a la URL
+// remota cuando no existe ni una ni otra.
+const thumbOf = (img) => (img.startsWith('assets/capcut/')
+  ? `assets/capcut/thumbs/${img.slice('assets/capcut/'.length).replace(/\.\w+$/, '.webp')}`
+  : null);
+const resolve = (img) => {
+  if (!img.startsWith('assets/')) return img;
+  if (exists(img)) return img;
+  const thumb = thumbOf(img);
+  return thumb && exists(thumb) ? thumb : null;
+};
 
 let text = fs.readFileSync(file, 'utf8');
 let before = text;
-text = text.replace(/"img":"([^"]+)","url":"([^"]+)"/g, swap);
-text = text.replace(/"url":"([^"]+)","img":"([^"]+)"/g, (m, url, img) =>
-  (img.startsWith('assets/') && !exists(img) ? `"url":"${url}","img":"${url}"` : m));
+text = text.replace(/"img":"([^"]+)","url":"([^"]+)"/g, (m, img, url) => {
+  const next = resolve(img);
+  if (next === img) return m;
+  return next ? `"img":"${next}","url":"${url}"` : `"img":"${url}","url":"${url}"`;
+});
+text = text.replace(/"url":"([^"]+)","img":"([^"]+)"/g, (m, url, img) => {
+  const next = resolve(img);
+  if (next === img) return m;
+  return next ? `"url":"${url}","img":"${next}"` : `"url":"${url}","img":"${url}"`;
+});
 
 if (text !== before) fs.writeFileSync(file, text, 'utf8');
 
-// Informe: cuántas siguen apuntando a un local que no está en el paquete.
-const pending = [...text.matchAll(/"img":"(assets\/[^"]+)"/g)].map((m) => m[1]).filter((p) => !exists(p));
-console.log(`package-catalog: ${dist} → remotas aplicadas=${text !== before ? 'sí' : 'no'}, locales aún ausentes=${pending.length}`);
+// Informe: cuántas apuntan a miniatura local, a remoto o siguen ausentes.
+const imgs = [...text.matchAll(/"img":"([^"]+)"/g)].map((m) => m[1]);
+const local = imgs.filter((p) => p.startsWith('assets/') && exists(p));
+const thumbs = local.filter((p) => p.includes('/thumbs/'));
+const pending = imgs.filter((p) => p.startsWith('assets/') && !exists(p));
+console.log(`package-catalog: ${dist} → cambiadas=${text !== before ? 'sí' : 'no'}, locales=${local.length} (miniaturas=${thumbs.length}), remotas=${imgs.length - local.length}, ausentes=${pending.length}`);
 if (pending.length) console.log('  ej:', pending.slice(0, 3).join(', '));

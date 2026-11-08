@@ -200,7 +200,7 @@ cupcraft/
 │  ├─ preview.js           Vista previa y transporte
 │  ├─ timeline.js          Reglas, pistas y manipulación de clips
 │  ├─ panels.js            Medios, texto, stickers, efectos, filtros y detalles
-│  ├─ filter-catalog.js    Catálogo de 731 filtros en 19 categorías estilo CapCut
+│  ├─ filter-line.js       Línea propia de 82 filtros en 12 categorías (CSS + GL)
 │  ├─ library.js           Catálogos de efectos, stickers, transiciones y avatares
 │  ├─ capcut.js            Cliente de importación y diálogo de proyectos CapCut
 │  ├─ ai-bridge.js         Puente del navegador, acciones y diálogo de control

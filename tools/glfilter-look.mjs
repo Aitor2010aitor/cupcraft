@@ -34,8 +34,9 @@ await wait(300);
 await page.click('[data-panel="filters"]');
 await wait(300);
 
-const NAMES = ['Lienzo embrujado', 'Cariño retro', 'Sueño caqui', 'Jengibre suave',
-  'Bruma borgoña', 'Atardecer de ensueño', 'Brillo brumoso', 'Píxel estilo noir'];
+// Las ocho "Firma" de la línea: sus shaders propios, por clave.
+const KEYS = ['hauntedCanvas', 'retroLove', 'khakiDream', 'gingerSoft',
+  'burgundyHaze', 'dreamSunset', 'mistyGlow', 'pixelNoir'];
 
 const grab = () => page.evaluate(() => {
   const canvas = [...document.querySelectorAll('canvas')].find((c) => c.width > 200);
@@ -49,15 +50,16 @@ const clear = () => page.evaluate(() => {
 });
 
 const tiles = [];
-for (const name of NAMES) {
-  const clicked = await page.evaluate((n) => {
-    const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === n);
+for (const key of KEYS) {
+  const clicked = await page.evaluate((k) => {
+    const card = document.querySelector(`.filter-grid [data-filter="${k}"]`);
     if (!card) return null;
     card.click();
-    return card.dataset.capcutName;
-  }, name);
+    return card.dataset.filter;
+  }, key);
   await wait(700);
-  tiles.push({ name, img: await grab(), ok: !!clicked });
+  const label = await page.evaluate(() => document.querySelector('.clip-filter-name')?.textContent || '');
+  tiles.push({ name: label || key, img: await grab(), ok: !!clicked });
   await clear();
   await wait(350);
 }

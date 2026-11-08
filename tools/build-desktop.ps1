@@ -48,11 +48,13 @@ Copy-Item "$root\package.json" $OutDir
 Copy-Item "$root\README.md" $OutDir
 Copy-Item "$root\src" $OutDir -Recurse
 Copy-Item "$root\server" $OutDir -Recurse
-# Recursos: previos locales + biblioteca LUT real + miniaturas de filtros.
-# Los packs grandes (efectos/transitions/stickers/covers: +2 GB) no se
-# empaquetan: sus miniaturas caen a la URL remota con onerror.
+# Recursos: previos locales + biblioteca LUT real + miniaturas de filtros y las
+# miniaturas ligeras (320 px WebP) de todo el catálogo CapCut, que sí viajan en
+# el instalador. Los packs grandes originales (efectos/transitions/stickers/
+# covers: +2 GB) no se empaquetan: su portada usa la miniatura y, sin ella,
+# la URL remota.
 New-Item -ItemType Directory -Force -Path (Join-Path $OutDir 'assets') | Out-Null
-foreach ($asset in 'previews', 'luts', 'capcut\panels\filters') {
+foreach ($asset in 'previews', 'luts', 'capcut\thumbs') {
   $from = Join-Path $root "assets\$asset"
   if (!(Test-Path $from)) { continue }
   $parent = Split-Path (Join-Path $OutDir "assets\$asset")

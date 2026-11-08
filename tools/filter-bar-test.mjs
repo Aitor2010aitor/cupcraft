@@ -59,21 +59,21 @@ const barInfo = () => page.evaluate(() => {
   };
 });
 
-// --- 1. Aplicar un filtro CapCut y comprobar la barra sobre el clip. ---
+// --- 1. Aplicar un filtro de la línea cupcraft y comprobar la barra sobre el clip. ---
 await page.click('[data-panel="filters"]');
 await wait(250);
 const applied = await page.evaluate(() => {
-  const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === 'Calabaza');
+  const card = document.querySelector('[data-filter="burgundyHaze"]');
   if (!card) return null;
   card.click();
-  return card.dataset.capcutName;
+  return card.dataset.filter;
 });
 await wait(700);
-check(applied === 'Calabaza', 'se aplica el filtro CapCut "Calabaza"');
+check(applied === 'burgundyHaze', 'se aplica el filtro de la línea "Bruma borgoña"');
 
 const bar1 = await barInfo();
 check(!!bar1, 'la barra .clip-filter aparece en la línea de tiempo', JSON.stringify(bar1));
-check(bar1?.name === 'Calabaza', 'la barra muestra el nombre del filtro', JSON.stringify(bar1));
+check(bar1?.name === 'Bruma borgoña', 'la barra muestra el nombre del filtro', JSON.stringify(bar1));
 check(bar1?.amount === '100%', 'la barra muestra la intensidad 100%', JSON.stringify(bar1));
 check(bar1?.hasFilterClass === true, 'el clip tiene la clase has-filter');
 check(bar1?.insideClip === false, 'la barra NO está dentro del clip (está fuera de las pistas de vídeo)', JSON.stringify(bar1));
@@ -166,7 +166,7 @@ const editor = await page.evaluate(() => {
   };
 });
 check(editor && !editor.hidden, 'el editor de intensidad se abre', JSON.stringify(editor));
-check(editor?.name === 'Calabaza', 'el editor muestra el nombre del filtro', JSON.stringify(editor));
+check(editor?.name === 'Bruma borgoña', 'el editor muestra el nombre del filtro', JSON.stringify(editor));
 check(editor?.range === '100' && editor?.val === '100%', 'el editor arranca en 100%', JSON.stringify(editor));
 check(editor?.rowHidden === false, 'la fila del deslizador es visible');
 check(editor && editor.rect.width > 100 && editor.rect.left >= 0, 'el editor queda dentro de la línea de tiempo', JSON.stringify(editor && editor.rect));
@@ -179,7 +179,7 @@ await page.evaluate(() => {
 });
 await wait(400);
 const st3 = await clipState();
-check(Math.abs((st3?.lutAmount ?? 1) - 0.4) < 0.001, 'el deslizador escribe lutAmount=0.4 en el clip', JSON.stringify(st3));
+check(Math.abs((st3?.glFilterAmount ?? 1) - 0.4) < 0.001, 'el deslizador escribe glFilterAmount=0.4 en el clip', JSON.stringify(st3));
 const bar3 = await barInfo();
 check(bar3?.amount === '40%', 'la barra actualiza la intensidad a 40%', JSON.stringify(bar3));
 const val3 = await page.evaluate(() => document.querySelector('[data-fe-val]')?.textContent);
@@ -196,7 +196,7 @@ await page.keyboard.press('KeyZ');
 await page.keyboard.up('Control');
 await wait(500);
 const st4 = await clipState();
-check(Math.abs((st4?.lutAmount ?? 0) - 1) < 0.001, 'Ctrl+Z revierte la intensidad al valor anterior', JSON.stringify(st4 && { lutAmount: st4.lutAmount }));
+check(Math.abs((st4?.glFilterAmount ?? 0) - 1) < 0.001, 'Ctrl+Z revierte la intensidad al valor anterior', JSON.stringify(st4 && { glFilterAmount: st4.glFilterAmount }));
 
 // Reabrir y dejarlo en 40% para el resto del test.
 await page.keyboard.press('Escape'); // estado limpio: editor cerrado
@@ -233,8 +233,7 @@ check(editorHidden === true, 'el editor se cierra al quitar el filtro');
 
 // --- 6. Reaplicar y comprobar que los tiradores de recorte siguen funcionando. ---
 await page.evaluate(() => {
-  const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === 'Calabaza');
-  card?.click();
+  document.querySelector('[data-filter="burgundyHaze"]')?.click();
 });
 await wait(700);
 const before = await clipState();
@@ -262,7 +261,7 @@ if (handle) {
 const after = await clipState();
 check(!!after?.glFilter || !!after?.lut, 'el filtro sigue aplicado tras el recorte', JSON.stringify(after));
 const bar6 = await barInfo();
-check(bar6?.name === 'Calabaza', 'la barra sigue visible tras el recorte', JSON.stringify(bar6));
+check(bar6?.name === 'Bruma borgoña', 'la barra sigue visible tras el recorte', JSON.stringify(bar6));
 const span6 = await blockPos();
 check(span6 && Math.abs(span6.rect.left - span6.clipRect.left) <= 1.5 && Math.abs(span6.rect.width - span6.clipRect.width) <= 2,
   'tras recortar el bloque vuelve a cubrir exactamente el clip', JSON.stringify(span6 && { rect: span6.rect, clipRect: span6.clipRect }));

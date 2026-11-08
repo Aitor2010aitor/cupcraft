@@ -45,11 +45,10 @@ console.log('antes:', JSON.stringify(await snap()));
 await page.click('[data-panel="filters"]');
 await wait(200);
 const applied = await page.evaluate(() => {
-  const cards = [...document.querySelectorAll('[data-capcut-filter]')];
-  const card = cards.find((c) => /curve|grain/i.test(c.dataset.capcutFilter || '')) || cards[0];
+  const card = document.querySelector('.filter-grid [data-filter="grain"]');
   if (!card) return null;
   card.click();
-  return card.dataset.capcutFilter;
+  return card.dataset.filter;
 });
 await wait(400);
 console.log('tarjeta pulsada:', applied);
@@ -75,12 +74,13 @@ const painted = await page.evaluate(() => {
 });
 console.log('lienzo:', JSON.stringify(painted));
 
-// Probar también un filtro LUT y uno grain explícitamente por API
+// Probar también un filtro de la línea y uno GL explícitamente por API
 const api = await page.evaluate(() => {
-  const items = window.openCUP.CAPCUT_FILTER_ITEMS || null;
-  return items ? items.length : 'no expuesto';
+  const cards = document.querySelectorAll('.filter-grid [data-filter]');
+  const gl = document.querySelectorAll('.filter-grid [data-filter-gl]');
+  return { cards: cards.length, gl: gl.length };
 });
-console.log('CAPCUT_FILTER_ITEMS:', api);
+console.log('línea cupcraft:', JSON.stringify(api));
 
 console.log('errores:', errors.length ? errors.slice(0, 8) : []);
 await browser.close();

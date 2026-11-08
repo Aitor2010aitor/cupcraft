@@ -1,9 +1,9 @@
 import { db } from './db.js';
 import { clamp, uid, debounce, toast, formatTime, downloadBlob } from './utils.js';
-import { CAPCUT_FILTERS, CAPCUT_FILTER_CATEGORIES } from './filter-catalog.js';
+import { FILTER_LINE, FILTER_LINE_CATEGORIES } from './filter-line.js';
 import { CAPTION_STYLES } from './library.js';
 
-export { CAPCUT_FILTER_CATEGORIES };
+export { FILTER_LINE_CATEGORIES };
 
 export const RESOLUTIONS = {
   '480p': { width: 854, height: 480 },
@@ -21,35 +21,11 @@ export const ASPECTS = {
   '4:5': 4 / 5,
 };
 
+/* Catálogo de filtros: la línea propia de cupcraft (src/filter-line.js).
+   Cada entrada puede llevar `gl` para pintarla con el shader del motor. */
 export const FILTERS = {
-  none: { label: 'Ninguno', css: 'none', category: 'Básicos' },
-  warm: { label: 'Cálido', css: 'sepia(0.28) saturate(1.15) hue-rotate(-8deg)', category: 'Filtro cálido' },
-  sunset: { label: 'Atardecer', css: 'sepia(0.22) saturate(1.4) hue-rotate(-16deg) brightness(1.04)', category: 'Filtro cálido' },
-  golden: { label: 'Dorado', css: 'sepia(0.38) saturate(1.25) brightness(1.08)', category: 'Filtro cálido' },
-  rose: { label: 'Rosa', css: 'sepia(0.16) saturate(1.2) hue-rotate(324deg) brightness(1.03)', category: 'Retrato' },
-  copper: { label: 'Cobre', css: 'sepia(0.42) saturate(1.12) contrast(1.06)', category: 'Filtro cálido' },
-  cool: { label: 'Frío', css: 'saturate(1.1) hue-rotate(12deg) brightness(1.02)', category: 'Filtro frío' },
-  arctic: { label: 'Ártico', css: 'saturate(0.9) hue-rotate(16deg) brightness(1.1) contrast(0.98)', category: 'Filtro frío' },
-  ocean: { label: 'Océano', css: 'saturate(1.25) hue-rotate(178deg) brightness(0.98)', category: 'Filtro frío' },
-  teal: { label: 'Turquesa', css: 'saturate(1.2) hue-rotate(140deg) brightness(1.02)', category: 'Filtro frío' },
-  mint: { label: 'Menta', css: 'saturate(0.95) hue-rotate(96deg) brightness(1.06)', category: 'Filtro frío' },
-  mono: { label: 'B/N', css: 'grayscale(1) contrast(1.05)', category: 'Blanco y negro' },
-  noir: { label: 'Noir', css: 'grayscale(1) contrast(1.35) brightness(0.9)', category: 'Blanco y negro' },
-  silver: { label: 'Plata', css: 'grayscale(1) contrast(0.94) brightness(1.12)', category: 'Blanco y negro' },
-  charcoal: { label: 'Carbón', css: 'grayscale(1) contrast(1.5) brightness(0.8)', category: 'Blanco y negro' },
-  vintage: { label: 'Vintage', css: 'sepia(0.5) contrast(0.92) brightness(0.95)', category: 'Retro' },
-  retro: { label: 'Retro', css: 'sepia(0.32) saturate(0.85) contrast(0.9) brightness(1.05)', category: 'Retro' },
-  film: { label: 'Película', css: 'sepia(0.18) saturate(0.9) contrast(1.12) brightness(0.96)', category: 'Películas' },
-  matte: { label: 'Mate', css: 'saturate(0.82) contrast(0.88) brightness(1.06)', category: 'Películas' },
-  fade: { label: 'Desvanecido', css: 'opacity(0.92) saturate(0.75) brightness(1.08)', category: 'Películas' },
-  vivid: { label: 'Vívido', css: 'saturate(1.45) contrast(1.08)', category: 'Destacado' },
-  dream: { label: 'Ensueño', css: 'saturate(1.05) brightness(1.12) contrast(0.9) blur(0.3px)', category: 'NUEVO' },
-  pastel: { label: 'Pastel', css: 'saturate(0.9) brightness(1.1) contrast(0.88)', category: 'Vida' },
-  cyber: { label: 'Cyber', css: 'saturate(1.7) hue-rotate(288deg) contrast(1.18)', category: 'Alternativo' },
-  infrared: { label: 'Infrarrojo', css: 'saturate(2) hue-rotate(230deg) contrast(1.1)', category: 'Alternativo' },
-  forest: { label: 'Bosque', css: 'saturate(1.15) hue-rotate(28deg) brightness(0.98)', category: 'Paisaje' },
-  lavender: { label: 'Lavanda', css: 'saturate(0.95) hue-rotate(250deg) brightness(1.06)', category: 'Retrato' },
-  ...CAPCUT_FILTERS,
+  none: { label: 'Ninguno', css: 'none', category: 'Esenciales' },
+  ...FILTER_LINE,
 };
 
 export const TEXT_PRESETS = [

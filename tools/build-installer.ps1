@@ -23,7 +23,7 @@ foreach ($item in 'server.mjs', 'index.html', 'package.json', 'README.md', 'src'
   if (Test-Path (Join-Path $dist $item)) { Remove-Item (Join-Path $dist $item) -Recurse -Force }
   Copy-Item $from $dist -Recurse -Force
 }
-foreach ($asset in 'previews', 'luts', 'capcut\panels\filters') {
+foreach ($asset in 'previews', 'luts', 'capcut\thumbs') {
   $from = Join-Path $root "assets\$asset"
   if (!(Test-Path $from)) { continue }
   $parent = Split-Path (Join-Path $dist "assets\$asset")
@@ -32,7 +32,7 @@ foreach ($asset in 'previews', 'luts', 'capcut\panels\filters') {
 }
 & node (Join-Path $PSScriptRoot 'package-catalog.mjs') $dist
 if ($LASTEXITCODE -ne 0) { throw 'Falló package-catalog.mjs' }
-foreach ($check in 'src\gl-post.js', 'src\panels.js', 'assets\luts', 'assets\capcut\panels\filters') {
+foreach ($check in 'src\gl-post.js', 'src\panels.js', 'src\filter-line.js', 'assets\luts', 'assets\capcut\thumbs') {
   $a = Join-Path $root $check
   $b = Join-Path $dist $check
   if (!(Test-Path $b)) { throw "Falta $check en la app empaquetada." }

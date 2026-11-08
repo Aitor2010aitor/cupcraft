@@ -149,22 +149,21 @@ try {
   }), 'avatar insertado con fondo circular');
 
   await clickTab('filters');
-  await page.click('[data-filter-source="local"]');
   await new Promise((resolve) => setTimeout(resolve, 150));
   const filterCards = await page.$$('.filter-grid .filter-card');
   const filterChips = await page.$$('.category-chips .category-chip');
-  check(filterCards.length === 51, `panel filtros: ${filterCards.length} filtros en Destacado`);
-  check(filterChips.length === 20, `panel filtros: ${filterChips.length} categorías`);
+  check(filterCards.length === 83, `panel filtros: ${filterCards.length} filtros de la línea cupcraft`);
+  check(filterChips.length === 13, `panel filtros: ${filterChips.length} categorías`);
   await page.screenshot({ path: path.join(SHOTS, 'new-filters.png') });
   await page.evaluate(() => {
-    const chip = [...document.querySelectorAll('[data-filter-category]')].find((item) => item.dataset.filterCategory === 'Alternativo');
+    const chip = [...document.querySelectorAll('[data-filter-category]')].find((item) => item.dataset.filterCategory === 'Firma');
     chip?.click();
   });
   await new Promise((resolve) => setTimeout(resolve, 250));
   const creativeFilters = await page.$$('.filter-grid .filter-card');
-  check(creativeFilters.length === 51, `categoría Alternativo filtra ${creativeFilters.length} filtros`);
+  check(creativeFilters.length === 8, `categoría Firma filtra ${creativeFilters.length} filtros`);
   const activeFilterCategory = await page.$eval('.category-chips .category-chip.active', (el) => el.dataset.filterCategory);
-  check(activeFilterCategory === 'Alternativo', `categoría activa visible: ${activeFilterCategory}`);
+  check(activeFilterCategory === 'Firma', `categoría activa visible: ${activeFilterCategory}`);
   const chipScroll = await page.$eval('.category-chips', (el) => Math.max(el.scrollTop, el.scrollLeft));
   check(chipScroll > 0, `el raíl de categorías se desplaza hasta la activa (${Math.round(chipScroll)} px)`);
   await page.screenshot({ path: path.join(SHOTS, 'new-filters-creative.png') });

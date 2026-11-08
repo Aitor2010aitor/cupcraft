@@ -1,3 +1,5 @@
+// Comprueba que los filtros con shader GL de la línea cupcraft se aplican al
+// clip y pican píxeles en el lienzo (antes de / después de pulsar la tarjeta).
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
 
@@ -54,83 +56,67 @@ const diff = (a, b) => {
 await page.click('[data-panel="filters"]');
 await wait(250);
 
-const families = await page.evaluate(() => {
-  const cards = [...document.querySelectorAll('[data-capcut-filter]')];
-  return cards.length;
-});
-console.log('tarjetas de filtro CapCut:', families);
+const cardCount = await page.evaluate(() => document.querySelectorAll('.filter-grid [data-filter]').length);
+console.log('tarjetas de la línea:', cardCount);
 
-const run = async (match, label) => {
-  const before = await sample();
-  const clicked = await page.evaluate((name) => {
-    const cards = [...document.querySelectorAll('[data-capcut-filter]')];
-    const card = cards.find((c) => c.dataset.capcutName === name);
+// Claves GL de la línea (Textura + Firma) comprobadas una a una.
+const GL_KEYS = [
+  'vignette', 'grain', 'chroma', 'vhs', 'bloom', 'rgbSplit',
+  'radialBlur', 'directionalBlur', 'posterize',
+  'burgundyHaze', 'dreamSunset', 'mistyGlow', 'pixelNoir',
+  'retroLove', 'khakiDream', 'gingerSoft', 'hauntedCanvas',
+];
+
+const clear = () => page.evaluate(() => {
+  const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
+  if (c) { c.filter = 'none'; c.lut = null; c.glFilter = null; c.glFilterName = null; }
+  window.dispatchEvent(new CustomEvent('opencup:glfx'));
+});
+
+const bad = [];
+for (const key of GL_KEYS) {
+  const before = errors.length;
+  const b = await sample();
+  const clicked = await page.evaluate((k) => {
+    const card = document.querySelector(`.filter-grid [data-filter="${k}"]`);
     if (!card) return null;
     card.click();
-    return card.dataset.capcutName;
-  }, match);
+    return card.dataset.filter;
+  }, key);
   await wait(700);
-  const after = await sample();
+  const a = await sample();
   const clip = await page.evaluate(() => {
     const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
-    return c ? { lut: c.lut ?? null, glFilter: c.glFilter ?? null, filter: c.filter } : null;
+    return c ? { glFilter: c.glFilter ?? null, glFilterName: c.glFilterName ?? null, lut: c.lut ?? null, filter: c.filter } : null;
   });
-  console.log(`${label}: tarjeta="${clicked}" clip=${JSON.stringify(clip)} deltaPixeles=${diff(before, after)}`);
-  // limpiar
-  await page.evaluate(() => {
-    const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
-    if (c) { c.filter = 'none'; c.lut = null; c.glFilter = null; c.glFilterName = null; }
-    window.dispatchEvent(new CustomEvent('opencup:glfx'));
-  });
-  await wait(500);
-};
-
-await run('Fiesta metálica', 'curve ');
-await run('Espejismo somnoliento', 'grain ');
-await run('Calabaza', 'LUT   ');
-
-// Los 8 filtros "other" sin LUT: ahora con su propio shader portado.
-const OTHERS = [
-  ['Lienzo embrujado', 'lienzo'],
-  ['Cariño retro', 'retro '],
-  ['Sueño caqui', 'caqui '],
-  ['Jengibre suave', 'jengi '],
-  ['Bruma borgoña', 'bruma '],
-  ['Atardecer de ensueño', 'atard '],
-  ['Brillo brumoso', 'brillo'],
-  ['Píxel estilo noir', 'noir  '],
-];
-const bad = [];
-for (const [name, label] of OTHERS) {
-  const before = errors.length;
-  const res = await (async () => {
-    const b = await sample();
-    const clicked = await page.evaluate((n) => {
-      const card = [...document.querySelectorAll('[data-capcut-filter]')].find((c) => c.dataset.capcutName === n);
-      if (!card) return null;
-      card.click();
-      return card.dataset.capcutName;
-    }, name);
-    await wait(700);
-    const a = await sample();
-    const clip = await page.evaluate(() => {
-      const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
-      return c ? { glFilter: c.glFilter ?? null, glFilterName: c.glFilterName ?? null, lut: c.lut ?? null } : null;
-    });
-    await page.evaluate(() => {
-      const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
-      if (c) { c.filter = 'none'; c.lut = null; c.glFilter = null; c.glFilterName = null; }
-      window.dispatchEvent(new CustomEvent('opencup:glfx'));
-    });
-    await wait(400);
-    return { clicked, clip, d: diff(b, a), err: errors.length - before };
-  })();
-  const ok = res.clicked && res.clip && res.clip.glFilter && res.d > 0 && res.err === 0;
-  if (!ok) bad.push(name);
-  console.log(`${label}: tarjeta="${res.clicked}" glFilter=${res.clip && res.clip.glFilter} deltaPixeles=${res.d} erroresNuevos=${res.err} ${ok ? 'OK' : 'FALLO'}`);
+  await clear();
+  await wait(400);
+  const d = diff(b, a);
+  const err = errors.length - before;
+  const ok = clicked === key && clip && clip.glFilter && !clip.lut && d > 0 && err === 0;
+  if (!ok) bad.push(key);
+  console.log(`${key.padEnd(16)} clip=${JSON.stringify(clip)} deltaPixeles=${d} erroresNuevos=${err} ${ok ? 'OK' : 'FALLO'}`);
 }
 
-console.log('otros 8 →', bad.length ? 'FALLO: ' + bad.join(', ') : 'OK (8/8)');
+// Un filtro de color (sin shader) también debe aplicarse y limpiar el motor GL.
+const colorBefore = await sample();
+const colorClicked = await page.evaluate(() => {
+  const card = document.querySelector('.filter-grid [data-filter="vivid"]');
+  if (!card) return null;
+  card.click();
+  return card.dataset.filter;
+});
+await wait(500);
+const colorClip = await page.evaluate(() => {
+  const c = window.openCUP.state.project.tracks.flatMap((t) => t.clips).find((x) => x.id === window.openCUP.state.selection);
+  return c ? { filter: c.filter, glFilter: c.glFilter ?? null, lut: c.lut ?? null } : null;
+});
+console.log(`color vivid: tarjeta="${colorClicked}" clip=${JSON.stringify(colorClip)} deltaPixeles=${diff(colorBefore, await sample())}`);
+if (colorClicked !== 'vivid' || colorClip?.filter !== 'vivid' || colorClip.glFilter) bad.push('vivid');
+await clear();
 
+console.log(`\nglfilter-paint: ${GL_KEYS.length + 1 - bad.length}/${GL_KEYS.length + 1}`);
+console.log(bad.length ? 'FALLO: ' + bad.join(', ') : 'OK');
 console.log('errores:', errors.length ? errors.slice(0, 8) : []);
 await browser.close();
+process.exit(bad.length === 0 && errors.length === 0 ? 0 : 1);

@@ -1,0 +1,14 @@
+[package]
+name = "cupcraft-persist"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Archivo .opencup.json y almacén local de proyectos y medios de cupcraft"
+
+[dependencies]
+cupcraft-core = { path = "../cupcraft-core" }
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+rusqlite = { version = "0.32", features = ["bundled"] }

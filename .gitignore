@@ -19,3 +19,7 @@ kits-decompiled/
 asm.jar
 cfr.jar
 mcstatus.ps1
+.work/
+
+# Artefactos de compilación de Rust
+rust/target/

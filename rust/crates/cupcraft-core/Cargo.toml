@@ -1,0 +1,11 @@
+[package]
+name = "cupcraft-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Modelo de proyecto, pistas, clips, historial y línea de filtros de cupcraft"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

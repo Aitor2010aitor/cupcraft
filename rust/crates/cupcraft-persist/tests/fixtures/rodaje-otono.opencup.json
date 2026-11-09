@@ -1,0 +1,153 @@
+{
+  "kind": "openCUP-project",
+  "fileVersion": 1,
+  "app": "openCUP",
+  "exportedAt": 1762500000000,
+  "project": {
+    "id": "prj_fixture_rodaje",
+    "name": "Rodaje otoño",
+    "createdAt": 1762400000000,
+    "updatedAt": 1762500000000,
+    "ratio": "9:16",
+    "resolution": "1080p",
+    "fps": 30,
+    "media": [],
+    "thumb": "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=",
+    "tracks": [
+      {
+        "id": "track_text",
+        "type": "text",
+        "name": "Texto",
+        "clips": [
+          {
+            "id": "clip_titulo",
+            "kind": "text",
+            "name": "Título",
+            "start": 0.5,
+            "duration": 3,
+            "in": 0,
+            "speed": 1,
+            "volume": 1,
+            "opacity": 1,
+            "scale": 1,
+            "x": 0,
+            "y": -180,
+            "filter": "none",
+            "adjust": { "brightness": 100, "contrast": 100, "saturate": 100 },
+            "fadeIn": 0.2,
+            "fadeOut": 0.3,
+            "text": {
+              "content": "Otoño en la sierra",
+              "size": 96,
+              "weight": 800,
+              "color": "#ffffff",
+              "align": "center",
+              "background": "rgba(0,0,0,0.35)"
+            }
+          }
+        ]
+      },
+      {
+        "id": "track_video",
+        "type": "video",
+        "name": "Video 1",
+        "clips": [
+          {
+            "id": "clip_toma1",
+            "mediaId": "m1",
+            "kind": "video",
+            "name": "toma1.webm",
+            "start": 0,
+            "duration": 4.2,
+            "in": 1.1,
+            "speed": 1.5,
+            "volume": 0.8,
+            "opacity": 1,
+            "scale": 1.05,
+            "x": 12,
+            "y": -4,
+            "filter": "vivid",
+            "adjust": { "brightness": 104, "contrast": 112, "saturate": 96 },
+            "fadeIn": 0,
+            "fadeOut": 0.4,
+            "glFilter": "bruma-borgona",
+            "glFilterName": "Bruma borgoña",
+            "glFilterAmount": 0.7,
+            "keyframes": [
+              { "time": 0, "prop": "scale", "value": 1 },
+              { "time": 2, "prop": "scale", "value": 1.2 }
+            ],
+            "animation": { "in": "fade", "out": "slide" }
+          },
+          {
+            "id": "clip_foto",
+            "mediaId": "m2",
+            "kind": "image",
+            "name": "foto.png",
+            "start": 4.2,
+            "duration": 5,
+            "in": 0,
+            "speed": 1,
+            "volume": 1,
+            "opacity": 0.95,
+            "scale": 1,
+            "x": 0,
+            "y": 0,
+            "filter": "warm",
+            "adjust": { "brightness": 100, "contrast": 100, "saturate": 100 }
+          }
+        ]
+      },
+      {
+        "id": "track_audio",
+        "type": "audio",
+        "name": "Audio 1",
+        "clips": [
+          {
+            "id": "clip_cancion",
+            "mediaId": "m3",
+            "kind": "audio",
+            "name": "musica.wav",
+            "start": 0,
+            "duration": 12.5,
+            "in": 0.5,
+            "speed": 1,
+            "volume": 0.6,
+            "opacity": 1,
+            "scale": 1,
+            "x": 0,
+            "y": 0,
+            "filter": "none",
+            "adjust": { "brightness": 100, "contrast": 100, "saturate": 100 },
+            "fadeIn": 1,
+            "fadeOut": 2
+          }
+        ]
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "m1",
+      "kind": "video",
+      "name": "toma1.webm",
+      "duration": 6.8,
+      "mime": "video/webm",
+      "thumb": "data:image/webp;base64,UklGRiQAAABXRUJQVlA4IBgAAAAwAQCdASoBAAEAAwA0JaQAA3AA/vuUAAA=",
+      "data": "data:video/webm;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+    },
+    {
+      "id": "m2",
+      "kind": "image",
+      "name": "foto.png",
+      "mime": "image/png",
+      "data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    },
+    {
+      "id": "m3",
+      "kind": "audio",
+      "name": "musica.wav",
+      "duration": 30
+    }
+  ]
+}

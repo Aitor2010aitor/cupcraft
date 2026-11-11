@@ -80,9 +80,9 @@ pub fn apply(ctx: &egui::Context) {
 
     ctx.set_visuals(v);
 
-    let sans = FontFamily::Name(CUP_SANS.to_owned());
-    let sans_bold = FontFamily::Name(CUP_SANS_BOLD.to_owned());
-    let mono = FontFamily::Name(CUP_MONO.to_owned());
+    let sans = FontFamily::Name(CUP_SANS.into());
+    let sans_bold = FontFamily::Name(CUP_SANS_BOLD.into());
+    let mono = FontFamily::Name(CUP_MONO.into());
     ctx.all_styles_mut(move |style| {
         style.spacing.item_spacing = egui::vec2(8.0, 8.0);
         style.spacing.button_padding = egui::vec2(10.0, 5.0);
@@ -104,9 +104,9 @@ pub const CUP_SERIF: &str = "cup-serif";
 /// egui no tiene variantes de peso dentro de una familia.
 pub fn font_for(weight: f64, size: f32) -> FontId {
     let family = if weight >= 600.0 {
-        FontFamily::Name(CUP_SANS_BOLD.to_owned())
+        FontFamily::Name(CUP_SANS_BOLD.into())
     } else {
-        FontFamily::Name(CUP_SANS.to_owned())
+        FontFamily::Name(CUP_SANS.into())
     };
     FontId::new(size, family)
 }
@@ -115,10 +115,10 @@ pub fn font_for(weight: f64, size: f32) -> FontId {
 pub fn font_family_for(name: &str) -> FontFamily {
     match name.to_lowercase().as_str() {
         "georgia" | "times new roman" | "palatino linotype" | "cambria" => {
-            FontFamily::Name(CUP_SERIF.to_owned())
+            FontFamily::Name(CUP_SERIF.into())
         }
-        "consolas" | "courier new" => FontFamily::Name(CUP_MONO.to_owned()),
-        _ => FontFamily::Name(CUP_SANS.to_owned()),
+        "consolas" | "courier new" => FontFamily::Name(CUP_MONO.into()),
+        _ => FontFamily::Name(CUP_SANS.into()),
     }
 }
 
@@ -167,7 +167,7 @@ fn install_fonts(ctx: &egui::Context) {
         };
         fonts
             .families
-            .insert(FontFamily::Name(name.to_owned()), keys);
+            .insert(FontFamily::Name(name.into()), keys);
     }
 
     ctx.set_fonts(fonts);

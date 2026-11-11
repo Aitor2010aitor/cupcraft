@@ -306,7 +306,7 @@ pub fn apply_fx(c: Color32, fx: &Fx) -> Color32 {
         *v *= fx.brightness;
     }
     for v in &mut col {
-        *v = (v - 0.5) * fx.contrast + 0.5;
+        *v = (*v - 0.5) * fx.contrast + 0.5;
     }
     if fx.grayscale > 0.0 {
         let l = 0.2126 * col[0] + 0.7152 * col[1] + 0.0722 * col[2];

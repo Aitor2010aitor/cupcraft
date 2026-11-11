@@ -1,0 +1,13 @@
+[package]
+name = "cupcraft-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+eframe = "0.37.0"
+cupcraft-core = { path = "../cupcraft-core" }
+cupcraft-persist = { path = "../cupcraft-persist" }
+rfd = "0.15"
+serde_json = "1"

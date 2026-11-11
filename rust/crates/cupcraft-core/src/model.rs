@@ -39,6 +39,10 @@ pub struct Adjust {
     pub contrast: f64,
     #[serde(default = "adjust_default")]
     pub saturate: f64,
+    /// Ajustes extra que usan los presets (sepia, grayscale, hue…): se
+    /// conservan tal cual para no perderlos al guardar, igual que en la app JS.
+    #[serde(flatten)]
+    pub extra: Map<String, Value>,
 }
 
 fn adjust_default() -> f64 {
@@ -47,7 +51,7 @@ fn adjust_default() -> f64 {
 
 impl Default for Adjust {
     fn default() -> Self {
-        Self { brightness: 100.0, contrast: 100.0, saturate: 100.0 }
+        Self { brightness: 100.0, contrast: 100.0, saturate: 100.0, extra: Map::new() }
     }
 }
 

@@ -21,7 +21,7 @@ pub const CATEGORIES: [&str; 12] = [
 ];
 
 /// Una entrada de la línea.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Filter {
     /// Clave del filtro (se guarda en `clip.filter`).
     pub key: &'static str,

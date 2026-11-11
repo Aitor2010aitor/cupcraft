@@ -93,7 +93,11 @@ impl Project {
         start: Option<f64>,
         media_id: Option<String>,
     ) -> Option<String> {
-        let track_kind = if kind == ClipKind::Audio { TrackType::Audio } else { TrackType::Video };
+        let track_kind = match kind {
+            ClipKind::Audio => TrackType::Audio,
+            ClipKind::Text => TrackType::Text,
+            _ => TrackType::Video,
+        };
         let destination = self.track_for(track_id, track_kind)?.id.clone();
         let desired = start.unwrap_or_else(|| {
             self.track(&destination).map(|t| t.end(None)).unwrap_or(0.0)
@@ -234,39 +238,29 @@ impl Project {
                 }
                 _ => {
                     // Campos escalares conocidos.
-                    let target: Option<&mut f64> = match key.as_str() {
-                        "speed" => Some(&mut clip.speed),
-                        "volume" => Some(&mut clip.volume),
-                        "opacity" => Some(&mut clip.opacity),
-                        "scale" => Some(&mut clip.scale),
-                        "x" => Some(&mut clip.x),
-                        "y" => Some(&mut clip.y),
-                        "fadeIn" => Some(&mut clip.fade_in),
-                        "fadeOut" => Some(&mut clip.fade_out),
-                        "glFilterAmount" => clip.gl_filter_amount.as_mut(),
-                        "lutAmount" => clip.lut_amount.as_mut(),
-                        _ => None,
-                    };
-                    if let Some(slot) = target {
-                        if let Some(v) = value.as_f64() {
-                            *slot = v;
+                    match key.as_str() {
+                        "speed" => set_f64(value, &mut clip.speed),
+                        "volume" => set_f64(value, &mut clip.volume),
+                        "opacity" => set_f64(value, &mut clip.opacity),
+                        "scale" => set_f64(value, &mut clip.scale),
+                        "x" => set_f64(value, &mut clip.x),
+                        "y" => set_f64(value, &mut clip.y),
+                        "fadeIn" => set_f64(value, &mut clip.fade_in),
+                        "fadeOut" => set_f64(value, &mut clip.fade_out),
+                        "glFilterAmount" => set_opt_f64(value, &mut clip.gl_filter_amount),
+                        "lutAmount" => set_opt_f64(value, &mut clip.lut_amount),
+                        "name" => {
+                            if let Some(v) = value.as_str() {
+                                clip.name = v.to_string();
+                            }
                         }
-                    } else {
-                        // Texto/nombre y filtros especiales.
-                        match key.as_str() {
-                            "name" => {
-                                if let Some(v) = value.as_str() {
-                                    clip.name = v.to_string();
-                                }
-                            }
-                            "glFilter" => clip.gl_filter = value.as_str().map(str::to_string),
-                            "glFilterName" => clip.gl_filter_name = value.as_str().map(str::to_string),
-                            "lut" => clip.lut = value.as_str().map(str::to_string),
-                            "lutName" => clip.lut_name = value.as_str().map(str::to_string),
-                            other => {
-                                // Campo no modelado: se conserva tal cual.
-                                clip.extra.insert(other.to_string(), value.clone());
-                            }
+                        "glFilter" => clip.gl_filter = value.as_str().map(str::to_string),
+                        "glFilterName" => clip.gl_filter_name = value.as_str().map(str::to_string),
+                        "lut" => clip.lut = value.as_str().map(str::to_string),
+                        "lutName" => clip.lut_name = value.as_str().map(str::to_string),
+                        other => {
+                            // Campo no modelado: se conserva tal cual.
+                            clip.extra.insert(other.to_string(), value.clone());
                         }
                     }
                 }
@@ -274,6 +268,80 @@ impl Project {
         }
         clip.start = clip.start.max(0.0);
         clip.duration = clip.duration.max(0.1);
+    }
+
+    /// Aplica un filtro de la línea a un clip de vídeo o imagen, replicando
+    /// `applyFilter` de `panels.js`: al cambiar se limpian los otros motores
+    /// (LUT y GL) para que el clip termine con exactamente un filtro.
+    ///
+    /// Devuelve `false` si el clip no admite filtros o la clave no existe.
+    pub fn apply_filter(&mut self, clip_id: &str, key: &str) -> bool {
+        let Ok(def) = (if key == "none" {
+            Ok(crate::filters::Filter { key: "none", label: "Ninguno", category: "Esenciales", css: "none", gl: None })
+        } else {
+            crate::filters::by_key(key).copied().ok_or(())
+        }) else {
+            return false;
+        };
+        let Some(clip) = self.find_clip_mut(clip_id) else { return false };
+        if !matches!(clip.kind, ClipKind::Video | ClipKind::Image) {
+            return false;
+        }
+        if let Some(shader) = def.gl {
+            clip.filter = "none".into();
+            clip.lut = None;
+            clip.lut_amount = Some(1.0);
+            clip.gl_filter = Some(shader.to_string());
+            clip.gl_filter_name = Some(def.label.to_string());
+            clip.gl_filter_amount = Some(1.0);
+        } else {
+            clip.filter = def.key.to_string();
+            clip.lut = None;
+            clip.lut_amount = Some(1.0);
+            clip.gl_filter = None;
+            clip.gl_filter_name = None;
+            clip.gl_filter_amount = Some(1.0);
+        }
+        true
+    }
+
+    /// Añade un clip de texto con los valores por defecto (puerto de
+    /// `addTextClip` de `src/store.js`). Devuelve su id.
+    pub fn add_text_clip(
+        &mut self,
+        content: &str,
+        start: Option<f64>,
+        duration: f64,
+        preset: Option<&serde_json::Value>,
+    ) -> Option<String> {
+        let destination = self.track_for(None, TrackType::Text)?.id.clone();
+        let desired = start.unwrap_or(0.0);
+        let final_start = {
+            let track = self.track(&destination)?;
+            resolve_start(track, None, desired, duration)
+        };
+        let preset = preset.cloned().unwrap_or_else(|| serde_json::json!({}));
+        let mut text = text_defaults();
+        if let Some(obj) = preset.as_object() {
+            for (key, value) in obj {
+                if key == "text" {
+                    if let Some(inner) = value.as_object() {
+                        for (k, v) in inner {
+                            text.insert(k.clone(), v.clone());
+                        }
+                    }
+                } else {
+                    text.insert(key.clone(), value.clone());
+                }
+            }
+        }
+        text.insert("content".into(), serde_json::Value::String(content.to_string()));
+
+        let mut clip = make_clip(ClipKind::Text, truncate_name(content, 22), final_start, duration);
+        clip.text = Some(serde_json::Value::Object(text));
+        let track = self.track_mut(&destination)?;
+        track.clips.push(clip);
+        track.clips.last().map(|c| c.id.clone())
     }
 
     /// Mueve un clip a otro inicio y/o pista (respetando el encaje).
@@ -375,8 +443,81 @@ pub enum TrimEdge {
     Right,
 }
 
+/// Escribe un escalar del parche si trae número (los `null`/texto se ignoran,
+/// igual que hace `updateClip` en JS cuando el valor no es numérico).
+fn set_f64(value: &serde_json::Value, slot: &mut f64) {
+    if let Some(v) = value.as_f64() {
+        *slot = v;
+    }
+}
+
+/// Igual que `set_f64` pero para campos opcionales (`glFilterAmount`…): si el
+/// valor es `null` se limpia la opción, como en JS.
+fn set_opt_f64(value: &serde_json::Value, slot: &mut Option<f64>) {
+    if value.is_null() {
+        *slot = None;
+    } else if let Some(v) = value.as_f64() {
+        *slot = Some(v);
+    }
+}
+
 fn clip_speed(clip: &Clip) -> f64 {
     clip.speed
+}
+
+/// Recorta el nombre de clip como hace JS: `content.slice(0, 22)` (por
+/// caracteres Unicode, no por bytes).
+fn truncate_name(content: &str, max: usize) -> String {
+    content.chars().take(max).collect()
+}
+
+/// `TEXT_DEFAULTS` de `src/store.js`: valores iniciales de un clip de texto.
+fn text_defaults() -> serde_json::Map<String, serde_json::Value> {
+    use serde_json::json;
+    let value = json!({
+        "size": 72,
+        "weight": 800,
+        "color": "#ffffff",
+        "align": "center",
+        "font": "Inter",
+        "x": 0,
+        "y": 0,
+        "letterSpacing": 0,
+        "lineSpacing": 1.18,
+        "bold": false,
+        "italic": false,
+        "underline": false,
+        "textCase": "none",
+        "opacity": 1,
+        "shadow": true,
+        "shadowColor": "#000000",
+        "shadowAlpha": 0.58,
+        "shadowBlur": 0.2,
+        "shadowDistance": 0.05,
+        "shadowAngle": 90,
+        "strokeColor": "#000000",
+        "strokeWidth": 0,
+        "strokeAlpha": 1,
+        "strokeMode": "outer",
+        "strokeSmoothing": 0,
+        "background": "transparent",
+        "backgroundAlpha": 1,
+        "backgroundStyle": "rounded",
+        "backgroundRadius": 0.16,
+        "backgroundPadding": 0.22,
+        "backgroundBorderColor": "#000000",
+        "backgroundBorderWidth": 0,
+        "glow": false,
+        "glowColor": "#00e5d0",
+        "glowBlur": 0.35,
+        "curve": 0,
+        "flipX": false,
+        "flipY": false,
+        "animation": "none",
+        "animationPhase": "in",
+        "animationDuration": 0.6,
+    });
+    value.as_object().cloned().unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -572,6 +713,114 @@ mod tests {
         // Sigue en la pista de vídeo.
         assert_eq!(p.tracks[1].clips.len(), 1);
         assert!(p.tracks[2].clips.is_empty());
+    }
+
+    #[test]
+    fn apply_color_filter_clears_gl_and_lut() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        // Antes: un filtro GL heredado encima.
+        p.update_clip(&id, serde_json::json!({ "glFilter": "bruma-borgona", "glFilterName": "Bruma borgoña", "lut": "assets/luts/x.png" }));
+        assert!(p.apply_filter(&id, "vivid"));
+        let c = p.find_clip(&id).unwrap().1;
+        assert_eq!(c.filter, "vivid");
+        assert!(c.gl_filter.is_none(), "el GL anterior se limpia");
+        assert!(c.gl_filter_name.is_none());
+        assert!(c.lut.is_none(), "el LUT anterior se limpia");
+        assert_eq!(c.gl_filter_amount, Some(1.0));
+        assert_eq!(c.lut_amount, Some(1.0));
+    }
+
+    #[test]
+    fn apply_gl_filter_sets_shader_and_keeps_filter_none() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        p.apply_filter(&id, "vivid");
+        assert!(p.apply_filter(&id, "burgundyHaze"));
+        let c = p.find_clip(&id).unwrap().1;
+        assert_eq!(c.filter, "none", "los filtros GL dejan filter en none");
+        assert_eq!(c.gl_filter.as_deref(), Some("bruma-borgona"));
+        assert_eq!(c.gl_filter_name.as_deref(), Some("Bruma borgoña"));
+        assert_eq!(c.gl_filter_amount, Some(1.0));
+        // Exactamente un motor: no queda rastro del color anterior.
+        assert_eq!(c.filter, "none");
+    }
+
+    #[test]
+    fn apply_filter_rejects_text_and_unknown_keys() {
+        let mut p = Project::new("Demo");
+        // Un clip de texto no admite filtros. (Como en JS, `addMediaToTimeline`
+        // solo encaja vídeo/imagen en pistas de vídeo y audio en las de audio,
+        // así que el texto lo colocamos a mano en su pista.)
+        let text_id = {
+            let track = p.track_mut("track_text").unwrap();
+            let mut clip = crate::timeline::make_clip(ClipKind::Text, "título", 0.0, 3.0);
+            clip.id = "clip_texto_prueba".into();
+            track.clips.push(clip);
+            "clip_texto_prueba".to_string()
+        };
+        assert!(!p.apply_filter(&text_id, "vivid"), "el texto no se filtra");
+        // Clave inexistente.
+        let img = p
+            .add_media_clip(None, ClipKind::Image, "foto.png", 5.0, None, None)
+            .unwrap();
+        assert!(!p.apply_filter(&img, "calabaza"));
+        // "none" sí es válida y deja el clip limpio.
+        assert!(p.apply_filter(&img, "none"));
+        let c = p.find_clip(&img).unwrap().1;
+        assert_eq!(c.filter, "none");
+        assert!(c.gl_filter.is_none());
+        assert!(c.lut.is_none());
+    }
+
+    #[test]
+    fn update_clip_sets_optional_amounts_from_null_and_numbers() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        p.update_clip(&id, serde_json::json!({ "glFilterAmount": 0.4, "lutAmount": 0.6 }));
+        assert_eq!(p.find_clip(&id).unwrap().1.gl_filter_amount, Some(0.4));
+        assert_eq!(p.find_clip(&id).unwrap().1.lut_amount, Some(0.6));
+        p.update_clip(&id, serde_json::json!({ "glFilterAmount": null }));
+        assert_eq!(p.find_clip(&id).unwrap().1.gl_filter_amount, None, "null limpia el campo");
+    }
+
+    #[test]
+    fn add_text_clip_uses_the_text_track_and_defaults() {
+        let mut p = Project::new("Demo");
+        let id = p.add_text_clip("Tu título aquí", Some(2.0), 5.0, None).unwrap();
+        let (track, clip) = p.find_clip(&id).unwrap();
+        assert_eq!(track.kind, TrackType::Text, "va a la pista de Texto");
+        assert_eq!(clip.kind, ClipKind::Text);
+        assert!((clip.start - 2.0).abs() < 1e-9);
+        assert_eq!(clip.name, "Tu título aquí", "nombre = contenido (≤22)");
+        let text = clip.text.as_ref().unwrap();
+        assert_eq!(text["content"], "Tu título aquí");
+        assert_eq!(text["size"], 72, "TEXT_DEFAULTS.size");
+        assert_eq!(text["font"], "Inter");
+        assert_eq!(text["weight"], 800);
+        assert_eq!(text["shadow"], true);
+        assert_eq!(text["background"], "transparent");
+    }
+
+    #[test]
+    fn add_text_clip_overrides_preset_fields() {
+        let mut p = Project::new("Demo");
+        let preset = serde_json::json!({ "size": 96, "weight": 600, "color": "#00e5d0" });
+        let id = p.add_text_clip("Hola", Some(0.0), 5.0, Some(&preset)).unwrap();
+        let clip = p.find_clip(&id).unwrap().1;
+        let text = clip.text.as_ref().unwrap();
+        assert_eq!(text["size"], 96, "el preajuste manda");
+        assert_eq!(text["weight"], 600);
+        assert_eq!(text["color"], "#00e5d0");
+        assert_eq!(text["align"], "center", "los no indicados siguen en defaults");
+    }
+
+    #[test]
+    fn add_text_clip_name_is_limited_to_22_chars() {
+        let mut p = Project::new("Demo");
+        let long = "ñ".repeat(40);
+        let id = p.add_text_clip(&long, None, 5.0, None).unwrap();
+        assert_eq!(p.find_clip(&id).unwrap().1.name.chars().count(), 22);
     }
 
     #[test]

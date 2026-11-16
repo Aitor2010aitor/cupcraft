@@ -1,4 +1,7 @@
 # cupcraft
+
+
+fack you capcut 
 ![README IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/version.04/READMEN.md)
 
 

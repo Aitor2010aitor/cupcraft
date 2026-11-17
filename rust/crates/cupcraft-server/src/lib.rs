@@ -640,7 +640,8 @@ pub fn start(root: PathBuf, preferred_port: u16, attempts: u16) -> Result<Server
         ));
     }
     let allowed: AllowedMedia = Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
-    let bridge_port = std::env::var("openCUP_AI_PORT")
+    let bridge_port = std::env::var("CUPCRAFT_AI_PORT")
+        .or_else(|_| std::env::var("openCUP_AI_PORT"))
         .ok()
         .and_then(|value| value.parse::<u16>().ok())
         .unwrap_or(8790);

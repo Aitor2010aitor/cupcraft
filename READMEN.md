@@ -18,11 +18,12 @@ The app is **Rust end to end**: a single executable opens the web interface in a
 ## What's new in 0.4.5
 
 - **Native Rust desktop shell**: `cupcraft-desktop` (tao + wry) starts the local server and opens the UI in WebView2. One `.exe` of about 4 MB.
-- **Animated stickers fixed**: CapCut WebP and GIF stickers are decoded and drawn frame by frame using each clip's local time.
+- **Animated stickers fixed**: CapCut WebP and GIF stickers are decoded and drawn frame by frame using each clip's local time. If the local thumbnail is static but the original sticker is animated, the remote version is used.
+- **More reliable startup**: the app uses its own writable data folder, shows a clear message when WebView2 or the app folder is missing, reuses the running window, and picks another port when 8787 is busy.
 - **More robust CapCut import**: new `material_path()` with several fallbacks, so stickers stored without an extension are found too.
 - **CapCut-style timeline**: mouse-wheel zoom anchored at the cursor, and a more visible yellow playhead.
 - **Closing a project no longer closes the app**: leaving the editor returns to the home screen while the window and server stay alive, like CapCut.
-- **Version in the title bar**: the window shows `cupcraft v0.1.0`, with the duplicate in-app window controls removed.
+- **Version in the title bar**: the window shows `cupcraft v0.4.5`, with the duplicate in-app window controls removed.
 - **Local voices with Piper (TTS-Abierto)**: neural speech synthesis on the machine, without sending text to the cloud.
 
 ## Features
@@ -39,7 +40,7 @@ The app is **Rust end to end**: a single executable opens the web interface in a
 - Detects native drafts from CapCut installed on Windows (`%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`).
 - Displays the name, date, aspect ratio, duration, thumbnail, and number of clips before importing.
 - Creates a new cupcraft project without modifying the original draft: it copies media to IndexedDB, remaps tracks, and preserves text clips and their timings.
-- **Animated stickers** (animated WebP and GIF) are imported fully and play in sync with each clip's local time.
+- **Animated stickers** (animated WebP and GIF) are imported fully and play in sync with each clip's local time, including the ones added from the CapCut panel even when their local thumbnail is static.
 - Stickers that CapCut stores without an extension are located by trying several known paths and extensions.
 - Import works offline and does not use CapCut cloud services.
 
@@ -126,7 +127,9 @@ Requirements:
 cupcraft.cmd
 ```
 
-The launcher builds the first time and opens the window. The title bar shows the running version (`cupcraft v0.1.0`). Closing a project with the editor's **X** returns to the home screen; the window and server keep running, like CapCut.
+The launcher builds the first time and opens the window. The title bar shows the running version (`cupcraft v0.4.5`). Closing a project with the editor's **X** returns to the home screen; the window and server keep running, like CapCut.
+
+To open the compiled build, run `dist\cupcraft-rust\cupcraft.exe` (or `cupcraft-desktop.exe`). Keep the **whole folder**: the executable needs `index.html`, `src/`, and `assets/` next to it. If anything is missing, the app shows a message instead of closing silently.
 
 You can also do it manually:
 
@@ -144,10 +147,10 @@ To run only the server (no window), for example with a browser:
 
 Open <http://127.0.0.1:8787>. The server listens only on `127.0.0.1` and needs no external dependencies.
 
-You can also change the ports: `PORT` for the main server (default `8787`) and `openCUP_AI_PORT` for the AI bridge (default `8790`).
+You can also change the ports: `CUPCRAFT_PORT` (or `PORT`) for the main server (default `8787`) and `CUPCRAFT_AI_PORT` (or `openCUP_AI_PORT`) for the AI bridge (default `8790`). If they are busy, the next ports are tried.
 
 ```powershell
-$env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
+$env:CUPCRAFT_PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 ```
 
 ## Desktop application
@@ -155,7 +158,10 @@ $env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 - `rust/crates/cupcraft-desktop` creates the native window with `tao` and embeds WebView2 with `wry`.
 - `rust/crates/cupcraft-server` serves `index.html`, `src/`, and `assets/`, the `/api/capcut/*` API, the `/api/img` proxy, the `/api/ai/*` AI bridge, and the `/api/tts/*` local voices.
 - The server starts with the window and stops when it closes. Closing a project only returns to the home screen: it does not end the process or open a second instance.
-- Projects are stored in WebView2 storage (`%LOCALAPPDATA%\openCUP\WebView2`); the startup log is at `%LOCALAPPDATA%\openCUP\openCUP.log`.
+- There is a single instance per user: opening `cupcraft.exe` again brings the existing window to the front.
+- Projects are stored in the WebView2 profile at `%LOCALAPPDATA%\cupcraft\WebView2`; the startup log is at `%LOCALAPPDATA%\cupcraft\cupcraft.log`.
+- The first run migrates projects automatically from the old profile next to the `.exe` or from `%LOCALAPPDATA%\openCUP\WebView2`.
+- If the app lives in a read-only folder it still works, because data goes to `%LOCALAPPDATA%`.
 - `launcher/`, `dotnet/`, and `server.mjs`/`server/*.mjs` are kept only as historical reference: the application does not use them.
 
 To build in release mode and assemble a folder ready to copy:
@@ -164,7 +170,7 @@ To build in release mode and assemble a folder ready to copy:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-rust.ps1
 ```
 
-The result is `dist/cupcraft-rust`, containing `cupcraft-desktop.exe`, `index.html`, `src/`, and `assets/`. To build only the binary: `cd rust; cargo build --release -p cupcraft-desktop`.
+The result is `dist/cupcraft-rust`, containing `cupcraft.exe`, `cupcraft-desktop.exe`, `index.html`, `src/`, and `assets/`. To build only the binary: `cd rust; cargo build --release -p cupcraft-desktop`.
 
 ## Keyboard shortcuts
 
@@ -207,6 +213,7 @@ The right-hand panel lets you edit the project or selected clip without leaving 
 - Export runs in real time and does not use GPU acceleration beyond what the browser provides.
 - Supported audio and video formats depend on the codecs supported by the browser.
 - There is no collaboration or account system: the project exists in the browser where it was created.
+- To open cupcraft on another PC, copy the **whole** `cupcraft-rust` folder (executable, `index.html`, `src`, and `assets`) and install WebView2 Runtime. Copying only the `.exe` cannot start the interface.
 
 ## Project structure
 

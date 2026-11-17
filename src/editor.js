@@ -16,6 +16,7 @@ import { mountLeftPanel } from './panels.js';
 import { mountDetailsPanel } from './panels.js';
 import { mountPreview } from './preview.js';
 import { mountTimeline } from './timeline.js';
+import { installPanelResizers } from './layout-resize.js';
 import { openExportDialog, captureScreenshot } from './export.js';
 import { openShortcutsDialog, openAboutDialog } from './dialogs.js';
 import { openCapCutImportDialog } from './capcut.js';
@@ -71,7 +72,11 @@ export function mountEditor(root) {
           </nav>
           <aside data-left></aside>
         </div>
+        <div class="v-split" data-split="left" role="separator" aria-orientation="vertical"
+          aria-label="Ajustar el ancho del panel izquierdo" title="Arrastra para cambiar el ancho · doble clic para restablecer"></div>
         <section data-center></section>
+        <div class="v-split" data-split="right" role="separator" aria-orientation="vertical"
+          aria-label="Ajustar el ancho del panel de detalles" title="Arrastra para cambiar el ancho · doble clic para restablecer"></div>
         <aside data-details></aside>
       </div>
       <section data-timeline></section>
@@ -92,6 +97,14 @@ export function mountEditor(root) {
   const preview = mountPreview(root.querySelector('[data-center]'));
   const details = mountDetailsPanel(detailsHost);
   const timeline = mountTimeline(root.querySelector('[data-timeline]'));
+
+  // Divisores arrastrables entre panel izquierdo, vista previa y detalles.
+  const detachResizers = installPanelResizers({
+    workspace: editRoot.querySelector('.workspace'),
+    leftCol: editRoot.querySelector('.left-col'),
+    detailsPanel: detailsHost,
+    onChange: () => window.dispatchEvent(new Event('resize')),
+  });
 
   const subscriptions = [];
   let popover = null;
@@ -384,6 +397,7 @@ export function mountEditor(root) {
     element: editRoot,
     destroy() {
       closePopover();
+      detachResizers();
       narrowDetailsQuery.removeEventListener('change', onNarrowDetails);
       subscriptions.forEach((off) => off());
       left.destroy();

@@ -21,11 +21,13 @@ function isNear(data, index, color, tolerance) {
     && Math.abs(data[index + 2] - color[2]) <= tolerance;
 }
 
-export async function prepareStickerSrc(src) {
+export async function prepareStickerSrc(src, fallback = null) {
   try {
     if (!src || src.startsWith('data:')) return src;
     // Recortar el fondo convertiría el sticker animado en un PNG estático.
-    if (await stickerIsAnimated(src)) return src;
+    // Se mira también la URL remota: la miniatura local puede ser estática
+    // aunque el sticker original de CapCut esté animado.
+    if (await stickerIsAnimated(src, fallback)) return src;
     const img = await loadImage(src);
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;

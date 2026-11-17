@@ -21,11 +21,12 @@ La aplicación es **Rust de principio a fin**: un único ejecutable abre la inte
 ## Novedades de la 0.4.5
 
 - **Escritorio nativo en Rust**: `cupcraft-desktop` (tao + wry) arranca el servidor local y abre la UI en WebView2. Un solo `.exe` de unos 4 MB.
-- **Stickers animados arreglados**: los stickers WebP y GIF de CapCut ya se decodifican y se dibujan fotograma a fotograma siguiendo el tiempo del clip.
+- **Stickers animados arreglados**: los stickers WebP y GIF de CapCut ya se decodifican y se dibujan fotograma a fotograma siguiendo el tiempo del clip. Si la miniatura local es estática pero el sticker original es animado, se usa la versión remota.
+- **Arranque más fiable**: la app usa una carpeta de datos propia y escribible, muestra un aviso claro si falta WebView2 o la carpeta de la aplicación, reutiliza la ventana ya abierta y elige otro puerto si el 8787 está ocupado.
 - **Importación de CapCut más robusta**: nuevo `material_path()` con varios fallbacks, así se encuentran también los stickers que vienen sin extensión en el borrador.
 - **Línea de tiempo estilo CapCut**: zoom con la rueda del ratón manteniendo el punto temporal bajo el cursor, y cabezal amarillo más visible.
 - **Cerrar un proyecto ya no cierra la app**: al salir del editor se vuelve a la pantalla de inicio con el servidor y la ventana vivos, como en CapCut.
-- **Título con versión**: la barra de la ventana muestra `cupcraft v0.1.0`, sin controles de ventana duplicados dentro de la UI.
+- **Título con versión**: la barra de la ventana muestra `cupcraft v0.4.5`, sin controles de ventana duplicados dentro de la UI.
 - **Voces locales con Piper (TTS-Abierto)**: síntesis de voz neuronal en el equipo, sin enviar texto a la nube.
 
 ## Funciones
@@ -42,7 +43,7 @@ La aplicación es **Rust de principio a fin**: un único ejecutable abre la inte
 - Detecta los borradores nativos de CapCut instalado en Windows (`%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`).
 - Muestra nombre, fecha, relación de aspecto, duración, miniatura y número de clips antes de importar.
 - Crea un proyecto nuevo de cupcraft sin modificar el borrador original: copia los medios a IndexedDB, remapea las pistas y conserva los clips de texto con sus tiempos.
-- Los **stickers animados** (WebP animado y GIF) se importan completos y se reproducen sincronizados con el tiempo local de cada clip.
+- Los **stickers animados** (WebP animado y GIF) se importan completos y se reproducen sincronizados con el tiempo local de cada clip, también los que se añaden desde el panel CapCut aunque su miniatura local sea estática.
 - Los stickers que CapCut guarda sin extensión se localizan probando varias rutas y extensiones conocidas.
 - La importación funciona sin conexión y no usa servicios en la nube de CapCut.
 
@@ -129,7 +130,9 @@ Requisitos:
 cupcraft.cmd
 ```
 
-El lanzador compila la primera vez y abre la ventana. La barra de título muestra la versión en uso (`cupcraft v0.1.0`). Al cerrar un proyecto con la **X** del editor se vuelve a la pantalla de inicio; la ventana y el servidor siguen abiertos, como en CapCut.
+El lanzador compila la primera vez y abre la ventana. La barra de título muestra la versión en uso (`cupcraft v0.4.5`). Al cerrar un proyecto con la **X** del editor se vuelve a la pantalla de inicio; la ventana y el servidor siguen abiertos, como en CapCut.
+
+Para abrir la versión ya compilada, ejecuta `dist\cupcraft-rust\cupcraft.exe` (o `cupcraft-desktop.exe`). Debes conservar **la carpeta completa**: el ejecutable necesita `index.html`, `src/` y `assets/` a su lado. Si falta algo, la app lo indica con un aviso en lugar de cerrarse en silencio.
 
 También puedes hacerlo a mano:
 
@@ -147,10 +150,10 @@ Para usar solo el servidor (sin ventana), por ejemplo con un navegador:
 
 Abre <http://127.0.0.1:8787>. El servidor escucha solo en `127.0.0.1` y no necesita dependencias externas.
 
-También puedes cambiar los puertos: `PORT` para el servidor principal (por defecto `8787`) y `openCUP_AI_PORT` para el puente IA (por defecto `8790`).
+También puedes cambiar los puertos: `CUPCRAFT_PORT` (o `PORT`) para el servidor principal (por defecto `8787`) y `CUPCRAFT_AI_PORT` (o `openCUP_AI_PORT`) para el puente IA (por defecto `8790`). Si están ocupados, se prueban los siguientes.
 
 ```powershell
-$env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
+$env:CUPCRAFT_PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 ```
 
 ## Aplicación de escritorio
@@ -158,7 +161,10 @@ $env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 - `rust/crates/cupcraft-desktop` crea la ventana nativa con `tao` y embebe WebView2 con `wry`.
 - `rust/crates/cupcraft-server` sirve `index.html`, `src/` y `assets/`, la API `/api/capcut/*`, el proxy `/api/img`, el puente IA `/api/ai/*` y las voces locales `/api/tts/*`.
 - El servidor arranca con la ventana y se detiene al cerrarla. Cerrar un proyecto solo vuelve al inicio: no termina el proceso ni abre una segunda instancia.
-- Los proyectos se guardan en el almacenamiento de WebView2 (`%LOCALAPPDATA%\openCUP\WebView2`); el registro de arranque está en `%LOCALAPPDATA%\openCUP\openCUP.log`.
+- Solo hay una instancia por usuario: al volver a abrir `cupcraft.exe` se trae al frente la ventana que ya está abierta.
+- Los proyectos se guardan en el perfil de WebView2 en `%LOCALAPPDATA%\cupcraft\WebView2`; el registro de arranque está en `%LOCALAPPDATA%\cupcraft\cupcraft.log`.
+- La primera vez se migran automáticamente los proyectos del perfil antiguo junto al `.exe` o de `%LOCALAPPDATA%\openCUP\WebView2`.
+- Si la app está en una carpeta de solo lectura, sigue funcionando porque los datos van a `%LOCALAPPDATA%`.
 - Las carpetas `launcher/`, `dotnet/` y los archivos `server.mjs`/`server/*.mjs` se conservan solo como referencia histórica: la aplicación no los usa.
 
 Para compilar en release y montar una carpeta lista para copiar:
@@ -167,7 +173,7 @@ Para compilar en release y montar una carpeta lista para copiar:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-rust.ps1
 ```
 
-El resultado es `dist/cupcraft-rust`, con `cupcraft-desktop.exe`, `index.html`, `src/` y `assets/`. Para compilar solo el binario: `cd rust; cargo build --release -p cupcraft-desktop`.
+El resultado es `dist/cupcraft-rust`, con `cupcraft.exe`, `cupcraft-desktop.exe`, `index.html`, `src/` y `assets/`. Para compilar solo el binario: `cd rust; cargo build --release -p cupcraft-desktop`.
 
 ## Atajos de teclado
 
@@ -210,6 +216,7 @@ El panel derecho permite editar el proyecto o el clip seleccionado sin salir del
 - La exportación es en tiempo real y no usa aceleración por GPU más allá de la que aplique el navegador.
 - El formato de audio y video reproducible depende del códec soportado por el navegador.
 - No hay colaboración ni cuentas: el proyecto vive en el navegador donde se creó.
+- Para abrir en otro PC hay que copiar **toda** la carpeta `cupcraft-rust` (ejecutable, `index.html`, `src` y `assets`) y tener instalado WebView2 Runtime. Copiar solo el `.exe` no arranca la interfaz.
 
 ## Estructura
 

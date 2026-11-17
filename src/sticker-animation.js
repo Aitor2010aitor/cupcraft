@@ -2,7 +2,7 @@
 // línea de tiempo. Sin esto el canvas dibuja siempre el primer fotograma, aunque
 // la miniatura del panel sí se mueva.
 
-const MAX_CACHE = 24;
+const MAX_CACHE = 32;
 const MAX_FRAMES = 120;
 const MAX_SIZE = 640;
 
@@ -32,25 +32,26 @@ function mimeFromSrc(src) {
   return match ? match[1].toLowerCase() : '';
 }
 
-async function fetchImageBytes(src, fallback) {
-  const attempt = async (url) => {
-    const response = await fetch(url, { cache: 'force-cache' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const type = (response.headers.get('content-type') || '').split(';')[0].trim();
-    return { data: await response.arrayBuffer(), type };
-  };
+async function fetchImageBytes(url) {
+  const response = await fetch(url, { cache: 'force-cache' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const type = (response.headers.get('content-type') || '').split(';')[0].trim();
+  return { data: await response.arrayBuffer(), type };
+}
+
+/** Descarga `src` y, si falla, la URL remota de respaldo (a través del proxy). */
+async function fetchImageBytesWithFallback(src, fallback) {
   try {
-    return await attempt(src);
+    return { ...(await fetchImageBytes(src)), usedFallback: false };
   } catch (error) {
-    if (!fallback) throw error;
-    return attempt(`/api/img?u=${encodeURIComponent(fallback)}`);
+    if (!fallback || fallback === src) throw error;
+    return { ...(await fetchImageBytes(`/api/img?u=${encodeURIComponent(fallback)}`)), usedFallback: true };
   }
 }
 
-/** true si la imagen tiene más de un fotograma. */
-export async function stickerIsAnimated(src, fallback = null) {
+async function sourceIsAnimated(src) {
   try {
-    const { data, type: rawType } = await fetchImageBytes(src, fallback);
+    const { data, type: rawType } = await fetchImageBytes(src);
     const type = (rawType || mimeFromSrc(src)).toLowerCase();
     if (!type.startsWith('image/') || typeof globalThis.ImageDecoder !== 'function') {
       return /gif|webp/i.test(type);
@@ -67,8 +68,19 @@ export async function stickerIsAnimated(src, fallback = null) {
   }
 }
 
+/**
+ * true si la imagen tiene más de un fotograma. Se comprueban tanto el archivo
+ * local como la URL remota de respaldo: las miniaturas locales pueden ser
+ * estáticas aunque el sticker original de CapCut sí esté animado.
+ */
+export async function stickerIsAnimated(src, fallback = null) {
+  if (await sourceIsAnimated(src)) return true;
+  if (fallback && fallback !== src) return sourceIsAnimated(fallback);
+  return false;
+}
+
 async function decodeFrames(entry, src, fallback) {
-  const { data, type: rawType } = await fetchImageBytes(src, fallback);
+  const { data, type: rawType, usedFallback } = await fetchImageBytesWithFallback(src, fallback);
   const type = (rawType || mimeFromSrc(src)).toLowerCase();
   if (!type.startsWith('image/') || typeof globalThis.ImageDecoder !== 'function') {
     throw new Error('sin decodificador de imágenes');
@@ -115,6 +127,7 @@ async function decodeFrames(entry, src, fallback) {
   }
 
   if (!frames.length) throw new Error('sin fotogramas');
+  closeEntry(entry);
   entry.frames = frames;
   entry.durations = durations;
   entry.total = total;
@@ -122,15 +135,20 @@ async function decodeFrames(entry, src, fallback) {
   entry.height = frames[0].height;
   entry.animated = frames.length > 1;
   entry.status = 'ready';
+  return usedFallback;
 }
 
 /**
  * Devuelve la entrada de animación de un sticker (se carga en segundo plano).
  * `status` pasa por loading → ready | failed.
+ *
+ * Si el archivo local resulta estático pero hay una URL remota de respaldo, se
+ * vuelve a intentar con ella: así los stickers animados de CapCut siguen
+ * animándose aunque su miniatura local sea un WebP de un solo fotograma.
  */
 export function stickerAnimation(src, fallback = null) {
-  if (!src) return null;
-  const key = `${src}|${fallback || ''}`;
+  if (!src && !fallback) return null;
+  const key = `${src || ''}|${fallback || ''}`;
   const existing = cache.get(key);
   if (existing) {
     cache.delete(key);
@@ -148,12 +166,26 @@ export function stickerAnimation(src, fallback = null) {
   };
   cache.set(key, entry);
   trimCache();
-  decodeFrames(entry, src, fallback)
-    .then(() => window.dispatchEvent(new CustomEvent('opencup:glfx')))
-    .catch((error) => {
-      entry.status = 'failed';
-      entry.error = error;
-    });
+
+  const load = async () => {
+    const primary = src || fallback;
+    const usedFallback = await decodeFrames(entry, primary, src ? fallback : null);
+    // Solo merece la pena reintentar si el primer intento usó el archivo local
+    // (posiblemente una miniatura estática) en lugar del respaldo remoto.
+    if (!entry.animated && !usedFallback && src && fallback && fallback !== src) {
+      try {
+        await decodeFrames(entry, fallback, null);
+      } catch {
+        // El respaldo no sirve: nos quedamos con el fotograma local.
+      }
+    }
+    window.dispatchEvent(new CustomEvent('opencup:glfx'));
+  };
+
+  load().catch((error) => {
+    entry.status = 'failed';
+    entry.error = error;
+  });
   return entry;
 }
 

@@ -14,10 +14,19 @@ try {
 }
 
 $out = Join-Path $root 'dist\cupcraft-rust'
-if (Test-Path $out) { Remove-Item $out -Recurse -Force }
-New-Item -ItemType Directory -Path $out | Out-Null
+New-Item -ItemType Directory -Path $out -Force | Out-Null
+
+# Se conserva el perfil de WebView2 que pueda haber junto al .exe: contiene los
+# proyectos del usuario y la app lo migra a %LOCALAPPDATA%\cupcraft al arrancar.
+Remove-Item (Join-Path $out 'cupcraft-desktop.exe') -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $out 'cupcraft.exe') -Force -ErrorAction SilentlyContinue
+foreach ($item in 'index.html', 'src', 'assets') {
+  $target = Join-Path $out $item
+  if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+}
 
 Copy-Item (Join-Path $root 'rust\target\release\cupcraft-desktop.exe') $out
+Copy-Item (Join-Path $out 'cupcraft-desktop.exe') (Join-Path $out 'cupcraft.exe')
 foreach ($item in 'index.html', 'src', 'assets') {
   $source = Join-Path $root $item
   if (Test-Path $source) {

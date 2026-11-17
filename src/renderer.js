@@ -1652,9 +1652,7 @@ function drawStickerLayer(ctx, layer, width, height, options = {}) {
     const box = fontSize * 2.4;
     // Los stickers animados se dibujan por fotograma según el tiempo del clip:
     // así avanzan al reproducir, se congelan al pausar y siguen al cursor.
-    const animation = sticker.src.startsWith('data:')
-      ? null
-      : stickerAnimation(sticker.src, sticker.srcFallback);
+    const animation = stickerAnimation(sticker.src, sticker.srcFallback);
     const frame = animation
       ? stickerAnimationFrame(animation, local * (clip.speed || 1))
       : null;

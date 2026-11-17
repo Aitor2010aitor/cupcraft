@@ -2185,7 +2185,7 @@ export function mountLeftPanel(host) {
         });
         if (clip) {
           toast(`Sticker “${item.name}” añadido`, 'success', 1600);
-          prepareStickerSrc(item.img)
+          prepareStickerSrc(item.img, item.url || null)
             .then((clean) => {
               if (clean && clean !== item.img) updateClip(clip.id, { sticker: { ...clip.sticker, src: clean, srcFallback: null } });
             })

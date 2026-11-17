@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-app"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "cupcraft-core",
  "cupcraft-persist",
@@ -965,7 +965,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-core"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "serde",
  "serde_json",
@@ -973,16 +973,17 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-desktop"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "cupcraft-server",
  "tao",
+ "windows-sys 0.59.0",
  "wry",
 ]
 
 [[package]]
 name = "cupcraft-persist"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "base64 0.22.1",
  "cupcraft-core",
@@ -993,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-server"
-version = "0.1.0"
+version = "0.4.5"
 dependencies = [
  "base64 0.22.1",
  "percent-encoding",

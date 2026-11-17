@@ -52,6 +52,7 @@ pub fn make_clip(kind: ClipKind, name: impl Into<String>, start: f64, duration: 
         scale: 1.0,
         x: 0.0,
         y: 0.0,
+        rotate: 0.0,
         filter: "none".into(),
         adjust: Adjust::default(),
         fade_in: 0.0,
@@ -245,6 +246,7 @@ impl Project {
                         "scale" => set_f64(value, &mut clip.scale),
                         "x" => set_f64(value, &mut clip.x),
                         "y" => set_f64(value, &mut clip.y),
+                        "rotate" => set_f64(value, &mut clip.rotate),
                         "fadeIn" => set_f64(value, &mut clip.fade_in),
                         "fadeOut" => set_f64(value, &mut clip.fade_out),
                         "glFilterAmount" => set_opt_f64(value, &mut clip.gl_filter_amount),
@@ -434,6 +436,89 @@ impl Project {
         let track = Track { id: new_id("track"), kind, name, clips: Vec::new() };
         self.tracks.push(track);
         self.tracks.last().map(|t| t.id.clone()).unwrap_or_default()
+    }
+
+    /// Recorta la parte izquierda del clip en `time` (Atajo CapCut 'Q').
+    pub fn trim_left_at(&mut self, time: f64, only: Option<&str>) -> bool {
+        for track in &mut self.tracks {
+            for clip in &mut track.clips {
+                if let Some(id) = only {
+                    if clip.id != id {
+                        continue;
+                    }
+                }
+                if time > clip.start + 0.05 && time < clip.end() - 0.05 {
+                    let shift = time - clip.start;
+                    clip.start = time;
+                    clip.duration = (clip.duration - shift).max(0.1);
+                    if !matches!(clip.kind, ClipKind::Image | ClipKind::Text | ClipKind::Sticker) {
+                        clip.in_point = (clip.in_point + shift * clip_speed(clip)).max(0.0);
+                    }
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Recorta la parte derecha del clip en `time` (Atajo CapCut 'W').
+    pub fn trim_right_at(&mut self, time: f64, only: Option<&str>) -> bool {
+        for track in &mut self.tracks {
+            for clip in &mut track.clips {
+                if let Some(id) = only {
+                    if clip.id != id {
+                        continue;
+                    }
+                }
+                if time > clip.start + 0.05 && time < clip.end() - 0.05 {
+                    clip.duration = (time - clip.start).max(0.1);
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Rota un clip 90 grados en el sentido de las agujas del reloj.
+    pub fn rotate_clip_90(&mut self, clip_id: &str) -> bool {
+        if let Some(clip) = self.find_clip_mut(clip_id) {
+            clip.rotate = (clip.rotate + 90.0) % 360.0;
+            return true;
+        }
+        false
+    }
+
+    /// Invierte horizontalmente el clip (espejo).
+    pub fn flip_clip_horizontal(&mut self, clip_id: &str) -> bool {
+        if let Some(clip) = self.find_clip_mut(clip_id) {
+            let flipped = clip.extra.get("flip_h").and_then(|v| v.as_bool()).unwrap_or(false);
+            clip.extra.insert("flip_h".to_string(), serde_json::json!(!flipped));
+            return true;
+        }
+        false
+    }
+
+    /// Invierte la dirección de reproducción del clip.
+    pub fn reverse_clip(&mut self, clip_id: &str) -> bool {
+        if let Some(clip) = self.find_clip_mut(clip_id) {
+            let rev = clip.extra.get("reverse").and_then(|v| v.as_bool()).unwrap_or(false);
+            clip.extra.insert("reverse".to_string(), serde_json::json!(!rev));
+            return true;
+        }
+        false
+    }
+
+    /// Añade o quita un marcador en el punto `time` del proyecto (Atajo CapCut 'M').
+    pub fn toggle_marker(&mut self, time: f64) -> bool {
+        let rounded = (time * 10.0).round() / 10.0;
+        if let Some(pos) = self.markers.iter().position(|&m| (m - rounded).abs() < 0.15) {
+            self.markers.remove(pos);
+            false
+        } else {
+            self.markers.push(rounded);
+            self.markers.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            true
+        }
     }
 }
 
@@ -839,5 +924,50 @@ mod tests {
         p.add_track(TrackType::Video);
         assert_eq!(p.next_track_name(TrackType::Video), "Vídeo 3");
         assert_eq!(p.next_track_name(TrackType::Audio), "Audio 2");
+    }
+
+    #[test]
+    fn trim_left_at_cuts_from_playhead() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        // Clip inicial en start=0.0, duration=5.0.
+        // Recortamos a la izquierda en time=3.0 (el nuevo inicio es 3.0, duración restante 2.0).
+        assert!(p.trim_left_at(3.0, Some(&id)));
+        let c = p.find_clip(&id).unwrap().1;
+        assert_eq!(c.start, 3.0);
+        assert!((c.duration - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn trim_right_at_cuts_from_playhead() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        // Clip inicial en start=0.0, duration=5.0.
+        // Recortamos a la derecha en time=2.0 (inicio sigue en 0.0, nueva duración 2.0).
+        assert!(p.trim_right_at(2.0, Some(&id)));
+        let c = p.find_clip(&id).unwrap().1;
+        assert_eq!(c.start, 0.0);
+        assert!((c.duration - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rotate_clip_and_flip_work() {
+        let mut p = project_with_clip();
+        let id = p.tracks[1].clips[0].id.clone();
+        assert!(p.rotate_clip_90(&id));
+        assert_eq!(p.find_clip(&id).unwrap().1.rotate, 90.0);
+        assert!(p.rotate_clip_90(&id));
+        assert_eq!(p.find_clip(&id).unwrap().1.rotate, 180.0);
+        assert!(p.flip_clip_horizontal(&id));
+        assert_eq!(p.find_clip(&id).unwrap().1.extra.get("flip_h").and_then(|v| v.as_bool()), Some(true));
+    }
+
+    #[test]
+    fn markers_toggle() {
+        let mut p = Project::new("Demo");
+        assert!(p.toggle_marker(5.0), "agrega marcador");
+        assert_eq!(p.markers, vec![5.0]);
+        assert!(!p.toggle_marker(5.0), "elimina marcador si ya existe en el punto");
+        assert!(p.markers.is_empty());
     }
 }

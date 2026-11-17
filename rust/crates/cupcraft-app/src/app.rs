@@ -22,6 +22,13 @@ pub enum PanelTab {
     Adjust,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
+pub enum ToolMode {
+    #[default]
+    Select,
+    Split,
+}
+
 pub struct CupApp {
     pub screen: Screen,
     pub editor: Editor,
@@ -36,6 +43,7 @@ pub struct CupApp {
     pub last_tick: f64,
     pub zoom: f64,
     pub snap: bool,
+    pub tool_mode: ToolMode,
     pub panel_tab: PanelTab,
     pub filter_category: Option<String>,
     pub filter_query: String,
@@ -67,6 +75,7 @@ impl CupApp {
             last_tick: now_secs(),
             zoom: 1.0,
             snap: true,
+            tool_mode: ToolMode::Select,
             panel_tab: PanelTab::Media,
             filter_category: None,
             filter_query: String::new(),

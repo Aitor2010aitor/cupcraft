@@ -12,6 +12,14 @@ import {
   moveClip,
   trimClip,
   splitAtPlayhead,
+  trimLeftAtPlayhead,
+  trimRightAtPlayhead,
+  rotateSelectedClip,
+  flipSelectedClip,
+  reverseSelectedClip,
+  toggleMarkerAtPlayhead,
+  freezeFrameAtPlayhead,
+  separateAudioFromSelected,
   deleteSelected,
   duplicateSelected,
   undo,
@@ -47,13 +55,22 @@ export function mountTimeline(host) {
       <div class="tl-tools">
         <button class="tl-btn tl-add" data-act="import" title="Añadir medios">${icon('plus', 17)}</button>
         <span class="tl-sep"></span>
-        <button class="tl-btn tl-select" data-act="select" title="Herramienta de selección">${icon('cursor', 15)}${icon('chevronDown', 10)}</button>
+        <button class="tl-btn tl-select" data-act="select" title="Seleccionar (V)">${icon('cursor', 15)}${icon('chevronDown', 10)}</button>
+        <button class="tl-btn" data-act="split" title="Dividir en el cursor (B / Ctrl+B)">${icon('split', 16)}</button>
+        <button class="tl-btn" data-act="trimLeft" title="Recortar inicio al cursor (Q)">${icon('trimLeft', 16)}</button>
+        <button class="tl-btn" data-act="trimRight" title="Recortar final al cursor (W)">${icon('trimRight', 16)}</button>
         <span class="tl-sep"></span>
         <button class="tl-btn" data-act="undo" title="Deshacer (Ctrl+Z)" disabled>${icon('undo', 16)}</button>
         <button class="tl-btn" data-act="redo" title="Rehacer (Ctrl+Y)" disabled>${icon('redo', 16)}</button>
-        <button class="tl-btn" data-act="split" title="Dividir en el cursor (B)">${icon('split', 16)}</button>
         <button class="tl-btn" data-act="duplicate" title="Duplicar (Ctrl+D)">${icon('copy', 15)}</button>
         <button class="tl-btn" data-act="delete" title="Eliminar (Supr)">${icon('trash', 15)}</button>
+        <span class="tl-sep"></span>
+        <button class="tl-btn" data-act="rotate" title="Girar 90°">${icon('rotate', 16)}</button>
+        <button class="tl-btn" data-act="flip" title="Espejo horizontal">${icon('flip', 16)}</button>
+        <button class="tl-btn" data-act="reverse" title="Invertir reproducción">${icon('reverse', 16)}</button>
+        <button class="tl-btn" data-act="freeze" title="Congelar fotograma">${icon('freeze', 16)}</button>
+        <button class="tl-btn" data-act="extractAudio" title="Separar audio a nueva pista">${icon('extractAudio', 16)}</button>
+        <button class="tl-btn" data-act="marker" title="Añadir/quitar marcador (M)">${icon('marker', 15)}</button>
         <button class="tl-btn" data-act="shield" title="Guardado automático activado">${icon('shield', 15)}</button>
       </div>
       <div class="tl-spacer"></div>
@@ -160,6 +177,10 @@ export function mountTimeline(host) {
       } else {
         marks.push(`<div class="ruler-tick minor" style="left:${left}px"></div>`);
       }
+    }
+    for (const markerTime of state.project?.markers || []) {
+      const left = markerTime * px;
+      marks.push(`<div class="ruler-marker" style="left:${left}px" title="Marcador ${formatTime(markerTime)}"><i></i></div>`);
     }
     ruler.innerHTML = marks.join('');
     return width;
@@ -782,8 +803,16 @@ export function mountTimeline(host) {
     if (action === 'undo') undo();
     else if (action === 'redo') redo();
     else if (action === 'split') splitAtPlayhead();
+    else if (action === 'trimLeft') trimLeftAtPlayhead();
+    else if (action === 'trimRight') trimRightAtPlayhead();
     else if (action === 'duplicate') duplicateSelected();
     else if (action === 'delete') deleteSelected();
+    else if (action === 'rotate') rotateSelectedClip();
+    else if (action === 'flip') flipSelectedClip();
+    else if (action === 'reverse') reverseSelectedClip();
+    else if (action === 'freeze') freezeFrameAtPlayhead();
+    else if (action === 'extractAudio') separateAudioFromSelected();
+    else if (action === 'marker') toggleMarkerAtPlayhead();
     else if (action === 'text') addTextClip('Tu texto aquí');
     else if (action === 'snap') toggleSnap();
     else if (action === 'import') fileInput.click();
@@ -829,6 +858,25 @@ export function mountTimeline(host) {
     content.style.width = `${Math.max(length * px, scroll.clientWidth)}px`;
   };
   window.addEventListener('resize', onResize);
+
+  // Manejo de scroll con rueda del ratón para zoom (como CapCut)
+  scroll.addEventListener('wheel', (event) => {
+    if (!state.project) return;
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -1 : 1;
+    const factor = delta > 0 ? 0.9 : 1.1;
+    const currentZoom = pxPerSecond();
+    const newZoom = currentZoom * factor;
+    // Limitar zoom entre 20 y 320
+    const clampedZoom = Math.max(20, Math.min(320, newZoom));
+    if (clampedZoom !== currentZoom) {
+      setZoom(clampedZoom);
+      // Ajustar scroll para mantener el cursor sobre el mismo punto temporal
+      const timeAtCursor = timeFromX(event.clientX);
+      const targetX = timeAtCursor * clampedZoom;
+      scroll.scrollLeft = targetX - scroll.clientWidth * 0.5;
+    }
+  }, { passive: false });
 
   render();
 

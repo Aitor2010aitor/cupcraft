@@ -23,3 +23,7 @@ mcstatus.ps1
 
 # Artefactos de compilación de Rust
 rust/target/
+
+# Voces Piper: binarios descargables, no van al repositorio
+tools/piper/
+tools/piper_windows.zip

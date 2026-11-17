@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $PSScriptRoot
 
 # Limpieza: retira procesos antiguos que ocupen los puertos de prueba.
-Get-Process cupcraft -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process cupcraft, cupcraft-desktop -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 foreach ($port in 8787, 8790) {
   $linea = netstat -ano | Select-String (":$port\s.*LISTENING")
   foreach ($l in $linea) {
@@ -12,7 +12,14 @@ foreach ($port in 8787, 8790) {
 }
 Start-Sleep -Seconds 2
 
-$server = Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $root -PassThru -WindowStyle Hidden
+# Servidor Rust (ya no se usa Node para servir la aplicación).
+$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
+$exe = Join-Path $root 'rust\target\debug\cupcraft-desktop.exe'
+if (-not (Test-Path $exe)) {
+  Push-Location (Join-Path $root 'rust')
+  try { cargo build -p cupcraft-desktop } finally { Pop-Location }
+}
+$server = Start-Process -FilePath $exe -ArgumentList '--server-only' -WorkingDirectory $root -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 5
 try {
   $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8787/' -UseBasicParsing -TimeoutSec 8

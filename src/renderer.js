@@ -2,6 +2,7 @@ import { FILTERS } from './store.js';
 import { EFFECTS } from './library.js';
 import { textAnimationById } from './text-catalog.js';
 import { transformAt, keyframeValue } from './keyframes.js';
+import { stickerAnimation, stickerAnimationFrame } from './sticker-animation.js';
 
 const clamp01 = (value) => Math.max(0, Math.min(1, value));
 
@@ -1562,7 +1563,8 @@ function drawMediaLayer(ctx, layer, width, height, pool, options = {}) {
   applyEntrance(ctx, anim, width, height);
   ctx.translate(motion.tx, motion.ty);
   if (motion.rot) ctx.rotate(motion.rot);
-  ctx.scale(tr.scaleX * motion.scale * motion.sx, tr.scaleY * motion.scale * motion.sy);
+  const flipSign = clip.flipH ? -1 : 1;
+  ctx.scale(tr.scaleX * motion.scale * motion.sx * flipSign, tr.scaleY * motion.scale * motion.sy);
   wipeClip(ctx, anim, width, height);
   if (spec?.mirror) {
     ctx.save();
@@ -1647,16 +1649,28 @@ function drawStickerLayer(ctx, layer, width, height, options = {}) {
   ctx.scale(sx, sy);
   wipeClip(ctx, anim, width, height);
   if (sticker.src) {
-    const img = stickerImage(sticker.src, sticker.srcFallback);
-    if (img.complete && img.naturalWidth) {
-      const box = fontSize * 2.4;
-      ctx.drawImage(img, -box / 2, -box / 2, box, box);
+    const box = fontSize * 2.4;
+    // Los stickers animados se dibujan por fotograma según el tiempo del clip:
+    // así avanzan al reproducir, se congelan al pausar y siguen al cursor.
+    const animation = sticker.src.startsWith('data:')
+      ? null
+      : stickerAnimation(sticker.src, sticker.srcFallback);
+    const frame = animation
+      ? stickerAnimationFrame(animation, local * (clip.speed || 1))
+      : null;
+    if (frame) {
+      ctx.drawImage(frame, -box / 2, -box / 2, box, box);
     } else {
-      ctx.font = `${Math.max(10, fontSize * 0.35)}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.45)';
-      ctx.fillText('cargando…', 0, 0);
+      const img = stickerImage(sticker.src, sticker.srcFallback);
+      if (img.complete && img.naturalWidth) {
+        ctx.drawImage(img, -box / 2, -box / 2, box, box);
+      } else {
+        ctx.font = `${Math.max(10, fontSize * 0.35)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillText('cargando…', 0, 0);
+      }
     }
     ctx.restore();
     return;

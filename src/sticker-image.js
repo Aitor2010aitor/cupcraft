@@ -1,6 +1,9 @@
 // Prepara las portadas de stickers de CapCut para usarlas como capa:
 // sus miniaturas traen un fondo plano oscuro, así que se recorta por color
 // desde las esquinas y se devuelve un PNG con transparencia.
+// Los stickers animados se dejan intactos para no perder la animación.
+
+import { stickerIsAnimated } from './sticker-animation.js';
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -20,6 +23,9 @@ function isNear(data, index, color, tolerance) {
 
 export async function prepareStickerSrc(src) {
   try {
+    if (!src || src.startsWith('data:')) return src;
+    // Recortar el fondo convertiría el sticker animado en un PNG estático.
+    if (await stickerIsAnimated(src)) return src;
     const img = await loadImage(src);
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;

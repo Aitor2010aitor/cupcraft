@@ -293,21 +293,49 @@ fn adjust_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     ui.add_space(6.0);
     let sel = app.editor.selection().map(str::to_string);
     if let Some(id) = sel {
-        let (b, c, s) = app.editor.project().and_then(|p| {
-            p.find_clip(&id).map(|(_, cl)| (cl.adjust.brightness, cl.adjust.contrast, cl.adjust.saturate))
-        }).unwrap_or((100.0, 100.0, 100.0));
+        let (b, c, s, temp, hue, sharp, vig) = app.editor.project().and_then(|p| {
+            p.find_clip(&id).map(|(_, cl)| {
+                let extra_f = |k: &str| cl.adjust.extra.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0);
+                (
+                    cl.adjust.brightness,
+                    cl.adjust.contrast,
+                    cl.adjust.saturate,
+                    extra_f("temperature"),
+                    extra_f("hue"),
+                    extra_f("sharpen"),
+                    extra_f("vignette"),
+                )
+            })
+        }).unwrap_or((100.0, 100.0, 100.0, 0.0, 0.0, 0.0, 0.0));
         let mut bb = b; let mut cc = c; let mut ss = s;
+        let mut t_temp = temp; let mut h_hue = hue; let mut sh_sharp = sharp; let mut v_vig = vig;
         ui.label("Brillo");
-        if ui.add(egui::Slider::new(&mut bb, 0.0..=200.0)).changed() {
+        if ui.add(egui::Slider::new(&mut bb, 0.0..=200.0).suffix("%")).changed() {
             apply_adjust(app, &id, "brightness", bb);
         }
         ui.label("Contraste");
-        if ui.add(egui::Slider::new(&mut cc, 0.0..=200.0)).changed() {
+        if ui.add(egui::Slider::new(&mut cc, 0.0..=200.0).suffix("%")).changed() {
             apply_adjust(app, &id, "contrast", cc);
         }
         ui.label("Saturación");
-        if ui.add(egui::Slider::new(&mut ss, 0.0..=200.0)).changed() {
+        if ui.add(egui::Slider::new(&mut ss, 0.0..=200.0).suffix("%")).changed() {
             apply_adjust(app, &id, "saturate", ss);
+        }
+        ui.label("Temperatura");
+        if ui.add(egui::Slider::new(&mut t_temp, -100.0..=100.0)).changed() {
+            apply_adjust(app, &id, "temperature", t_temp);
+        }
+        ui.label("Tono / Matiz");
+        if ui.add(egui::Slider::new(&mut h_hue, -180.0..=180.0).suffix("°")).changed() {
+            apply_adjust(app, &id, "hue", h_hue);
+        }
+        ui.label("Nitidez");
+        if ui.add(egui::Slider::new(&mut sh_sharp, 0.0..=100.0).suffix("%")).changed() {
+            apply_adjust(app, &id, "sharpen", sh_sharp);
+        }
+        ui.label("Viñeta");
+        if ui.add(egui::Slider::new(&mut v_vig, 0.0..=100.0).suffix("%")).changed() {
+            apply_adjust(app, &id, "vignette", v_vig);
         }
     }
 }

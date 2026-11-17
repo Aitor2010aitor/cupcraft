@@ -1,0 +1,12 @@
+[package]
+name = "cupcraft-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Aplicación de escritorio de cupcraft: Rust + WebView2, sin Electron ni Node"
+
+[dependencies]
+cupcraft-server = { path = "../cupcraft-server" }
+tao = "0.37"
+wry = "0.57"

@@ -83,6 +83,8 @@ pub struct Clip {
     pub x: f64,
     #[serde(default)]
     pub y: f64,
+    #[serde(default)]
+    pub rotate: f64,
     /// Filtro de color de la línea propia (`none` = sin filtro).
     #[serde(default = "none_filter")]
     pub filter: String,
@@ -195,6 +197,8 @@ pub struct Project {
     pub thumb: Option<String>,
     #[serde(default)]
     pub tracks: Vec<Track>,
+    #[serde(default)]
+    pub markers: Vec<f64>,
     #[serde(flatten)]
     pub extra: Map<String, Value>,
 }
@@ -228,6 +232,7 @@ impl Project {
                 Track { id: "track_video".into(), kind: TrackType::Video, name: "Video 1".into(), clips: Vec::new() },
                 Track { id: "track_audio".into(), kind: TrackType::Audio, name: "Audio 1".into(), clips: Vec::new() },
             ],
+            markers: Vec::new(),
             extra: Map::new(),
         }
     }
@@ -344,6 +349,7 @@ mod tests {
             scale: 1.0,
             x: 0.0,
             y: 0.0,
+            rotate: 0.0,
             filter: "none".into(),
             adjust: Adjust::default(),
             fade_in: 0.0,

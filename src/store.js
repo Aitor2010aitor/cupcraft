@@ -131,9 +131,10 @@ export function createProject(name = 'Proyecto sin título') {
     media: [],
     thumb: null,
     tracks: [
-      { id: 'track_text', type: 'text', name: 'Texto', clips: [] },
       { id: 'track_video', type: 'video', name: 'Video 1', clips: [] },
+      { id: 'track_overlay', type: 'overlay', name: 'Superposición', clips: [] },
       { id: 'track_audio', type: 'audio', name: 'Audio 1', clips: [] },
+      { id: 'track_text', type: 'text', name: 'Texto', clips: [] },
     ],
   };
 }
@@ -142,7 +143,7 @@ export function addTrack(type = 'video', { history = true } = {}) {
   if (!state.project) return null;
   const before = snapshot();
   const count = state.project.tracks.filter((track) => track.type === type).length;
-  const labels = { video: 'Vídeo', text: 'Texto', audio: 'Audio', overlay: 'Superposición' };
+  const labels = { video: 'Vídeo', overlay: 'Superposición', audio: 'Audio', text: 'Texto', sticker: 'Sticker', effect: 'Efecto' };
   const base = labels[type] || 'Capa';
   let name = count === 0 ? base : `${base} ${count + 1}`;
   while (state.project.tracks.some((track) => track.name === name)) name = `${name} ${count + 2}`;
@@ -881,6 +882,43 @@ export function addStickerClip(content = '✨', options = {}) {
   return clip;
 }
 
+export function addEffectClip(effect, options = {}) {
+  if (!state.project) return null;
+  const track = state.project.tracks.find((item) => item.type === 'overlay');
+  if (!track) return null;
+  const duration = options.duration || effect.duration || 4;
+  const start = resolveStart(track, null, options.start ?? state.playhead, duration);
+  const clipId = `effect_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+  const clip = {
+    id: clipId,
+    kind: 'effect',
+    mediaId: effect.id || null,
+    name: effect.name || 'Efecto',
+    start,
+    duration,
+    in: 0,
+    speed: 1,
+    opacity: options.opacity ?? effect.opacity ?? 100,
+    scale: options.scale ?? 100,
+    x: options.x ?? effect.x ?? 0,
+    y: options.y ?? effect.y ?? 0,
+    rotate: options.rotate ?? effect.rotate ?? 0,
+    filter: effect.filter || 'none',
+    adjust: effect.adjust || {},
+    fadeIn: options.fadeIn || 0,
+    fadeOut: options.fadeOut || 0,
+    effect: {
+      id: effect.id || null,
+      name: effect.name || 'Efecto',
+      type: effect.type || 48,
+      preset: effect,
+    },
+  };
+  mutate(() => { track.clips.push(clip); });
+  selectClip(clip.id);
+  return clip;
+}
+
 export function resolveStart(track, clipId, desired, duration) {
   const others = track.clips
     .filter((clip) => clip.id !== clipId)
@@ -982,17 +1020,19 @@ export function duplicateSelected() {
   emit('selection');
 }
 
-export function splitAtPlayhead() {
+export function splitAtPlayhead(customTime) {
   if (!state.project) return;
   const selected = selectedClip();
   const targets = selected ? [selected] : state.project.tracks
     .flatMap((track) => track.clips.map((clip) => ({ clip, track })));
-  const time = state.playhead;
+  const time = typeof customTime === 'number' ? customTime : state.playhead;
   const splittable = targets.filter(({ clip }) => (
     time > clip.start + 0.05 && time < clip.start + clip.duration - 0.05
   ));
   if (!splittable.length) {
-    toast('Coloca el cursor dentro de un clip para dividirlo', 'warning');
+    if (typeof customTime !== 'number') {
+      toast('Coloca el cursor dentro de un clip para dividirlo', 'warning');
+    }
     return;
   }
   mutate(() => {
@@ -1001,11 +1041,210 @@ export function splitAtPlayhead() {
       right.id = uid('clip');
       right.start = time;
       right.duration = clip.start + clip.duration - time;
-      right.in = clip.in + (time - clip.start) * (clip.speed || 1);
+      right.in = (clip.in || 0) + (time - clip.start) * (clip.speed || 1);
       clip.duration = time - clip.start;
       track.clips.push(right);
     }
   });
+  emit('project');
+}
+
+export function trimLeftAtPlayhead() {
+  if (!state.project) return;
+  const selected = selectedClip();
+  const targets = selected ? [selected] : state.project.tracks
+    .flatMap((track) => track.clips.map((clip) => ({ clip, track })));
+  const time = state.playhead;
+  const trimmable = targets.filter(({ clip }) => (
+    time > clip.start + 0.05 && time < clip.start + clip.duration - 0.05
+  ));
+  if (!trimmable.length) return;
+  mutate(() => {
+    for (const { clip } of trimmable) {
+      const cut = time - clip.start;
+      clip.start = time;
+      clip.duration = Math.max(0.1, clip.duration - cut);
+      clip.in = (clip.in || 0) + cut * (clip.speed || 1);
+    }
+  });
+  emit('project');
+}
+
+export function trimRightAtPlayhead() {
+  if (!state.project) return;
+  const selected = selectedClip();
+  const targets = selected ? [selected] : state.project.tracks
+    .flatMap((track) => track.clips.map((clip) => ({ clip, track })));
+  const time = state.playhead;
+  const trimmable = targets.filter(({ clip }) => (
+    time > clip.start + 0.05 && time < clip.start + clip.duration - 0.05
+  ));
+  if (!trimmable.length) return;
+  mutate(() => {
+    for (const { clip } of trimmable) {
+      clip.duration = Math.max(0.1, time - clip.start);
+    }
+  });
+  emit('project');
+}
+
+export function rotateSelectedClip() {
+  const selected = selectedClip();
+  if (!selected) {
+    toast('Selecciona un clip para girarlo', 'info');
+    return;
+  }
+  mutate(() => {
+    selected.clip.rotate = ((selected.clip.rotate || 0) + 90) % 360;
+  });
+  emit('project');
+}
+
+export function flipSelectedClip() {
+  const selected = selectedClip();
+  if (!selected) {
+    toast('Selecciona un clip para reflejarlo', 'info');
+    return;
+  }
+  mutate(() => {
+    selected.clip.flipH = !selected.clip.flipH;
+  });
+  emit('project');
+}
+
+export function reverseSelectedClip() {
+  const selected = selectedClip();
+  if (!selected) {
+    toast('Selecciona un clip para invertirlo', 'info');
+    return;
+  }
+  mutate(() => {
+    selected.clip.reverse = !selected.clip.reverse;
+  });
+  emit('project');
+  toast(selected.clip.reverse ? 'Reproducción invertida activada' : 'Reproducción normal', 'success');
+}
+
+export function toggleMarkerAtPlayhead() {
+  if (!state.project) return;
+  if (!Array.isArray(state.project.markers)) {
+    state.project.markers = [];
+  }
+  const time = Math.round(state.playhead * 100) / 100;
+  const idx = state.project.markers.findIndex((m) => Math.abs(m - time) < 0.15);
+  mutate(() => {
+    if (idx >= 0) {
+      state.project.markers.splice(idx, 1);
+      toast('Marcador eliminado', 'info');
+    } else {
+      state.project.markers.push(time);
+      state.project.markers.sort((a, b) => a - b);
+      toast('Marcador añadido', 'success');
+    }
+  });
+  emit('project');
+}
+
+export function freezeFrameAtPlayhead() {
+  const selected = selectedClip();
+  if (!selected) {
+    toast('Selecciona un clip para congelar fotograma', 'info');
+    return;
+  }
+  const { clip, track } = selected;
+  const time = state.playhead;
+  if (time < clip.start || time > clip.start + clip.duration) {
+    toast('El cabezal debe estar dentro del clip', 'warning');
+    return;
+  }
+  mutate(() => {
+    const freezeDuration = 3.0; // 3 segundos estilo CapCut
+    const freezeIn = (clip.in || 0) + (time - clip.start) * (clip.speed || 1);
+    const leftDuration = time - clip.start;
+    const rightDuration = clip.duration - leftDuration;
+
+    // Ajustar duración de la izquierda
+    clip.duration = Math.max(0.1, leftDuration);
+
+    // Crear clip congelado
+    const freezeClip = JSON.parse(JSON.stringify(clip));
+    freezeClip.id = uid('clip');
+    freezeClip.start = time;
+    freezeClip.duration = freezeDuration;
+    freezeClip.in = freezeIn;
+    freezeClip.speed = 0.0001; // congelado
+    freezeClip.name = `${clip.name || 'Clip'} (Congelado)`;
+    track.clips.push(freezeClip);
+
+    // Si había parte derecha, moverla después del congelado
+    let rightClip = null;
+    if (rightDuration > 0.05) {
+      rightClip = JSON.parse(JSON.stringify(clip));
+      rightClip.id = uid('clip');
+      rightClip.start = time + freezeDuration;
+      rightClip.duration = rightDuration;
+      rightClip.in = freezeIn;
+      rightClip.speed = clip.speed || 1;
+      track.clips.push(rightClip);
+    }
+
+    // Desplazar otros clips posteriores para mantener sincronía estilo CapCut
+    for (const other of track.clips) {
+      if (other !== clip && other !== freezeClip && other.start >= time - 0.001) {
+        if (other.id !== rightClip?.id) {
+          other.start += freezeDuration;
+        }
+      }
+    }
+  });
+  emit('project');
+  toast('Fotograma congelado insertado (3s)', 'success');
+}
+
+export function separateAudioFromSelected() {
+  const selected = selectedClip();
+  if (!selected || selected.clip.kind !== 'video') {
+    toast('Selecciona un clip de video para separar su audio', 'info');
+    return;
+  }
+  const { clip } = selected;
+  if (!clip.mediaId) return;
+  mutate(() => {
+    // Buscar o crear pista de audio
+    let audioTrack = state.project.tracks.find((t) => t.type === 'audio');
+    if (!audioTrack) {
+      audioTrack = {
+        id: uid('track'),
+        type: 'audio',
+        name: `Audio ${state.project.tracks.filter((t) => t.type === 'audio').length + 1}`,
+        clips: [],
+      };
+      state.project.tracks.push(audioTrack);
+    }
+    const audioClip = {
+      id: uid('clip'),
+      kind: 'audio',
+      mediaId: clip.mediaId,
+      name: `${clip.name || 'Video'} (Audio)`,
+      start: clip.start,
+      duration: clip.duration,
+      in: clip.in || 0,
+      speed: clip.speed || 1,
+      volume: clip.volume ?? 1,
+      opacity: 1,
+      scale: 1,
+      x: 0,
+      y: 0,
+      filter: 'none',
+      fadeIn: clip.fadeIn || 0,
+      fadeOut: clip.fadeOut || 0,
+    };
+    audioTrack.clips.push(audioClip);
+    // Silenciar el video original
+    clip.volume = 0;
+  });
+  emit('project');
+  toast('Audio separado a nueva pista', 'success');
 }
 
 export function updateProject(patch) {

@@ -1,7 +1,4 @@
 # cupcraft
-
-
-fack you capcut 
 ![README IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/version.04/READMEN.md)
 
 
@@ -98,50 +95,56 @@ Acciones disponibles: `getState`, `listProjects`, `newProject`, `openProject`, `
 
 ## Cómo ejecutar
 
+cupcraft es una aplicación **Rust**. Un único ejecutable arranca el servidor local, sirve la interfaz web y la abre en una ventana **WebView2**. No usa Electron, ni Node.js, ni C++, ni .NET.
+
 Requisitos:
 
-- Node.js 18 o superior (probado con Node.js 24.22.1).
-- Un navegador Chromium actualizado (Chrome, Edge o Brave) con soporte para `MediaRecorder`, `canvas.captureStream` y Web Audio.
+- Windows 10/11 x64.
+- [Rust](https://rustup.rs) con el toolchain `stable-x86_64-pc-windows-msvc`.
+- Visual Studio 2022 Build Tools con «Desarrollo de escritorio en C++» (MSVC y Windows SDK).
+- WebView2 Runtime (incluido en Windows 11 y en Microsoft Edge actualizado).
 
-```bash
-npm start
+```bat
+cupcraft.cmd
 ```
 
-Abre <http://127.0.0.1:8787>. El servidor escucha solo en `127.0.0.1`; no hay dependencias para ejecutar la aplicación.
-
-También puedes cambiar el puerto:
+El lanzador compila la primera vez y abre la ventana. También puedes hacerlo a mano:
 
 ```powershell
-$env:PORT=9000; npm start
+cd rust
+cargo build -p cupcraft-desktop
+.\target\debug\cupcraft-desktop.exe
+```
+
+Para usar solo el servidor (sin ventana), por ejemplo con un navegador:
+
+```powershell
+.\rust\target\debug\cupcraft-desktop.exe --server-only
+```
+
+Abre <http://127.0.0.1:8787>. El servidor escucha solo en `127.0.0.1` y no necesita dependencias externas.
+
+También puedes cambiar los puertos: `PORT` para el servidor principal (por defecto `8787`) y `openCUP_AI_PORT` para el puente IA (por defecto `8790`).
+
+```powershell
+$env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 ```
 
 ## Aplicación de escritorio
 
-La carpeta `dist/cupcraft` contiene una aplicación nativa para Windows x64:
+- `rust/crates/cupcraft-desktop` crea la ventana nativa con `tao` y embebe WebView2 con `wry`.
+- `rust/crates/cupcraft-server` sirve `index.html`, `src/` y `assets/`, la API `/api/capcut/*`, el proxy `/api/img` y el puente IA `/api/ai/*`.
+- El servidor arranca con la ventana y se detiene al cerrarla.
+- Los proyectos se guardan en el almacenamiento de WebView2 (`%LOCALAPPDATA%\openCUP\WebView2`); el registro de arranque está en `%LOCALAPPDATA%\openCUP\openCUP.log`.
+- Las carpetas `launcher/`, `dotnet/` y los archivos `server.mjs`/`server/*.mjs` se conservan solo como referencia histórica: la aplicación no los usa.
 
-- `cupcraft.exe` es un ejecutable **C++ nativo** (Win32 + WebView2 COM): no usa .NET, no necesita DLLs gestionadas y ocupa ~330 KB.
-- Abre la interfaz con WebView2 (Edge embebido) en una ventana propia con tema oscuro.
-- Incluye `node.exe`, por lo que no hace falta tener Node.js instalado.
-- El servidor local arranca oculto al abrir la app y se detiene al cerrar la ventana. Va dentro de un Job de Windows: si la app muere a la fuerza, el servidor hijo se cierra con ella (no quedan procesos huérfanos).
-- Solo puede haber una instancia abierta a la vez.
-- Los proyectos se guardan en `%LOCALAPPDATA%\openCUP\WebView2`; el registro de arranque está en `%LOCALAPPDATA%\openCUP\openCUP.log`.
-- La carpeta se puede copiar a otro equipo Windows 10/11 con WebView2 Runtime.
-
-Para generar de nuevo el ejecutable, el icono y el acceso directo del escritorio:
+Para compilar en release y montar una carpeta lista para copiar:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-desktop.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-rust.ps1
 ```
 
-Para generar además un instalador (Inno Setup 6, descargado automáticamente si hace falta):
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-installer.ps1
-```
-
-El resultado es `dist/cupcraft-Setup-0.4.5.exe` (~110 MB): asistente en español, icono en el escritorio y en el menú Inicio, desinstalador integrado en "Aplicaciones y características". Requiere permisos de administrador para instalar en `Archivos de programa`.
-
-El script de compilación localiza las herramientas C++ de MSVC (Visual Studio / Build Tools), descarga el SDK de WebView2 con `tools/fetch-webview2.ps1` si falta, compila `launcher/main.cpp` e incrusta el icono (`rc.exe`), y copia la aplicación, el servidor y Node.js en `dist/cupcraft`. Requiere el componente «Desarrollo de escritorio en C++» de Visual Studio. El instalador requiere Inno Setup 6 (`tools/build-installer.ps1` lo descarga e instala automáticamente si no está).
+El resultado es `dist/cupcraft-rust`, con `cupcraft-desktop.exe`, `index.html`, `src/` y `assets/`. Para compilar solo el binario: `cd rust; cargo build --release -p cupcraft-desktop`.
 
 ## Atajos de teclado
 
@@ -165,7 +168,7 @@ Los atajos no se activan mientras escribes en un campo de texto ni con un diálo
 
 - Los proyectos y los archivos se guardan en IndexedDB (`openCUP-db`): metadatos en `projects` y blobs en `media`.
 - No se sube nada a un servidor. Todo el procesamiento ocurre en el navegador.
-- El servidor de Node solo sirve archivos estáticos y las rutas locales de CapCut y del puente IA; no copia los medios fuera del equipo.
+- El servidor local en Rust solo sirve archivos estáticos y las rutas locales de CapCut y del puente IA; no copia los medios fuera del equipo.
 - Al borrar los datos del sitio se eliminan también los proyectos y sus medios.
 - El espacio disponible depende del límite de almacenamiento del navegador.
 - La importación de CapCut lee los borradores originales en modo solo lectura; los archivos de CapCut no se modifican.
@@ -189,10 +192,6 @@ El panel derecho permite editar el proyecto o el clip seleccionado sin salir del
 ```text
 cupcraft/
 ├─ index.html
-├─ server.mjs              Servidor estático, API de CapCut y API interna de IA
-├─ server/
-│  ├─ capcut.mjs           Escaneo e importación de borradores nativos de CapCut
-│  └─ ai-bridge.mjs        Puerto 8790, autenticación, comandos y documentación
 ├─ src/
 │  ├─ main.js              Arranque, atajos globales y drag & drop
 │  ├─ home.js              Pantalla de inicio, proyectos y plantillas
@@ -215,13 +214,21 @@ cupcraft/
 │  ├─ icons.js             Iconos SVG
 │  ├─ utils.js             Utilidades (tiempo, bytes, toasts)
 │  └─ styles.css           Tema oscuro y diseño responsive
-├─ launcher/main.cpp        Lanzador Win32 + WebView2 escrito en C++ puro
+├─ cupcraft.cmd            Lanzador: compila en Rust y abre la ventana
+├─ rust/                   Aplicación en Rust (cargo workspace)
+│  ├─ crates/cupcraft-desktop  Ventana nativa (tao) + WebView2 (wry)
+│  ├─ crates/cupcraft-server   Servidor estático, API CapCut y puente IA
+│  ├─ crates/cupcraft-core     Modelo, timeline, historial y filtros
+│  ├─ crates/cupcraft-persist  Almacén SQLite y archivos .opencup.json
+│  └─ crates/cupcraft-app      Rewrite experimental de UI con egui
+├─ server.mjs              (histórico) servidor Node equivalente, sin uso
+├─ server/                 (histórico) módulos Node de CapCut y puente IA
+├─ launcher/main.cpp       (histórico) lanzador C++ + WebView2
 ├─ tools/                  Pruebas de navegador y scripts de empaquetado
-│  ├─ build-desktop.ps1    Compila el .exe en C++ y monta dist/cupcraft
-│  ├─ build-installer.ps1  Genera dist/cupcraft-Setup-0.4.5.exe con Inno Setup 6
-│  ├─ cacup.iss            Script de Inno Setup (español, desinstalador)
-│  ├─ fetch-webview2.ps1   Descarga el SDK nativo de WebView2 desde nuget.org
-│  ├─ run-all-tests.ps1    Levanta el servidor y ejecuta las 11 suites
+│  ├─ build-rust.ps1       Compila en release y monta dist/cupcraft-rust
+│  ├─ build-desktop.ps1    (histórico) compila el .exe en C++
+│  ├─ build-installer.ps1  (histórico) instalador con Inno Setup 6
+│  ├─ run-all-tests.ps1    Levanta el servidor Rust y ejecuta las suites
 │  ├─ make-icon.ps1        Genera el icono multi-resolución
 │  └─ fixtures/            Medios de prueba generados con ffmpeg
 └─ shots/                  Capturas generadas por las pruebas
@@ -233,7 +240,7 @@ Las pruebas usan `puppeteer-core` con un Chrome instalado. No forman parte de la
 
 ```bash
 npm install                 # instala puppeteer-core (devDependency)
-npm start                   # en otra terminal, deja el servidor en 8787
+cupcraft.cmd --server-only  # en otra terminal, servidor Rust en 8787
 npm test                    # flujo completo de edición y persistencia
 npm run test:layout         # auditoría responsive 1920–760 px
 npm run test:features       # renombrar, eliminar, plantillas y SRT

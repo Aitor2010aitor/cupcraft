@@ -42,10 +42,8 @@ import { openExportDialog } from './export.js';
 import { openShortcutsDialog } from './dialogs.js';
 import { TEMPLATES } from './templates.js';
 import {
-  isKokoroSpanishVoice,
-  loadKokoro,
-  generateKokoroAudio,
-} from './kokoro-tts.js';
+  generateTtsAbiertoAudio,
+} from './tts-abierto.js';
 import {
   STICKERS,
   STICKER_CATEGORIES,
@@ -796,10 +794,10 @@ export function mountLeftPanel(host) {
     toast('Reproduciendo vista previa de voz', 'info', 1300);
   }
 
-  /* ------------------------- Kokoro TTS (IA local) ------------------------- */
-  let kokoroBusy = false;
+  /* ------------------------- TTS-Abierto (Piper local) ------------------------- */
+  let ttsBusy = false;
 
-  function setKokoroProgress(label, value) {
+  function setTtsProgress(label, value) {
     const wrap = body.querySelector('[data-tts-progress]');
     if (!wrap) return;
     if (!label) {
@@ -819,46 +817,46 @@ export function mountLeftPanel(host) {
     }
   }
 
-  function kokoroButtonState(busy) {
+  function ttsButtonState(busy) {
     const button = body.querySelector('[data-tts-generate]');
     if (!button) return;
     button.disabled = busy;
     button.innerHTML = busy
-      ? `${icon('rotate', 13)} Generando…`
-      : `${icon('sparkles', 13)} Generar voz e importar a la línea de tiempo`;
+      ? `${icon('rotate', 13)} Generando con TTS Abierto…`
+      : `${icon('sparkles', 13)} Generar voz con TTS Abierto`;
   }
 
-  async function generateKokoro() {
-    if (kokoroBusy) return;
+  async function generateTts() {
+    if (ttsBusy) return;
     const area = body.querySelector('[data-tts-text]');
     const text = (area?.value || activeTextClip()?.text?.content || '').trim();
     if (!text) {
       toast('Escribe el texto que quieres convertir en voz', 'warning');
       return;
     }
-    const voice = body.querySelector('[data-kokoro-voice]')?.value || 'ef_dora';
-    kokoroBusy = true;
-    kokoroButtonState(true);
+    const voice = body.querySelector('[data-tts-voice-model]')?.value || 'es_ES-davefx-medium';
+    ttsBusy = true;
+    ttsButtonState(true);
     try {
-      const result = await generateKokoroAudio({
+      const result = await generateTtsAbiertoAudio({
         text,
         voice,
         speed: ttsRate,
-        onProgress: (label, value) => setKokoroProgress(label, value),
+        onProgress: (label, value) => setTtsProgress(label, value),
       });
-      setKokoroProgress('Importando el audio al proyecto…', 100);
+      setTtsProgress('Importando el audio al proyecto…', 100);
       const stamp = new Date().toISOString().slice(11, 19).replace(/:/g, '-');
-      const file = new File([result.blob], `Kokoro ${voice} ${stamp}.wav`, { type: 'audio/wav' });
+      const file = new File([result.blob], `TTS ${voice} ${stamp}.wav`, { type: 'audio/wav' });
       await importFiles([file], { silent: true });
       toast(`Voz generada (${result.seconds.toFixed(1)} s) e importada a la línea de tiempo`, 'success', 4200);
     } catch (error) {
-      console.error('Kokoro TTS', error);
+      console.error('TTS Abierto', error);
       const message = error?.message || 'no se pudo generar la voz';
-      toast(`Kokoro: ${message}`, 'error', 5400);
+      toast(`TTS Abierto: ${message}`, 'error', 5400);
     } finally {
-      kokoroBusy = false;
-      setKokoroProgress(null);
-      kokoroButtonState(false);
+      ttsBusy = false;
+      setTtsProgress(null);
+      ttsButtonState(false);
     }
   }
 
@@ -1026,22 +1024,21 @@ export function mountLeftPanel(host) {
         <button class="btn btn-ghost btn-block" data-tts-use-text>${icon('text', 13)} Usar el texto seleccionado</button>
       </div>
       <div class="text-kokoro-form">
-        <div class="text-panel-section-head"><span>Voz neuronal Kokoro</span><b>IA local</b></div>
+        <div class="text-panel-section-head"><span>Voz neuronal TTS Abierto (Piper)</span><b>100% Local</b></div>
         <div class="field">
-          <label>Voz</label>
-          <select class="input" data-kokoro-voice>
-            <option value="ef_dora">Dora · español (femenina)</option>
-            <option value="em_alex">Alex · español (masculina)</option>
-            <option value="em_santa">Santa · español (masculina)</option>
-            <option value="af_heart">Heart · inglés (femenina)</option>
+          <label>Voz neuronal</label>
+          <select class="input" data-tts-voice-model>
+            <option value="es_ES-davefx-medium" selected>Davefx · Español (masculina, alta calidad)</option>
+            <option value="es_ES-sharvard-medium">Sharvard · Español (neutral, alta calidad)</option>
+            <option value="es_ES-carlfm-x_low">Carlfm · Español (femenina, ultrarrápida)</option>
           </select>
         </div>
         <div class="tts-progress hidden" data-tts-progress>
           <div class="tts-progress-track"><div class="tts-progress-bar" data-tts-progress-bar></div></div>
           <span class="tts-progress-label" data-tts-progress-label>Preparando…</span>
         </div>
-        <button class="btn btn-primary btn-block" data-tts-generate>${icon('sparkles', 13)} Generar voz e importar a la línea de tiempo</button>
-        <div class="text-panel-hint" style="margin-top:6px">La primera vez descarga el modelo (~92 MB); después se usa la caché del navegador y funciona sin conexión.</div>
+        <button class="btn btn-primary btn-block" data-tts-generate>${icon('sparkles', 13)} Generar voz con TTS Abierto</button>
+        <div class="text-panel-hint" style="margin-top:6px">Motor Piper TTS con modelos ONNX en español (TTS-Abierto). 100% privado, local e instantáneo.</div>
       </div>
       <div class="text-info-card">${icon('mic', 14)} <strong>Voces locales</strong><p>Se usan las voces de Windows mediante <code>speechSynthesis</code>. Si no aparece ninguna voz en la lista, instala un paquete de voz en Configuración → Hora e idioma → Voz.</p></div>`;
   }
@@ -1052,7 +1049,6 @@ export function mountLeftPanel(host) {
       ['animation', 'Animación'],
       ['tracking', 'Seguimiento'],
       ['tts', 'Texto a voz'],
-      ['avatar', 'Avatares de IA'],
       ['capcut', `${CAPCUT_TEXT_ITEMS.length} de CapCut`],
     ];
     let content = '';
@@ -2032,7 +2028,7 @@ export function mountLeftPanel(host) {
       return;
     }
     if (event.target.closest('[data-tts-generate]')) {
-      void generateKokoro();
+      void generateTts();
       return;
     }
     if (event.target.closest('[data-tts-stop]')) {
@@ -2950,6 +2946,13 @@ export function mountDetailsPanel(host) {
         ${detailRange('Grises', 'adjust.grayscale', Math.round(clip.adjust?.grayscale ?? 0), 0, 100, 1, 1, Math.round(clip.adjust?.grayscale ?? 0), '%')}
         ${detailRange('Sepia', 'adjust.sepia', Math.round(clip.adjust?.sepia ?? 0), 0, 100, 1, 1, Math.round(clip.adjust?.sepia ?? 0), '%')}
         ${detailRange('Tono', 'adjust.hue', Math.round(clip.adjust?.hue ?? 0), -180, 180, 1, 1, Math.round(clip.adjust?.hue ?? 0), '°')}
+        ${detailRange('Temperatura', 'adjust.temperature', Math.round(clip.adjust?.temperature ?? 0), -100, 100, 1, 1, Math.round(clip.adjust?.temperature ?? 0), '')}
+        ${detailRange('Tinte', 'adjust.tint', Math.round(clip.adjust?.tint ?? 0), -100, 100, 1, 1, Math.round(clip.adjust?.tint ?? 0), '')}
+        ${detailRange('Enfoque', 'adjust.sharpen', Math.round(clip.adjust?.sharpen ?? 0), 0, 100, 1, 1, Math.round(clip.adjust?.sharpen ?? 0), '%')}
+        ${detailRange('Luces', 'adjust.highlight', Math.round(clip.adjust?.highlight ?? 0), -100, 100, 1, 1, Math.round(clip.adjust?.highlight ?? 0), '')}
+        ${detailRange('Sombras', 'adjust.shadow', Math.round(clip.adjust?.shadow ?? 0), -100, 100, 1, 1, Math.round(clip.adjust?.shadow ?? 0), '')}
+        ${detailRange('Viñeta', 'adjust.vignette', Math.round(clip.adjust?.vignette ?? 0), 0, 100, 1, 1, Math.round(clip.adjust?.vignette ?? 0), '%')}
+        ${detailRange('Grano', 'adjust.particle', Math.round(clip.adjust?.particle ?? 0), 0, 100, 1, 1, Math.round(clip.adjust?.particle ?? 0), '%')}
       ` : ''}
       ${!isText ? transformSection(clip) : ''}
       ${clip.kind === 'video' || isAudio ? `

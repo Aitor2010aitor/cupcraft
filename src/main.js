@@ -9,6 +9,15 @@ import {
   stepFrame,
   skipToEdge,
   splitAtPlayhead,
+  trimLeftAtPlayhead,
+  trimRightAtPlayhead,
+  rotateSelectedClip,
+  flipSelectedClip,
+  reverseSelectedClip,
+  toggleMarkerAtPlayhead,
+  freezeFrameAtPlayhead,
+  separateAudioFromSelected,
+  toggleSnap,
   duplicateSelected,
   deleteSelected,
   undo,
@@ -45,13 +54,21 @@ function render() {
           ${icon('alert', 34)}
           <strong style="color:#f2f2f4">No se pudo abrir el editor</strong>
           <span style="font-size:12px">${error?.message || 'Error inesperado'}</span>
-          <button class="btn btn-primary" onclick="location.reload()">Recargar cupcraft</button>
+          <button class="btn btn-primary" onclick="window.location.reload()">Recargar cupcraft</button>
         </div>`;
     }
   } else {
     active = mountHome(root);
   }
 }
+
+// Nueva función global para cerrar el proyecto y volver al inicio
+window.closeProject = () => {
+  state.project = null;
+  state.selection = null;
+  state.view = 'home';
+  render();
+};
 
 on('view', render);
 
@@ -107,9 +124,21 @@ window.addEventListener('keydown', (event) => {
   } else if (key === 'Delete' || key === 'Backspace') {
     event.preventDefault();
     deleteSelected();
-  } else if (lower === 'b') {
+  } else if (lower === 'q') {
+    event.preventDefault();
+    trimLeftAtPlayhead();
+  } else if (lower === 'w') {
+    event.preventDefault();
+    trimRightAtPlayhead();
+  } else if (lower === 'b' || (mod && lower === 'b')) {
     event.preventDefault();
     splitAtPlayhead();
+  } else if (lower === 'm') {
+    event.preventDefault();
+    toggleMarkerAtPlayhead();
+  } else if (lower === 'n') {
+    event.preventDefault();
+    toggleSnap();
   } else if (event.altKey && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) {
     const found = selectedClip();
     if (found && ['text', 'sticker'].includes(found.clip.kind)) {

@@ -5,8 +5,10 @@
   "type": "module",
   "description": "Editor de video local inspirado en el flujo de trabajo de CapCut",
   "scripts": {
-    "start": "node server.mjs",
-    "dev": "node server.mjs",
+    "start": "cupcraft.cmd",
+    "dev": "cupcraft.cmd",
+    "server": "rust\\target\\debug\\cupcraft-desktop.exe --server-only",
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-rust.ps1",
     "test": "node tools/functional-test.mjs",
     "test:layout": "node tools/layout-test.mjs",
     "test:features": "node tools/features-test.mjs",

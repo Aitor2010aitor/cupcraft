@@ -148,21 +148,103 @@ fn handle_shortcuts(ctx: &egui::Context, app: &mut CupApp) {
     if ctx.egui_wants_keyboard_input() {
         return;
     }
+    // Deshacer / Rehacer
     if ctx.input(|i| i.modifiers.ctrl && i.modifiers.shift && i.key_pressed(egui::Key::Z)) {
-        if app.editor.redo() { app.toast("Rehecho"); }
+        if app.editor.redo() { app.save_current(); app.toast("Rehecho"); }
     } else if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Z)) {
-        if app.editor.undo() { app.toast("Deshacer"); }
+        if app.editor.undo() { app.save_current(); app.toast("Deshecho"); }
     } else if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::Y)) {
-        if app.editor.redo() { app.toast("Rehecho"); }
+        if app.editor.redo() { app.save_current(); app.toast("Rehecho"); }
     }
+
+    // Reproducir / Pausa (Espacio)
     if ctx.input(|i| i.key_pressed(egui::Key::Space)) {
         app.playing = !app.playing;
         app.last_tick = now();
     }
+
+    // Dividir en el cabezal (Ctrl+B)
+    if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::B)) {
+        let ph = app.playhead;
+        let sel = app.editor.selection().map(str::to_string);
+        app.editor.mutate(|p| { p.split_at(ph, sel.as_deref()); });
+        app.save_current();
+        app.toast("Dividido");
+    }
+
+    // Alternar herramientas de cursor: V (Selección) y B (Cuchilla)
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::V)) {
+        app.tool_mode = crate::app::ToolMode::Select;
+        app.toast("Herramienta: Selección (V)");
+    }
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::B)) {
+        app.tool_mode = crate::app::ToolMode::Split;
+        app.toast("Herramienta: Cuchilla (B)");
+    }
+
+    // Recorte CapCut: Q (Eliminar izquierda del cabezal) y W (Eliminar derecha del cabezal)
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::Q)) {
+        let ph = app.playhead;
+        let sel = app.editor.selection().map(str::to_string);
+        let ok = app.editor.mutate(|p| p.trim_left_at(ph, sel.as_deref())).unwrap_or(false);
+        if ok {
+            app.save_current();
+            app.toast("Recortado inicio (Q)");
+        }
+    }
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::W)) {
+        let ph = app.playhead;
+        let sel = app.editor.selection().map(str::to_string);
+        let ok = app.editor.mutate(|p| p.trim_right_at(ph, sel.as_deref())).unwrap_or(false);
+        if ok {
+            app.save_current();
+            app.toast("Recortado final (W)");
+        }
+    }
+
+    // Eliminar clip seleccionado (Supr o Backspace)
     if ctx.input(|i| i.key_pressed(egui::Key::Delete) || i.key_pressed(egui::Key::Backspace)) {
         if let Some(id) = app.editor.selection().map(str::to_string) {
             app.editor.mutate(|p| { p.remove_clip(&id); });
+            app.editor.select(None);
             app.save_current();
+            app.toast("Clip eliminado");
+        }
+    }
+
+    // Duplicar clip (Ctrl+D)
+    if ctx.input(|i| i.modifiers.ctrl && i.key_pressed(egui::Key::D)) {
+        if let Some(id) = app.editor.selection().map(str::to_string) {
+            let dup = app.editor.mutate(|p| p.duplicate_clip(&id)).flatten();
+            if let Some(did) = dup {
+                app.editor.select(Some(did));
+                app.save_current();
+                app.toast("Clip duplicado");
+            }
+        }
+    }
+
+    // Marcador (M)
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::M)) {
+        let ph = app.playhead;
+        let added = app.editor.mutate(|p| p.toggle_marker(ph)).unwrap_or(false);
+        app.save_current();
+        app.toast(if added { "Marcador añadido (M)" } else { "Marcador eliminado (M)" });
+    }
+
+    // Imán de ajuste (N)
+    if ctx.input(|i| !i.modifiers.ctrl && i.key_pressed(egui::Key::N)) {
+        app.snap = !app.snap;
+        app.toast(if app.snap { "Imán activado" } else { "Imán desactivado" });
+    }
+
+    // Ajustar zoom a la ventana (Shift+Z)
+    if ctx.input(|i| i.modifiers.shift && i.key_pressed(egui::Key::Z)) {
+        if let Some(p) = app.editor.project() {
+            let dur = p.timeline_length().max(1.0);
+            let avail = 900.0; // tamaño promedio de timeline
+            app.zoom = ((avail / (dur as f32 * 80.0)) as f64).clamp(0.25, 8.0);
+            app.toast("Zoom ajustado a ventana");
         }
     }
 }

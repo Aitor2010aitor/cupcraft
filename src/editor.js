@@ -35,8 +35,6 @@ const TABS = [
   ['filters', 'Filtros', 'palette', 'Filtros'],
   ['adjust', 'Ajuste', 'adjust', 'Ajustar'],
   ['templates', 'Plantillas', 'templates', 'Plantillas'],
-  ['avatar', 'Avatar de IA', 'avatar', 'Avatar'],
-  ['auto', 'Editor automático IA', 'sparkles', 'Auto IA'],
 ];
 
 export function mountEditor(root) {
@@ -61,11 +59,6 @@ export function mountEditor(root) {
           <button class="pro-banner" data-act="pro"><span class="pro-gem">◆</span> Obtén 7 días gratis de la versión Pro</button>
           <button class="share-btn" data-act="share">${icon('share', 14)} Compartir</button>
           <button class="export-btn" data-act="export">${icon('export', 14)} Exportar</button>
-          <div class="win-controls">
-            <button data-act="minimize" title="Minimizar">${icon('minus', 14)}</button>
-            <button data-act="maximize" title="Maximizar">${icon('square', 12)}</button>
-            <button class="close" data-act="close" title="Cerrar">${icon('x', 14)}</button>
-          </div>
         </div>
       </header>
       <div class="workspace">
@@ -312,8 +305,12 @@ export function mountEditor(root) {
     else if (action === 'export') openExportDialog();
     else if (action === 'share') showShareDialog();
     else if (action === 'pro') showProDialog();
-    else if (action === 'minimize' || action === 'close') goHome();
-    else if (action === 'maximize') {
+    else if (action === 'minimize') {
+        // En lugar de cerrar, invocamos la nueva función global
+        window.closeProject();
+    } else if (action === 'close') {
+        window.closeProject();
+    } else if (action === 'maximize') {
       if (document.fullscreenElement) document.exitFullscreen();
       else editRoot.requestFullscreen?.().catch(() => {});
     } else if (action === 'shot') {

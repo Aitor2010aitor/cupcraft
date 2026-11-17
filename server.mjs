@@ -1,6 +1,9 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, sep } from 'node:path';
+import fs from 'node:fs';
+import os from 'node:os';
+import path, { extname, join, normalize, sep } from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   capcutRoots,
@@ -73,6 +76,82 @@ function readBody(req, limit = 4_000_000) {
 
 async function handleApi(req, res, url) {
   const { pathname } = url;
+
+  if (pathname === '/api/tts/voices' && req.method === 'GET') {
+    const modelsDir = path.join(root, 'tools', 'piper', 'models');
+    const voices = [];
+    try {
+      const files = fs.readdirSync(modelsDir);
+      for (const f of files) {
+        if (f.endsWith('.onnx')) {
+          const stem = f.replace(/\.onnx$/, '');
+          const label = stem.includes('davefx') ? 'Davefx (Español)' :
+            stem.includes('sharvard') ? 'Sharvard (Español)' :
+            stem.includes('carlfm') ? 'Carlfm (Español)' : stem;
+          const gender = stem.includes('davefx') ? 'Masculina' :
+            stem.includes('sharvard') ? 'Neutral' :
+            stem.includes('carlfm') ? 'Femenina' : 'Voz';
+          const quality = stem.includes('carlfm') ? 'Ultrarrápida' : 'Alta calidad';
+          voices.push({
+            id: stem,
+            name: `${label} · ${gender}`,
+            description: quality,
+            gender,
+            lang: stem.startsWith('es_') ? 'es' : 'en',
+          });
+        }
+      }
+    } catch {}
+    json(res, 200, { available: voices.length > 0, voices });
+    return true;
+  }
+
+  if (pathname === '/api/tts/generate' && req.method === 'POST') {
+    const body = await readJson(req);
+    const text = String(body.text || '').trim();
+    if (!text) {
+      json(res, 400, { ok: false, error: 'El texto no puede estar vacío' });
+      return true;
+    }
+    const voice = String(body.voice || 'es_ES-davefx-medium').replace(/[^a-zA-Z0-9_-]/g, '');
+    const speed = Math.max(0.5, Math.min(2.5, Number(body.speed) || 1));
+    const lengthScale = (1 / speed).toFixed(3);
+    const piperDir = path.join(root, 'tools', 'piper');
+    const piperExe = path.join(piperDir, 'piper.exe');
+    const modelPath = path.join(piperDir, 'models', `${voice}.onnx`);
+    const tempWav = path.join(os.tmpdir(), `cupcraft_tts_${Date.now()}_${Math.random().toString(36).slice(2)}.wav`);
+
+    try {
+      await new Promise((resolve, reject) => {
+        const child = spawn(piperExe, [
+          '--model', modelPath,
+          '--output_file', tempWav,
+          '--length_scale', lengthScale,
+        ], { cwd: piperDir });
+        let stderr = '';
+        child.stderr.on('data', (d) => { stderr += d.toString(); });
+        child.on('close', (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(stderr || `Piper terminó con código ${code}`));
+        });
+        child.on('error', reject);
+        child.stdin.end(Buffer.from(text, 'utf8'));
+      });
+
+      const audioBytes = fs.readFileSync(tempWav);
+      fs.unlinkSync(tempWav);
+      res.writeHead(200, {
+        'Content-Type': 'audio/wav',
+        'Cache-Control': 'no-store',
+        'Content-Length': audioBytes.length,
+      });
+      res.end(audioBytes);
+    } catch (err) {
+      if (fs.existsSync(tempWav)) fs.unlinkSync(tempWav);
+      json(res, 500, { ok: false, error: err.message });
+    }
+    return true;
+  }
 
   if (pathname === '/api/img' && req.method === 'GET') {
     const target = url.searchParams.get('u') || '';

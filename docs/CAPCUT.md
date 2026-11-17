@@ -43,6 +43,14 @@ ajústalas si mueves el proyecto.
 - `assets/capcut/` (portadas, ~1,9 GB) **no** se versiona. La app usa la portada local si
   existe y, si no, la URL firmada de la CDN de CapCut.
 
+## Stickers animados
+
+Las portadas de sticker animadas (`.webp` con chunks `ANIM`/`ANMF` y `.gif`) se
+decodifican con `ImageDecoder` en `src/sticker-animation.js` y se dibujan por
+fotograma según el tiempo local del clip: avanzan al reproducir, se congelan al
+pausar y cambian al mover el cursor. `src/sticker-image.js` no recorta el fondo
+de una imagen animada, porque convertirlo a PNG data URL perdería la animación.
+
 ## Shaders
 
 `src/gl-post.js` es el runner WebGL. Cada shader es un porte de un `.frag` real de un

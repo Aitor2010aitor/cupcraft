@@ -100,6 +100,12 @@ const p = {
   alignTop: '<path d="M3 4h18"/><rect x="6" y="7" width="4" height="12" rx="1"/><rect x="14" y="7" width="4" height="8" rx="1"/>',
   alignCenterV: '<path d="M3 12h18"/><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="7" width="4" height="10" rx="1"/>',
   alignBottom: '<path d="M3 20h18"/><rect x="6" y="5" width="4" height="12" rx="1"/><rect x="14" y="9" width="4" height="8" rx="1"/>',
+  trimLeft: '<path d="M4 4v16"/><path d="M12 8l-4 4 4 4"/><path d="M8 12h12"/>',
+  trimRight: '<path d="M20 4v16"/><path d="M12 8l4 4-4 4"/><path d="M16 12H4"/>',
+  marker: '<path d="M12 2l7 7-7 13-7-13 7-7z"/>',
+  reverse: '<path d="M11 19l-9-7 9-7v14zM22 19l-9-7 9-7v14z"/>',
+  freeze: '<path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/>',
+  extractAudio: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><path d="M17 14l4 4m0-4l-4 4"/>',
 };
 
 export function icon(name, size = 18, cls = '') {

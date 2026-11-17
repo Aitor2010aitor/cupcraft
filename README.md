@@ -1,5 +1,5 @@
 # cupcraft
-![README IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/version.04/READMEN.md)
+![README IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/0.4.5/READMEN.md)
 
 
 
@@ -12,9 +12,21 @@
 
 Editor de video local en el navegador, inspirado en el flujo de trabajo y la interfaz oscura de CapCut. cupcraft es una implementación original: no incluye binarios, logotipos, tipografías ni recursos propietarios de CapCut.
 
+La aplicación es **Rust de principio a fin**: un único ejecutable abre la interfaz web en una ventana WebView2, sin Electron, sin Node.js y sin .NET.
+
 ![Pantalla de inicio de cupcraft](shots/01-home.png)
 
 ![Editor de cupcraft con panel de texto](shots/20-template.png)
+
+## Novedades de la 0.4.5
+
+- **Escritorio nativo en Rust**: `cupcraft-desktop` (tao + wry) arranca el servidor local y abre la UI en WebView2. Un solo `.exe` de unos 4 MB.
+- **Stickers animados arreglados**: los stickers WebP y GIF de CapCut ya se decodifican y se dibujan fotograma a fotograma siguiendo el tiempo del clip.
+- **Importación de CapCut más robusta**: nuevo `material_path()` con varios fallbacks, así se encuentran también los stickers que vienen sin extensión en el borrador.
+- **Línea de tiempo estilo CapCut**: zoom con la rueda del ratón manteniendo el punto temporal bajo el cursor, y cabezal amarillo más visible.
+- **Cerrar un proyecto ya no cierra la app**: al salir del editor se vuelve a la pantalla de inicio con el servidor y la ventana vivos, como en CapCut.
+- **Título con versión**: la barra de la ventana muestra `cupcraft v0.1.0`, sin controles de ventana duplicados dentro de la UI.
+- **Voces locales con Piper (TTS-Abierto)**: síntesis de voz neuronal en el equipo, sin enviar texto a la nube.
 
 ## Funciones
 
@@ -30,6 +42,8 @@ Editor de video local en el navegador, inspirado en el flujo de trabajo y la int
 - Detecta los borradores nativos de CapCut instalado en Windows (`%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`).
 - Muestra nombre, fecha, relación de aspecto, duración, miniatura y número de clips antes de importar.
 - Crea un proyecto nuevo de cupcraft sin modificar el borrador original: copia los medios a IndexedDB, remapea las pistas y conserva los clips de texto con sus tiempos.
+- Los **stickers animados** (WebP animado y GIF) se importan completos y se reproducen sincronizados con el tiempo local de cada clip.
+- Los stickers que CapCut guarda sin extensión se localizan probando varias rutas y extensiones conocidas.
 - La importación funciona sin conexión y no usa servicios en la nube de CapCut.
 
 ![Lista de borradores nativos de CapCut en cupcraft](shots/new-capcut-list.png)
@@ -52,7 +66,7 @@ Editor de video local en el navegador, inspirado en el flujo de trabajo y la int
 - 10 plantillas con título y subtítulo desde el inicio y desde el panel del editor.
 - Volumen por clip, velocidad y silencio de pista.
 - Grabación de voz con el micrófono y la API `MediaRecorder`.
-- Zoom de la línea de tiempo y ajuste automático al soltar clips.
+- Zoom de la línea de tiempo con la rueda del ratón, centrado en el cursor, y ajuste automático al mover clips.
 
 ### Puente de control para IA
 
@@ -86,6 +100,13 @@ Acciones disponibles: `getState`, `listProjects`, `newProject`, `openProject`, `
 
 ![Diálogo del puente de control para IA](shots/new-bridge.png)
 
+### Voces locales (TTS-Abierto)
+
+- Síntesis de voz con **Piper** ejecutada en el propio equipo: el texto no sale de tu máquina.
+- Voces en español listas para locutar textos o subtítulos y añadirlos como audio del proyecto.
+- Se sirve desde `GET /api/tts/voices` y `POST /api/tts/generate`; si Piper no está instalado, el panel lo indica y no bloquea la edición.
+- Los modelos se descargan aparte en `tools/piper/` y no se distribuyen con el repositorio (están excluidos en `.gitignore`).
+
 ### Exportación
 
 - Captura del fotograma actual en PNG.
@@ -108,7 +129,9 @@ Requisitos:
 cupcraft.cmd
 ```
 
-El lanzador compila la primera vez y abre la ventana. También puedes hacerlo a mano:
+El lanzador compila la primera vez y abre la ventana. La barra de título muestra la versión en uso (`cupcraft v0.1.0`). Al cerrar un proyecto con la **X** del editor se vuelve a la pantalla de inicio; la ventana y el servidor siguen abiertos, como en CapCut.
+
+También puedes hacerlo a mano:
 
 ```powershell
 cd rust
@@ -133,8 +156,8 @@ $env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 ## Aplicación de escritorio
 
 - `rust/crates/cupcraft-desktop` crea la ventana nativa con `tao` y embebe WebView2 con `wry`.
-- `rust/crates/cupcraft-server` sirve `index.html`, `src/` y `assets/`, la API `/api/capcut/*`, el proxy `/api/img` y el puente IA `/api/ai/*`.
-- El servidor arranca con la ventana y se detiene al cerrarla.
+- `rust/crates/cupcraft-server` sirve `index.html`, `src/` y `assets/`, la API `/api/capcut/*`, el proxy `/api/img`, el puente IA `/api/ai/*` y las voces locales `/api/tts/*`.
+- El servidor arranca con la ventana y se detiene al cerrarla. Cerrar un proyecto solo vuelve al inicio: no termina el proceso ni abre una segunda instancia.
 - Los proyectos se guardan en el almacenamiento de WebView2 (`%LOCALAPPDATA%\openCUP\WebView2`); el registro de arranque está en `%LOCALAPPDATA%\openCUP\openCUP.log`.
 - Las carpetas `launcher/`, `dotnet/` y los archivos `server.mjs`/`server/*.mjs` se conservan solo como referencia histórica: la aplicación no los usa.
 
@@ -181,6 +204,7 @@ El panel derecho permite editar el proyecto o el clip seleccionado sin salir del
 
 - Las funciones de IA en la nube de CapCut (transcripción automática, avatares animados, eliminación de fondo, generación de video) no están incluidas. La interfaz las presenta como funciones no disponibles sin conexión.
 - El importador de CapCut está pensado para borradores nativos de la versión de escritorio en Windows. Reconstruye medios, pistas, textos y tiempos; los efectos, transiciones y animaciones propietarios de CapCut no se recrean.
+- Los stickers en formato `.pag` de CapCut y sus animaciones propietarias todavía no se reproducen; los WebP y GIF animados sí. El seguimiento de stickers está en desarrollo.
 - El puente IA solo funciona mientras cupcraft está abierto en el navegador y mientras el servidor local está en marcha. No está pensado para exponerse a Internet.
 - La exportación usa `MediaRecorder`; el contenedor es WebM. Para MP4 habría que transcodificar fuera del navegador.
 - La exportación es en tiempo real y no usa aceleración por GPU más allá de la que aplique el navegador.
@@ -205,6 +229,8 @@ cupcraft/
 │  ├─ filter-line.js       Línea propia de 82 filtros en 12 categorías (CSS + GL)
 │  ├─ library.js           Catálogos de efectos, stickers, transiciones y avatares
 │  ├─ capcut.js            Cliente de importación y diálogo de proyectos CapCut
+│  ├─ sticker-animation.js Decodificador de stickers animados (WebP/GIF) por tiempo
+│  ├─ tts-abierto.js       Cliente de voces locales Piper para el editor
 │  ├─ ai-bridge.js         Puente del navegador, acciones y diálogo de control
 │  ├─ export.js            Exportación WebM y captura PNG
 │  ├─ webm.js              Parche de duración EBML para WebM
@@ -217,7 +243,7 @@ cupcraft/
 ├─ cupcraft.cmd            Lanzador: compila en Rust y abre la ventana
 ├─ rust/                   Aplicación en Rust (cargo workspace)
 │  ├─ crates/cupcraft-desktop  Ventana nativa (tao) + WebView2 (wry)
-│  ├─ crates/cupcraft-server   Servidor estático, API CapCut y puente IA
+│  ├─ crates/cupcraft-server   Servidor estático, API CapCut, puente IA y TTS
 │  ├─ crates/cupcraft-core     Modelo, timeline, historial y filtros
 │  ├─ crates/cupcraft-persist  Almacén SQLite y archivos .opencup.json
 │  └─ crates/cupcraft-app      Rewrite experimental de UI con egui
@@ -226,6 +252,7 @@ cupcraft/
 ├─ launcher/main.cpp       (histórico) lanzador C++ + WebView2
 ├─ tools/                  Pruebas de navegador y scripts de empaquetado
 │  ├─ build-rust.ps1       Compila en release y monta dist/cupcraft-rust
+│  ├─ piper/               (local) binarios y modelos de voz Piper, fuera de git
 │  ├─ build-desktop.ps1    (histórico) compila el .exe en C++
 │  ├─ build-installer.ps1  (histórico) instalador con Inno Setup 6
 │  ├─ run-all-tests.ps1    Levanta el servidor Rust y ejecuta las suites

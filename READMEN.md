@@ -1,6 +1,6 @@
 # cupcraft
 
-![READ IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/version.04/READMEN.md)
+![READ IN ENGLISH](https://github.com/Aitor2010aitor/cupcraft/blob/0.4.5/READMEN.md)
 
 
 
@@ -9,9 +9,21 @@
 
 A local video editor that runs in the browser, inspired by CapCut's workflow and dark interface. cupcraft is an original implementation: it does not include CapCut binaries, logos, typefaces, or proprietary assets.
 
+The app is **Rust end to end**: a single executable opens the web interface in a WebView2 window, with no Electron, no Node.js, and no .NET.
+
 ![cupcraft home screen](shots/01-home.png)
 
 ![cupcraft editor with the text panel](shots/20-template.png)
+
+## What's new in 0.4.5
+
+- **Native Rust desktop shell**: `cupcraft-desktop` (tao + wry) starts the local server and opens the UI in WebView2. One `.exe` of about 4 MB.
+- **Animated stickers fixed**: CapCut WebP and GIF stickers are decoded and drawn frame by frame using each clip's local time.
+- **More robust CapCut import**: new `material_path()` with several fallbacks, so stickers stored without an extension are found too.
+- **CapCut-style timeline**: mouse-wheel zoom anchored at the cursor, and a more visible yellow playhead.
+- **Closing a project no longer closes the app**: leaving the editor returns to the home screen while the window and server stay alive, like CapCut.
+- **Version in the title bar**: the window shows `cupcraft v0.1.0`, with the duplicate in-app window controls removed.
+- **Local voices with Piper (TTS-Abierto)**: neural speech synthesis on the machine, without sending text to the cloud.
 
 ## Features
 
@@ -27,6 +39,8 @@ A local video editor that runs in the browser, inspired by CapCut's workflow and
 - Detects native drafts from CapCut installed on Windows (`%LOCALAPPDATA%\CapCut\User Data\Projects\com.lveditor.draft`).
 - Displays the name, date, aspect ratio, duration, thumbnail, and number of clips before importing.
 - Creates a new cupcraft project without modifying the original draft: it copies media to IndexedDB, remaps tracks, and preserves text clips and their timings.
+- **Animated stickers** (animated WebP and GIF) are imported fully and play in sync with each clip's local time.
+- Stickers that CapCut stores without an extension are located by trying several known paths and extensions.
 - Import works offline and does not use CapCut cloud services.
 
 ![List of native CapCut drafts in cupcraft](shots/new-capcut-list.png)
@@ -49,7 +63,7 @@ A local video editor that runs in the browser, inspired by CapCut's workflow and
 - 10 templates with a title and subtitle, available from the home screen and the editor panel.
 - Per-clip volume, playback speed, and track muting.
 - Voice recording using the microphone and the `MediaRecorder` API.
-- Timeline zoom and automatic fitting when clips are dropped.
+- Timeline zoom with the mouse wheel, anchored at the cursor, plus automatic fitting when clips are moved.
 
 ### AI control bridge
 
@@ -83,6 +97,13 @@ Available actions: `getState`, `listProjects`, `newProject`, `openProject`, `goH
 
 ![AI control bridge dialog](shots/new-bridge.png)
 
+### Local voices (TTS-Abierto)
+
+- Speech synthesis with **Piper** running on your own machine: the text never leaves it.
+- Spanish voices ready to narrate text or subtitles and add them as project audio.
+- Served by `GET /api/tts/voices` and `POST /api/tts/generate`; if Piper is not installed, the panel says so and editing keeps working.
+- Models are downloaded separately into `tools/piper/` and are not distributed with the repository (they are excluded in `.gitignore`).
+
 ### Export
 
 - Capture the current frame as PNG.
@@ -105,7 +126,9 @@ Requirements:
 cupcraft.cmd
 ```
 
-The launcher builds the first time and opens the window. You can also do it manually:
+The launcher builds the first time and opens the window. The title bar shows the running version (`cupcraft v0.1.0`). Closing a project with the editor's **X** returns to the home screen; the window and server keep running, like CapCut.
+
+You can also do it manually:
 
 ```powershell
 cd rust
@@ -130,8 +153,8 @@ $env:PORT=9000; .\rust\target\debug\cupcraft-desktop.exe --server-only
 ## Desktop application
 
 - `rust/crates/cupcraft-desktop` creates the native window with `tao` and embeds WebView2 with `wry`.
-- `rust/crates/cupcraft-server` serves `index.html`, `src/`, and `assets/`, the `/api/capcut/*` API, the `/api/img` proxy, and the `/api/ai/*` AI bridge.
-- The server starts with the window and stops when it closes.
+- `rust/crates/cupcraft-server` serves `index.html`, `src/`, and `assets/`, the `/api/capcut/*` API, the `/api/img` proxy, the `/api/ai/*` AI bridge, and the `/api/tts/*` local voices.
+- The server starts with the window and stops when it closes. Closing a project only returns to the home screen: it does not end the process or open a second instance.
 - Projects are stored in WebView2 storage (`%LOCALAPPDATA%\openCUP\WebView2`); the startup log is at `%LOCALAPPDATA%\openCUP\openCUP.log`.
 - `launcher/`, `dotnet/`, and `server.mjs`/`server/*.mjs` are kept only as historical reference: the application does not use them.
 
@@ -178,6 +201,7 @@ The right-hand panel lets you edit the project or selected clip without leaving 
 
 - CapCut cloud AI features (automatic transcription, animated avatars, background removal, and video generation) are not included. The interface marks them as unavailable offline.
 - The CapCut importer is designed for native drafts from the Windows desktop version. It reconstructs media, tracks, text, and timings; CapCut's proprietary effects, transitions, and animations are not recreated.
+- CapCut `.pag` stickers and their proprietary animations are not played yet; animated WebP and GIF stickers are. Sticker tracking is in development.
 - The AI bridge only works while cupcraft is open in the browser and the local server is running. It is not designed to be exposed to the Internet.
 - Export uses `MediaRecorder`; the output container is WebM. MP4 would require transcoding outside the browser.
 - Export runs in real time and does not use GPU acceleration beyond what the browser provides.
@@ -192,7 +216,7 @@ cupcraft/
 ├─ cupcraft.cmd            Launcher: builds in Rust and opens the window
 ├─ rust/                   Rust application (cargo workspace)
 │  ├─ crates/cupcraft-desktop  Native window (tao) + WebView2 (wry)
-│  ├─ crates/cupcraft-server   Static server, CapCut API, and AI bridge
+│  ├─ crates/cupcraft-server   Static server, CapCut API, AI bridge, and TTS
 │  ├─ crates/cupcraft-core     Model, timeline, history, and filters
 │  ├─ crates/cupcraft-persist  SQLite store and .opencup.json files
 │  └─ crates/cupcraft-app      Experimental egui UI rewrite
@@ -212,6 +236,8 @@ cupcraft/
 │  ├─ filter-line.js       Original line of 82 filters in 12 categories (CSS + GL)
 │  ├─ library.js           Effect, sticker, transition, and avatar catalogs
 │  ├─ capcut.js            CapCut import client and project dialog
+│  ├─ sticker-animation.js Animated sticker decoder (WebP/GIF) driven by clip time
+│  ├─ tts-abierto.js       Local Piper voices client for the editor
 │  ├─ ai-bridge.js         Browser bridge, actions, and control dialog
 │  ├─ export.js            WebM export and PNG capture
 │  ├─ webm.js              EBML duration patch for WebM
@@ -223,6 +249,7 @@ cupcraft/
 │  └─ styles.css           Dark theme and responsive layout
 ├─ tools/                  Browser tests and packaging scripts
 │  ├─ build-rust.ps1       Release build and dist/cupcraft-rust assembly
+│  ├─ piper/               (local) Piper binaries and voice models, not in git
 │  ├─ build-desktop.ps1    (historical) compiles the C++ executable
 │  ├─ build-installer.ps1  (historical) Inno Setup 6 installer
 │  ├─ cacup.iss            (historical) Inno Setup script (Spanish, uninstaller)

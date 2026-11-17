@@ -295,6 +295,15 @@ Notes:
 - Screenshots are written to `shots/`; exported test files are written to `shots/*-test/`.
 - `tools/visual-test.mjs` generates screenshots of the home screen and editor.
 
+## CapCut catalog
+
+cupcraft includes the real CapCut panels (effects, transitions, filters, stickers, and text templates) with their original categories and cover images. Details in [docs/CAPCUT.md](docs/CAPCUT.md).
+
+- Effects: 2,469 · Transitions: 2,047 · Filters: 761 · Stickers: 2,167 · Text: 429
+- CapCut / Local switch in every panel.
+- CapCut text templates can be applied: their cover colors are read through the local proxy and turned into an editable style (color, stroke, shadow, and glow) for the project text. CapCut fonts and assets are not copied.
+- 13 WebGL shaders ported from CapCut packages (src/gl-post.js).
+
 ## Notice
 
 cupcraft is an independent educational project. CapCut is a trademark of ByteDance. This repository is not affiliated with CapCut and does not distribute its assets.

@@ -128,6 +128,7 @@ function capcutToLocal(name) {
   return hit ? hit[1] : 'none';
 }
 import { adjustCss } from './renderer.js';
+import { capcutTextStyle } from './capcut-text-style.js';
 import {
   TEXT_STYLES,
   TEXT_BUBBLES,
@@ -937,8 +938,15 @@ export function mountLeftPanel(host) {
   function textEffectPanel() {
     const clip = activeTextClip();
     const active = clip?.text?.strokeWidth > 0 || clip?.text?.glow || clip?.text?.shadow;
+    const featured = CAPCUT_TEXT_ITEMS.filter((item) => (item.cats || []).includes('Básico') || (item.cats || []).includes('Tendencias')).slice(0, 12);
     return `
       <div class="text-panel-hint">${clip ? 'Aplica un efecto al texto seleccionado.' : 'Elige un efecto: se creará un texto nuevo con ese acabado.'}</div>
+      <div class="text-panel-section-head"><span>Estilos de CapCut</span><b>${CAPCUT_TEXT_ITEMS.length}</b></div>
+      <div class="effect-grid capcut-text-featured">
+        ${featured.map((item) => capcutCard(item, 'data-capcut-text')).join('')}
+      </div>
+      <button class="btn btn-small btn-block" data-text-tab="capcut" style="margin:8px 12px 4px;width:calc(100% - 24px)">Ver los ${CAPCUT_TEXT_ITEMS.length} estilos de CapCut</button>
+      <div class="text-panel-section-head"><span>Efectos básicos</span><b>${TEXT_EFFECTS.length}</b></div>
       <div class="text-effect-grid">
         ${TEXT_EFFECTS.map((effect) => `
           <button class="text-effect-card" data-text-effect="${effect.id}">
@@ -1538,11 +1546,21 @@ export function mountLeftPanel(host) {
     });
   }
 
+  let captionStyle = 'clean';
+  let captionAnimation = 'none';
+
   function captionsPanel() {
     const textClips = state.project?.tracks
       .filter((track) => track.type === 'text')
       .flatMap((track) => track.clips.filter((clip) => clip.kind === 'text'))
       .sort((a, b) => a.start - b.start) || [];
+
+    const animations = [
+      { id: 'none', label: 'Sin animación', icon: 'ban' },
+      { id: 'caption-karaoke', label: 'Karaoke', icon: 'highlight' },
+      { id: 'caption-pop', label: 'Salto', icon: 'sparkles' },
+    ];
+
     return `
       <div class="details-section" style="margin:2px 12px 6px">Estilo de subtítulo</div>
       <div class="caption-styles">
@@ -1550,6 +1568,14 @@ export function mountLeftPanel(host) {
           <button class="caption-style${captionStyle === style.id ? ' active' : ''}" data-caption-style="${style.id}">
             <span style="font-weight:${style.weight};color:${style.color};${style.background !== 'transparent' ? `background:${style.background};` : ''}">${style.label}</span>
             ${captionStyle === style.id ? icon('check', 11) : ''}
+          </button>`).join('')}
+      </div>
+
+      <div class="details-section" style="margin:8px 12px 6px">Animación de subtítulo</div>
+      <div class="caption-anims">
+        ${animations.map((anim) => `
+          <button class="caption-anim-btn${captionAnimation === anim.id ? ' active' : ''}" data-caption-anim="${anim.id}">
+            ${icon(anim.icon, 13)} <span>${anim.label}</span>
           </button>`).join('')}
       </div>
       <div class="caption-ai-banner ${whisperReady ? 'is-ready' : 'is-pending'}">
@@ -2206,7 +2232,29 @@ export function mountLeftPanel(host) {
     const capcutTextButton = event.target.closest('[data-capcut-text]');
     if (capcutTextButton) {
       const item = CAPCUT_TEXT_ITEMS.find((entry) => entry.id === capcutTextButton.dataset.capcutText);
-      if (item) toast(`“${item.name}”: plantilla de texto de CapCut pendiente`, 'warning', 2200);
+      if (!item) return;
+      toast(`Aplicando “${item.name}”…`, 'info', 1200);
+      void capcutTextStyle(item).then((style) => {
+        if (!style) return;
+        const found = selectedClip();
+        const hasTextClip = found?.clip?.kind === 'text';
+        if (!hasTextClip) {
+          const raw = String(item.name || '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+          // Usamos el nombre real de la plantilla como contenido: en CapCut las
+          // portadas muestran ese texto y el usuario lo espera ver en el canvas.
+          const sample = raw.slice(0, 28) || 'Texto';
+          const preset = { text: { ...style.patch, size: 86, weight: 900, textCase: 'upper' } };
+          addTextClip(sample || 'Tu texto aquí', { start: state.playhead, duration: 4, preset });
+          window.dispatchEvent(new CustomEvent('opencup:glfx'));
+          toast(`Estilo “${item.name}” añadido en el cursor`, 'success', 1800);
+          return;
+        }
+        applyTextPatch(style.patch, `Estilo “${item.name}” aplicado`);
+        window.dispatchEvent(new CustomEvent('opencup:glfx'));
+      }).catch(() => toast('No se pudo leer el estilo de esa plantilla', 'warning'));
       return;
     }
 

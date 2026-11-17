@@ -341,12 +341,15 @@ export const TEXT_ANIMATIONS = [
   { id: 'loop-shake', label: 'Vibración', phase: 'loop', duration: 1.2 },
   { id: 'loop-swing', label: 'Balanceo', phase: 'loop', duration: 2.2 },
   { id: 'loop-float', label: 'Flotar', phase: 'loop', duration: 2.8 },
+  { id: 'caption-karaoke', label: 'Karaoke', phase: 'caption', duration: 0.3 },
+  { id: 'caption-pop', label: 'Salto', phase: 'caption', duration: 0.25 },
 ];
 
 export const TEXT_ANIMATION_GROUPS = [
   { id: 'in', label: 'Entrada', items: TEXT_ANIMATIONS.filter((item) => item.phase === 'in') },
   { id: 'loop', label: 'Bucle', items: TEXT_ANIMATIONS.filter((item) => item.phase === 'loop') },
   { id: 'out', label: 'Salida', items: TEXT_ANIMATIONS.filter((item) => item.phase === 'out') },
+  { id: 'caption', label: 'Subtítulos (Pro)', items: TEXT_ANIMATIONS.filter((item) => item.phase === 'caption') },
 ];
 
 export const TEXT_FONTS = [

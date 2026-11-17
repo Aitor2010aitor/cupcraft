@@ -437,7 +437,10 @@ export function mountPreview(host) {
     });
   }
 
-  window.addEventListener('opencup:glfx', schedulePaint);
+  window.addEventListener('opencup:glfx', () => {
+    schedulePaint();
+    scheduleAnimationPreview();
+  });
 
   /* Las animaciones de texto en bucle se previsualizan aunque esté pausado. */
   function hasLiveTextAnimation() {

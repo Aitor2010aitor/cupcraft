@@ -306,6 +306,7 @@ cupcraft incluye los paneles reales de CapCut (efectos, transiciones, filtros, s
 
 - Efectos: 2.469 · Transiciones: 2.047 · Filtros: 761 · Stickers: 2.167 · Texto: 429
 - Conmutador CapCut / Local en cada panel.
+- Las plantillas de texto de CapCut se pueden aplicar: se leen los colores de su portada a través del proxy local y se genera un estilo editable (color, contorno, sombra y resplandor) sobre el texto del proyecto. No se copian sus fuentes ni sus recursos.
 - 13 shaders WebGL portados de paquetes de CapCut (src/gl-post.js).
 
 Comunidad: [Discord](https://discord.gg/N2kfVGjeZ7) · [GitHub](https://github.com/Aitor2010aitor/cupcraft)

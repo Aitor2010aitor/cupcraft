@@ -1973,8 +1973,17 @@ function drawTextLayer(ctx, layer, width, height, options = {}) {
   wipeClip(ctx, anim, width, height);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
-  ctx.font = metrics.font;
+  ctx.font = metrics.font.replace('Inter', 'Impact');
   if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  const startY = -blockHeight / 2 + lineHeight / 2;
+
+  if (text.strokeWidth > 0 && text.strokeColor) {
+    ctx.strokeStyle = colorWithAlpha(text.strokeColor, 1);
+    ctx.lineWidth = Math.max(0, textNumber(text.strokeWidth, 0.08)) * fontSize;
+    ctx.lineJoin = 'round';
+    paintTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, true);
+  }
 
   if (text.background && text.background !== 'transparent') {
     const pad = textPadding(text, fontSize);
@@ -1996,8 +2005,6 @@ function drawTextLayer(ctx, layer, width, height, options = {}) {
     }
     ctx.restore();
   }
-
-  const startY = -blockHeight / 2 + lineHeight / 2;
 
   if (text.glow) {
     ctx.shadowColor = colorWithAlpha(text.glowColor || '#00e5d0', 1);
@@ -2021,7 +2028,7 @@ function drawTextLayer(ctx, layer, width, height, options = {}) {
 
   paintTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo);
 
-  // Karaoke: resalta en amarillo la palabra activa si hay tiempos por palabra.
+  // Subtítulos animados: resalta o anima la palabra activa si hay tiempos por palabra.
   if (Array.isArray(text.words) && text.words.length) {
     const sourceTime = (clip.in || 0) + local * (clip.speed || 1);
     const active = text.words.find((w) => sourceTime >= (w.start || 0) && sourceTime < (w.end || w.start + 0.5));
@@ -2043,8 +2050,24 @@ function drawTextLayer(ctx, layer, width, height, options = {}) {
           const align = text.align === 'left' ? 'left' : text.align === 'right' ? 'right' : 'center';
           const startX = align === 'left' ? -blockWidth / 2 : align === 'right' ? blockWidth / 2 - lineWidth : -lineWidth / 2;
           const baselineY = startY + lineIndex * metrics.lineHeight;
+
+          const animId = text.animation || 'caption-karaoke';
+          const isPop = animId === 'caption-pop';
+          const isKaraoke = animId === 'caption-karaoke';
+
           ctx.save();
-          ctx.fillStyle = '#ffeb3b';
+          if (isPop) {
+            const wordLocal = sourceTime - active.start;
+            const p = Math.max(0, Math.min(1, wordLocal / 0.25));
+            const scale = 1 + Math.sin(p * Math.PI) * 0.22;
+            ctx.translate(startX + prefixWidth + wordWidth / 2, baselineY);
+            ctx.scale(scale, scale);
+            ctx.translate(-(startX + prefixWidth + wordWidth / 2), -baselineY);
+            ctx.fillStyle = '#ffffff';
+          } else {
+            ctx.fillStyle = '#ffeb3b';
+          }
+
           ctx.shadowColor = 'rgba(0,0,0,0.6)';
           ctx.shadowBlur = metrics.fontSize * 0.12;
           ctx.fillText(wordsInLine[idx], startX + prefixWidth, baselineY);

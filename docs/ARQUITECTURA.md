@@ -39,7 +39,7 @@ rust/crates/
 | **Fase 1** | Núcleo ampliado en Rust (`cupcraft-core`): modelo completo, keyframes, congelado de fotograma, separación de audio, stickers, efectos y subtítulos. 69 tests unitarios pasando. | **Completada** |
 | **Fase 2** | Persistencia nativa (`cupcraft-persist`) con SQLite WAL, medios en disco y migración transparente de proyectos viejos de IndexedDB/WebView2. | **Completada** |
 | **Fase 3** | Motor de composición en GPU con `wgpu 30` y shaders WGSL (`cupcraft-render`): 13 efectos clásicos, 8 efectos firma CapCut, shader LUT 512×512, transiciones (67 tipos) y composición de capas. | **Completada** |
-| **Fase 4** | Integración de audio y vídeo con FFmpeg, cpal y symphonia (`cupcraft-media` y `cupcraft-audio`). | Siguiente |
-| **Fase 5** | Interfaz gráfica nativa con `egui/eframe` (`cupcraft-ui`). | Pendiente |
+| **Fase 4** | Integración de audio y vídeo con FFmpeg, cpal y symphonia (`cupcraft-media` y `cupcraft-audio`): decodificación nativa (MP3, WAV, AAC, OGG, FLAC), mezcla multipista con fundidos, motor CPAL en tiempo real, extracción de fotogramas/tiras de película y exportación acelerada (H.264, H.265, WebM con NVENC/QSV/AMF). | **Completada** |
+| **Fase 5** | Interfaz gráfica nativa con `egui/eframe` (`cupcraft-ui`): diseño oscuro con tokens exactos, timeline multipista fluida, previsualización, paneles y atajos de teclado. | Siguiente |
 | **Fase 6** | Integraciones accesorias (CapCut, AI Bridge, Piper TTS). | Pendiente |
 | **Fase 7** | Empaquetado final de un solo `.exe` nativo y pruebas de paridad. | Pendiente |

@@ -145,6 +145,10 @@ pub struct Track {
     pub kind: TrackType,
     pub name: String,
     #[serde(default)]
+    pub muted: bool,
+    #[serde(default)]
+    pub hidden: bool,
+    #[serde(default)]
     pub clips: Vec<Clip>,
 }
 
@@ -229,9 +233,9 @@ impl Project {
             media: Vec::new(),
             thumb: None,
             tracks: vec![
-                Track { id: "track_text".into(), kind: TrackType::Text, name: "Texto".into(), clips: Vec::new() },
-                Track { id: "track_video".into(), kind: TrackType::Video, name: "Video 1".into(), clips: Vec::new() },
-                Track { id: "track_audio".into(), kind: TrackType::Audio, name: "Audio 1".into(), clips: Vec::new() },
+                Track { id: "track_text".into(), kind: TrackType::Text, name: "Texto".into(), muted: false, hidden: false, clips: Vec::new() },
+                Track { id: "track_video".into(), kind: TrackType::Video, name: "Video 1".into(), muted: false, hidden: false, clips: Vec::new() },
+                Track { id: "track_audio".into(), kind: TrackType::Audio, name: "Audio 1".into(), muted: false, hidden: false, clips: Vec::new() },
             ],
             markers: Vec::new(),
             extra: Map::new(),

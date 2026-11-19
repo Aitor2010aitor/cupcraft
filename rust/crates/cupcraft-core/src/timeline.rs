@@ -433,7 +433,7 @@ impl Project {
     /// Añade una pista vacía y devuelve su id.
     pub fn add_track(&mut self, kind: TrackType) -> String {
         let name = self.next_track_name(kind);
-        let track = Track { id: new_id("track"), kind, name, clips: Vec::new() };
+        let track = Track { id: new_id("track"), kind, name, muted: false, hidden: false, clips: Vec::new() };
         self.tracks.push(track);
         self.tracks.last().map(|t| t.id.clone()).unwrap_or_default()
     }
@@ -882,7 +882,7 @@ mod tests {
 
     #[test]
     fn resolve_start_pushes_past_collisions() {
-        let mut track = Track { id: "t".into(), kind: TrackType::Video, name: "V".into(), clips: Vec::new() };
+        let mut track = Track { id: "t".into(), kind: TrackType::Video, name: "V".into(), muted: false, hidden: false, clips: Vec::new() };
         track.clips.push(make_clip(ClipKind::Image, "a", 0.0, 5.0));
         // Deseado dentro del primer clip y más cercano a su final: lo empuja al final.
         let start = resolve_start(&track, None, 4.0, 3.0);
@@ -894,7 +894,7 @@ mod tests {
 
     #[test]
     fn resolve_start_never_goes_negative() {
-        let track = Track { id: "t".into(), kind: TrackType::Video, name: "V".into(), clips: Vec::new() };
+        let track = Track { id: "t".into(), kind: TrackType::Video, name: "V".into(), muted: false, hidden: false, clips: Vec::new() };
         assert_eq!(resolve_start(&track, None, -10.0, 2.0), 0.0);
     }
 

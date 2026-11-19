@@ -450,33 +450,314 @@ function transitionState(clip, local) {
 
 function transitionAlpha(anim) {
   if (!anim) return 1;
-  if (anim.type === 'flash') return clamp01(anim.p * 1.8);
-  if (anim.type.startsWith('slide-') || anim.type.startsWith('wipe-')) return 1;
-  if (anim.type === 'zoom-in' || anim.type === 'zoom-out' || anim.type === 'spin') return clamp01(0.25 + anim.p * 1.4);
-  return anim.p;
+  const p = anim.p;
+  switch (anim.type) {
+    case 'flash':
+      return clamp01(p * 1.8);
+    case 'slide-left':
+    case 'slide-right':
+    case 'slide-up':
+    case 'slide-down':
+    case 'push-left':
+    case 'push-right':
+    case 'push-up':
+    case 'push-down':
+    case 'diagonal':
+    case 'swing':
+    case 'wipe-left':
+    case 'wipe-right':
+    case 'wipe-up':
+    case 'wipe-down':
+    case 'iris':
+    case 'barn':
+    case 'blinds':
+    case 'clock':
+    case 'split':
+    case 'curtain':
+    case 'blocks':
+    case 'vignette':
+    case 'slam-hit':
+    case 'shake-punch':
+    case 'earthquake':
+    case 'whip-left':
+    case 'whip-right':
+    case 'zoom-snap':
+    case 'spin-slam':
+    case 'swirl-warp':
+    case 'heart-iris':
+    case 'star-iris':
+    case 'page-curl':
+    case 'kaleido':
+    case 'drift-voronoi':
+    case 'drift-swirl':
+    case 'drift-honeycomb':
+    case 'drift-vhs':
+      return 1;
+    case 'fire-burst':
+    case 'lightning-flash':
+    case 'lens-flare':
+    case 'strobe':
+    case 'smoke-cloud':
+    case 'glitch-rgb':
+    case 'pixelate':
+    case 'rgb-pulse':
+    case 'drift-plasma':
+    case 'drift-liquid':
+    case 'drift-matrix':
+    case 'drift-ink':
+    case 'drift-interference':
+    case 'drift-bubbles':
+      return clamp01(0.25 + p * 0.9);
+    case 'zoom-in':
+    case 'zoom-out':
+    case 'spin':
+      return clamp01(0.25 + p * 1.4);
+    case 'crosszoom':
+    case 'dolly':
+      return clamp01(0.15 + p * 1.6);
+    case 'rotate-in':
+    case 'warp':
+    case 'pulse':
+      return clamp01(p * 1.35);
+    case 'glitch':
+      return clamp01(p * 1.5);
+    case 'film-burn':
+    case 'grain':
+      return clamp01(0.35 + p * 0.9);
+    default:
+      return p;
+  }
 }
 
 function applyEntrance(ctx, anim, width, height) {
   if (!anim) return;
   const gap = 1 - anim.p;
-  if (anim.type === 'slide-left') ctx.translate(width * gap, 0);
-  else if (anim.type === 'slide-right') ctx.translate(-width * gap, 0);
-  else if (anim.type === 'slide-up') ctx.translate(0, height * gap);
-  else if (anim.type === 'slide-down') ctx.translate(0, -height * gap);
-  else if (anim.type === 'zoom-in') ctx.scale(1 + gap * 0.34, 1 + gap * 0.34);
-  else if (anim.type === 'zoom-out') ctx.scale(0.68 + anim.p * 0.32, 0.68 + anim.p * 0.32);
+  const p = anim.p;
+  if (anim.type === 'slide-left' || anim.type === 'push-left') ctx.translate(width * gap, 0);
+  else if (anim.type === 'slide-right' || anim.type === 'push-right') ctx.translate(-width * gap, 0);
+  else if (anim.type === 'slide-up' || anim.type === 'push-up') ctx.translate(0, height * gap);
+  else if (anim.type === 'slide-down' || anim.type === 'push-down') ctx.translate(0, -height * gap);
+  else if (anim.type === 'diagonal') ctx.translate(width * gap, height * gap);
+  else if (anim.type === 'swing') {
+    ctx.translate(-width * gap, 0);
+    ctx.rotate((-gap * 16 * Math.PI) / 180);
+    ctx.scale(0.9 + p * 0.1, 0.9 + p * 0.1);
+  } else if (anim.type === 'zoom-in') ctx.scale(1 + gap * 0.34, 1 + gap * 0.34);
+  else if (anim.type === 'zoom-out') ctx.scale(0.68 + p * 0.32, 0.68 + p * 0.32);
   else if (anim.type === 'spin') {
     ctx.rotate((gap * -14 * Math.PI) / 180);
-    ctx.scale(0.9 + anim.p * 0.1, 0.9 + anim.p * 0.1);
+    ctx.scale(0.9 + p * 0.1, 0.9 + p * 0.1);
+  } else if (anim.type === 'rotate-in') {
+    ctx.rotate((gap * -90 * Math.PI) / 180);
+    ctx.scale(0.55 + p * 0.45, 0.55 + p * 0.45);
+  } else if (anim.type === 'crosszoom') ctx.scale(1 + gap * 1.1, 1 + gap * 1.1);
+  else if (anim.type === 'pulse') {
+    const overshoot = Math.sin(p * Math.PI) * 0.14;
+    const scale = 0.8 + easeOutCubic(p) * 0.2 + overshoot;
+    ctx.scale(scale, scale);
+  } else if (anim.type === 'warp') ctx.scale(0.2 + p * 0.8, 1.3 - p * 0.3);
+  else if (anim.type === 'dolly') {
+    ctx.scale(1.4 - p * 0.4, 1.4 - p * 0.4);
+    ctx.rotate((gap * 6 * Math.PI) / 180);
+  } else if (anim.type === 'slam-hit') {
+    const shake = Math.sin(p * 40) * (gap * gap) * 24;
+    const slamScale = 1 + (gap * gap) * 0.68;
+    ctx.translate(shake, Math.cos(p * 30) * (gap * gap) * 14);
+    ctx.scale(slamScale, slamScale);
+  } else if (anim.type === 'shake-punch') {
+    const punch = Math.sin(p * Math.PI) * 0.22;
+    const shakeX = Math.sin(p * 45) * gap * 26;
+    const shakeY = Math.cos(p * 35) * gap * 16;
+    ctx.translate(shakeX, shakeY);
+    ctx.scale(1 + punch, 1 + punch);
+  } else if (anim.type === 'earthquake') {
+    const decay = gap * gap;
+    const jx = (Math.sin(p * 55) + Math.cos(p * 80)) * decay * 18;
+    const jy = (Math.cos(p * 65) + Math.sin(p * 90)) * decay * 16;
+    const rot = Math.sin(p * 45) * decay * 0.05;
+    ctx.translate(jx, jy);
+    ctx.rotate(rot);
+  } else if (anim.type === 'whip-left') {
+    const fastGap = Math.pow(gap, 2.8);
+    ctx.translate(width * fastGap, 0);
+    ctx.scale(1 + fastGap * 0.45, 1);
+  } else if (anim.type === 'whip-right') {
+    const fastGap = Math.pow(gap, 2.8);
+    ctx.translate(-width * fastGap, 0);
+    ctx.scale(1 + fastGap * 0.45, 1);
+  } else if (anim.type === 'zoom-snap') {
+    const spring = 1 + Math.sin(p * Math.PI * 2.5) * gap * 0.28;
+    ctx.scale(spring, spring);
+  } else if (anim.type === 'spin-slam') {
+    ctx.rotate(-gap * Math.PI * 2);
+    const s = 0.4 + p * 0.6;
+    ctx.scale(s, s);
+  } else if (anim.type === 'swirl-warp') {
+    ctx.rotate(gap * Math.PI * 1.5);
+    ctx.scale(0.3 + p * 0.7, 0.3 + p * 0.7);
+  } else if (anim.type === 'rgb-pulse') {
+    const pulse = 1 + Math.sin(p * Math.PI * 3) * gap * 0.16;
+    ctx.scale(pulse, pulse);
+  } else if (anim.type === 'kaleido') {
+    const s = 0.6 + easeOutCubic(p) * 0.4;
+    ctx.scale(s, s);
+  } else if (anim.type === 'drift-swirl') {
+    ctx.rotate(gap * Math.PI * 2.5);
+    ctx.scale(0.25 + p * 0.75, 0.25 + p * 0.75);
+  } else if (anim.type === 'drift-vhs') {
+    const shift = Math.sin(p * 50) * gap * 16;
+    ctx.translate(shift, (hash01(Math.floor(p * 20)) - 0.5) * gap * 10);
   }
 }
 
+function transitionPreviousOffset(anim, width, height) {
+  if (!anim) return null;
+  const p = anim.p;
+  if (anim.type === 'push-left') return { x: -width * p, y: 0 };
+  if (anim.type === 'push-right') return { x: width * p, y: 0 };
+  if (anim.type === 'push-up') return { x: 0, y: -height * p };
+  if (anim.type === 'push-down') return { x: 0, y: height * p };
+  return null;
+}
+
 function wipeClip(ctx, anim, width, height) {
-  if (!anim || !anim.type.startsWith('wipe-')) return false;
-  const size = width * anim.p;
+  if (!anim) return false;
+  const p = anim.p;
   ctx.beginPath();
-  if (anim.type === 'wipe-right') ctx.rect(width / 2 - size, -height / 2, size, height);
-  else ctx.rect(-width / 2, -height / 2, size, height);
+  switch (anim.type) {
+    case 'wipe-left': {
+      ctx.rect(-width / 2, -height / 2, width * p, height);
+      break;
+    }
+    case 'wipe-right': {
+      const size = width * p;
+      ctx.rect(width / 2 - size, -height / 2, size, height);
+      break;
+    }
+    case 'wipe-up': {
+      const size = height * p;
+      ctx.rect(-width / 2, height / 2 - size, width, size);
+      break;
+    }
+    case 'wipe-down': {
+      ctx.rect(-width / 2, -height / 2, width, height * p);
+      break;
+    }
+    case 'iris': {
+      const radius = Math.max(0.01, Math.hypot(width, height) * 0.55 * easeOutCubic(p));
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      break;
+    }
+    case 'barn': {
+      const half = (width / 2) * easeOutCubic(p);
+      ctx.rect(-width / 2, -height / 2, half, height);
+      ctx.rect(width / 2 - half, -height / 2, half, height);
+      break;
+    }
+    case 'blinds': {
+      const rows = 8;
+      const rowHeight = height / rows;
+      for (let index = 0; index < rows; index += 1) {
+        ctx.rect(-width / 2, -height / 2 + index * rowHeight, width, rowHeight * p);
+      }
+      break;
+    }
+    case 'clock': {
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, Math.hypot(width, height) * 0.75, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * easeOutCubic(p));
+      ctx.closePath();
+      break;
+    }
+    case 'split': {
+      ctx.rotate(Math.PI / 4);
+      const reach = Math.hypot(width, height) * 0.75;
+      ctx.rect(-reach, -reach, reach * 2 * easeOutCubic(p), reach * 2);
+      break;
+    }
+    case 'curtain': {
+      const size = width * easeOutCubic(p);
+      ctx.rect(-size / 2, -height / 2, size, height);
+      break;
+    }
+    case 'blocks': {
+      const cols = 8;
+      const rows = 5;
+      const cellW = width / cols;
+      const cellH = height / rows;
+      const eased = easeOutCubic(p);
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          const order = (col + row * 0.6) / (cols + rows * 0.6);
+          const threshold = order * 0.55 + hash01(col * 13.7 + row * 7.3) * 0.45;
+          if (eased >= threshold) {
+            ctx.rect(-width / 2 + col * cellW, -height / 2 + row * cellH, cellW + 0.5, cellH + 0.5);
+          }
+        }
+      }
+      break;
+    }
+    case 'heart-iris': {
+      const size = Math.max(0.01, Math.hypot(width, height) * 0.042 * easeOutCubic(p));
+      ctx.beginPath();
+      for (let theta = 0; theta <= Math.PI * 2 + 0.05; theta += 0.06) {
+        const hx = 16 * Math.pow(Math.sin(theta), 3);
+        const hy = -(13 * Math.cos(theta) - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta));
+        if (theta === 0) ctx.moveTo(hx * size, hy * size);
+        else ctx.lineTo(hx * size, hy * size);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'star-iris': {
+      const outerR = Math.max(0.01, Math.hypot(width, height) * 0.72 * easeOutCubic(p));
+      const innerR = outerR * 0.44;
+      const points = 5;
+      const rot = (1 - p) * 0.5;
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const r = i % 2 === 0 ? outerR : innerR;
+        const angle = (i * Math.PI) / points - Math.PI / 2 + rot;
+        const sx = Math.cos(angle) * r;
+        const sy = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'page-curl': {
+      const reach = Math.hypot(width, height) * 1.5;
+      const prog = easeOutCubic(p) * reach;
+      ctx.rotate(Math.PI / 6);
+      ctx.rect(-reach / 2, -reach / 2 + reach - prog, reach, prog);
+      break;
+    }
+    case 'drift-honeycomb': {
+      const hexSize = Math.max(16, width / 14);
+      const eased = easeOutCubic(p);
+      const cols = Math.ceil(width / (hexSize * 1.5)) + 2;
+      const rows = Math.ceil(height / (hexSize * 1.732)) + 2;
+      for (let c = -Math.floor(cols / 2); c <= Math.ceil(cols / 2); c += 1) {
+        for (let r = -Math.floor(rows / 2); r <= Math.ceil(rows / 2); r += 1) {
+          const hx = c * hexSize * 1.5;
+          const hy = r * hexSize * 1.732 + ((Math.abs(c) % 2) * (hexSize * 0.866));
+          const dist = Math.hypot(hx, hy) / (Math.hypot(width / 2, height / 2) || 1);
+          if (eased >= dist * 0.7) {
+            const s = Math.min(1, (eased - dist * 0.7) / 0.3) * hexSize * 0.95;
+            ctx.moveTo(hx + s, hy);
+            for (let a = 1; a < 6; a += 1) {
+              const ang = (a * Math.PI) / 3;
+              ctx.lineTo(hx + Math.cos(ang) * s, hy + Math.sin(ang) * s);
+            }
+            ctx.closePath();
+          }
+        }
+      }
+      break;
+    }
+    default:
+      return false;
+  }
   ctx.clip();
   return true;
 }
@@ -1557,7 +1838,10 @@ function drawMediaLayer(ctx, layer, width, height, pool, options = {}) {
   ctx.save();
   ctx.globalAlpha = alpha;
   if (filter !== 'none') ctx.filter = filter;
-  if (anim?.type === 'blur') ctx.filter = `${filter === 'none' ? '' : `${filter} `}blur(${(1 - anim.p) * 10}px)`;
+  if (anim && ['blur', 'dolly', 'crosszoom'].includes(anim.type)) {
+    const amount = (1 - anim.p) * (anim.type === 'blur' ? 10 : 6);
+    ctx.filter = `${filter === 'none' ? '' : `${filter} `}blur(${amount}px)`;
+  }
   ctx.translate(width / 2 + (tr.x / 100) * width, height / 2 + (tr.y / 100) * height);
   if (tr.rotate) ctx.rotate((tr.rotate * Math.PI) / 180);
   applyEntrance(ctx, anim, width, height);
@@ -2088,12 +2372,426 @@ function drawVisualLayer(ctx, layer, width, height, pool, options = {}) {
   }
 }
 
+/* Overlays de transiciones estilizadas: se dibujan sobre el fotograma ya
+   compuesto, así funcionan igual en la vista previa y en la exportación. */
+function drawGlitchOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  const canvas = ctx.canvas;
+  const cw = canvas.width || width;
+  const ch = canvas.height || height;
+  const matrix = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+  const scaleX = matrix ? Math.hypot(matrix.a, matrix.b) || 1 : 1;
+  const scaleY = matrix ? Math.hypot(matrix.c, matrix.d) || 1 : 1;
+  const seed = Math.floor(anim.p * 24);
+  ctx.save();
+  const slices = 7;
+  const sliceHeight = ch / slices;
+  for (let index = 0; index < slices; index += 1) {
+    const y = index * sliceHeight;
+    const shift = (hash01(index * 3.1 + seed) - 0.5) * cw * 0.18 * strength;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(
+      canvas,
+      0, y, cw, sliceHeight,
+      shift / scaleX, y / scaleY, cw / scaleX, sliceHeight / scaleY,
+    );
+  }
+  ctx.globalAlpha = Math.min(1, strength * 1.2);
+  ctx.fillStyle = 'rgba(0, 240, 255, 0.24)';
+  ctx.fillRect(0, height * (0.15 + hash01(seed + 1) * 0.55), width, Math.max(2, height * 0.02));
+  ctx.fillStyle = 'rgba(255, 0, 120, 0.22)';
+  ctx.fillRect(0, height * (0.1 + hash01(seed + 4) * 0.6), width, Math.max(2, height * 0.015));
+  ctx.restore();
+}
+
+function drawFilmBurnOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  const gradient = ctx.createRadialGradient(
+    width * 0.5, height * 0.55, Math.min(width, height) * 0.05,
+    width * 0.5, height * 0.55, Math.max(width, height) * 0.72,
+  );
+  gradient.addColorStop(0.15, `rgba(255, 186, 74, ${0.9 * strength})`);
+  gradient.addColorStop(0.5, `rgba(226, 92, 22, ${0.6 * strength})`);
+  gradient.addColorStop(1, `rgba(36, 6, 0, ${0.92 * strength})`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = strength * 0.4;
+  ctx.drawImage(noiseTile(), 0, 0, width, height);
+  ctx.restore();
+}
+
+function drawVignetteOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  const gradient = ctx.createRadialGradient(
+    width / 2, height / 2, Math.min(width, height) * 0.26,
+    width / 2, height / 2, Math.hypot(width, height) * 0.62,
+  );
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${0.92 * strength})`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawGrainOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = strength * 0.5;
+  ctx.drawImage(noiseTile(), 0, 0, width, height);
+  ctx.restore();
+}
+
+function drawSlamHitOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.45) return;
+  const alpha = (1 - anim.p / 0.45);
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.75;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  const radius = anim.p * Math.hypot(width, height) * 0.9;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.85})`;
+  ctx.lineWidth = Math.max(2, 14 * alpha);
+  ctx.beginPath();
+  ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFireBurstOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.85) return;
+  const intensity = Math.sin((p / 0.85) * Math.PI);
+  if (intensity <= 0.01) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxR = Math.hypot(width, height) * 0.65;
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+  grad.addColorStop(0, `rgba(255, 255, 240, ${intensity * 0.95})`);
+  grad.addColorStop(0.2, `rgba(255, 175, 10, ${intensity * 0.88})`);
+  grad.addColorStop(0.5, `rgba(255, 55, 0, ${intensity * 0.72})`);
+  grad.addColorStop(0.8, `rgba(160, 10, 0, ${intensity * 0.42})`);
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalAlpha = intensity * 0.7;
+  for (let i = 0; i < 16; i += 1) {
+    const ang = (i / 16) * Math.PI * 2 + p * 3;
+    const dist = (0.2 + (i % 4) * 0.18) * maxR * (0.4 + p * 0.8);
+    const fx = cx + Math.cos(ang) * dist;
+    const fy = cy + Math.sin(ang) * dist - (p * 50);
+    const sparkR = 12 + (i % 3) * 10;
+    const sparkGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, sparkR);
+    sparkGrad.addColorStop(0, 'rgba(255, 255, 220, 0.95)');
+    sparkGrad.addColorStop(0.5, 'rgba(255, 110, 0, 0.65)');
+    sparkGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    ctx.fillStyle = sparkGrad;
+    ctx.beginPath();
+    ctx.arc(fx, fy, sparkR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawLightningOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.6) return;
+  const flashPhase = Math.sin(p * 32);
+  if (flashPhase < 0.25) return;
+  ctx.save();
+  const alpha = (1 - p / 0.6) * 0.85;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = flashPhase > 0.7 ? '#ffffff' : '#b2e8ff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.shadowColor = '#00c3ff';
+  ctx.shadowBlur = 18;
+  ctx.lineWidth = 3 + (1 - p) * 4;
+  ctx.beginPath();
+  let lx = width * (0.35 + hash01(Math.floor(p * 18)) * 0.3);
+  let ly = 0;
+  ctx.moveTo(lx, ly);
+  while (ly < height) {
+    ly += 25 + Math.random() * 30;
+    lx += (Math.random() - 0.5) * 50;
+    ctx.lineTo(lx, ly);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSmokeCloudOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const intensity = Math.sin(p * Math.PI) * 0.75;
+  if (intensity < 0.02) return;
+  ctx.save();
+  ctx.globalAlpha = intensity;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxR = Math.hypot(width, height) * 0.55;
+  for (let i = 0; i < 9; i += 1) {
+    const ox = cx + Math.sin(i * 1.7 + p * 2) * maxR * 0.45;
+    const oy = cy + Math.cos(i * 2.3 + p * 2) * maxR * 0.35;
+    const rad = maxR * (0.35 + (i % 3) * 0.15);
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, rad);
+    g.addColorStop(0, 'rgba(235, 235, 240, 0.7)');
+    g.addColorStop(0.5, 'rgba(200, 205, 215, 0.35)');
+    g.addColorStop(1, 'rgba(200, 205, 215, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(ox, oy, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawGlitchRgbOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.8) return;
+  const intensity = (1 - p / 0.8);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const shift = intensity * 26 * (Math.sin(p * 45) > 0 ? 1 : -1);
+  ctx.fillStyle = `rgba(255, 0, 60, ${intensity * 0.35})`;
+  for (let y = 0; y < height; y += 18) {
+    if (hash01(y + p * 100) > 0.4) {
+      ctx.fillRect(shift, y, width, 12);
+    }
+  }
+  ctx.fillStyle = `rgba(0, 240, 255, ${intensity * 0.35})`;
+  for (let y = 0; y < height; y += 18) {
+    if (hash01(y + p * 100 + 7) > 0.4) {
+      ctx.fillRect(-shift, y, width, 12);
+    }
+  }
+  ctx.restore();
+}
+
+function drawRgbPulseOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const pulse = Math.sin(p * Math.PI) * 0.65;
+  if (pulse < 0.05) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.strokeStyle = `rgba(255, 0, 180, ${pulse * 0.65})`;
+  ctx.lineWidth = 22 * pulse;
+  ctx.strokeRect(0, 0, width, height);
+  ctx.strokeStyle = `rgba(0, 230, 255, ${pulse * 0.65})`;
+  ctx.lineWidth = 12 * pulse;
+  ctx.strokeRect(10, 10, width - 20, height - 20);
+  ctx.restore();
+}
+
+function drawLensFlareOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const intensity = Math.sin(p * Math.PI);
+  if (intensity < 0.02) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const flareX = p * width;
+  const flareY = height * 0.45;
+
+  const streak = ctx.createLinearGradient(0, flareY, width, flareY);
+  streak.addColorStop(Math.max(0, p - 0.35), 'rgba(0, 150, 255, 0)');
+  streak.addColorStop(Math.max(0, p - 0.1), `rgba(0, 200, 255, ${intensity * 0.7})`);
+  streak.addColorStop(p, `rgba(255, 255, 255, ${intensity * 0.95})`);
+  streak.addColorStop(Math.min(1, p + 0.1), `rgba(255, 200, 80, ${intensity * 0.7})`);
+  streak.addColorStop(Math.min(1, p + 0.35), 'rgba(255, 120, 0, 0)');
+  ctx.fillStyle = streak;
+  ctx.fillRect(0, flareY - 18, width, 36);
+
+  const coreGrad = ctx.createRadialGradient(flareX, flareY, 0, flareX, flareY, 120);
+  coreGrad.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.9})`);
+  coreGrad.addColorStop(0.3, `rgba(0, 220, 255, ${intensity * 0.6})`);
+  coreGrad.addColorStop(0.7, `rgba(255, 140, 0, ${intensity * 0.3})`);
+  coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(flareX, flareY, 120, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawStrobeOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.7) return;
+  const cycle = Math.floor(p * 24) % 3;
+  if (cycle === 0) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = (1 - p / 0.7) * 0.85;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  } else if (cycle === 1) {
+    ctx.save();
+    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = (1 - p / 0.7) * 0.75;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+}
+
+function drawPixelateOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.65) return;
+  const intensity = 1 - (p / 0.65);
+  const blockSize = Math.max(8, Math.round(intensity * 48));
+  ctx.save();
+  ctx.globalAlpha = intensity * 0.45;
+  for (let x = 0; x < width; x += blockSize) {
+    for (let y = 0; y < height; y += blockSize) {
+      const h = hash01(x * 13 + y * 29 + Math.floor(p * 8));
+      ctx.fillStyle = h > 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+      ctx.fillRect(x, y, blockSize - 1, blockSize - 1);
+    }
+  }
+  ctx.restore();
+}
+
+function drawDriftVoronoiOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.7) return;
+  const intensity = (1 - anim.p / 0.7);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.75})`;
+  ctx.lineWidth = Math.max(1, 4 * intensity);
+  const cx = width / 2;
+  const cy = height / 2;
+  for (let i = 0; i < 14; i += 1) {
+    const angle = (i / 14) * Math.PI * 2;
+    const r = (anim.p * 1.2 + 0.1) * Math.hypot(cx, cy);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDriftPlasmaOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, `rgba(255, 80, 8, ${intensity * 0.7})`);
+  grad.addColorStop(0.5, `rgba(255, 240, 160, ${intensity * 0.9})`);
+  grad.addColorStop(1, `rgba(200, 20, 100, ${intensity * 0.6})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawDriftMatrixOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.75) return;
+  const intensity = (1 - anim.p / 0.75);
+  ctx.save();
+  const cols = 24;
+  const colW = width / cols;
+  ctx.fillStyle = `rgba(0, 255, 100, ${intensity * 0.8})`;
+  for (let c = 0; c < cols; c += 1) {
+    const dropY = ((anim.p * 3.5 + hash01(c * 17)) % 1) * height;
+    ctx.fillRect(c * colW, dropY - 30, colW * 0.6, 30);
+  }
+  ctx.restore();
+}
+
+function drawDriftInkOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.fillStyle = `rgba(10, 7, 16, ${intensity * 0.88})`;
+  const cx = width / 2;
+  const cy = height / 2;
+  for (let i = 0; i < 7; i += 1) {
+    const ox = cx + (hash01(i * 13) - 0.5) * width * 0.7;
+    const oy = cy + (hash01(i * 29) - 0.5) * height * 0.7;
+    const r = anim.p * Math.hypot(width, height) * (0.15 + (i % 3) * 0.1);
+    ctx.beginPath();
+    ctx.arc(ox, oy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawDriftInterferenceOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.7) return;
+  const intensity = (1 - anim.p / 0.7);
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.4})`;
+  const barY = (anim.p * 4) % 1 * height;
+  ctx.fillRect(0, barY, width, height * 0.18);
+  ctx.fillStyle = `rgba(0, 255, 255, ${intensity * 0.3})`;
+  ctx.fillRect(0, barY - 12, width, 4);
+  ctx.fillStyle = `rgba(255, 0, 150, ${intensity * 0.3})`;
+  ctx.fillRect(0, barY + height * 0.18, width, 4);
+  ctx.restore();
+}
+
+function drawDriftBubblesOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.8})`;
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.15})`;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 20; i += 1) {
+    const bx = hash01(i * 31) * width;
+    const by = height - ((anim.p * 1.6 + hash01(i * 17)) % 1) * height;
+    const br = 8 + (i % 5) * 6;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDriftLiquidOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.75) return;
+  const intensity = Math.sin((anim.p / 0.75) * Math.PI);
+  ctx.save();
+  ctx.fillStyle = `rgba(20, 10, 40, ${intensity * 0.55})`;
+  const drops = 12;
+  const dropW = width / drops;
+  for (let d = 0; d < drops; d += 1) {
+    const h = height * (anim.p * 1.2 + hash01(d * 23) * 0.3);
+    ctx.fillRect(d * dropW, 0, dropW - 2, h);
+  }
+  ctx.restore();
+}
+
 export function renderFrame(ctx, width, height, project, pool, time, { background = '#000000', animClock = 0 } = {}) {
   ctx.save();
   ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
   const layers = activeLayers(project, time);
+  const animFor = (type) => {
+    const layer = layers.find((item) => transitionState(item.clip, item.local)?.type === type);
+    return layer ? transitionState(layer.clip, layer.local) : null;
+  };
   let visual = 0;
 
   const whiteFlash = layers.find((layer) => {
@@ -2123,7 +2821,11 @@ export function renderFrame(ctx, width, height, project, pool, time, { backgroun
           transition: null,
           effect: previous.effect || 'none',
         };
+        const push = transitionPreviousOffset(anim, width, height);
+        ctx.save();
+        if (push) ctx.translate(push.x, push.y);
         drawVisualLayer(ctx, { clip: under, track: layer.track, local: Math.max(0, previous.duration - 0.001) }, width, height, pool, { ignoreFades: true, ignoreTransition: true });
+        ctx.restore();
       }
     }
     drawVisualLayer(ctx, layer, width, height, pool, animClock ? { animClock } : {});
@@ -2148,6 +2850,49 @@ export function renderFrame(ctx, width, height, project, pool, time, { backgroun
     ctx.fillRect(0, 0, width, height);
     ctx.restore();
   }
+
+  const glitchAnim = animFor('glitch');
+  if (glitchAnim) drawGlitchOverlay(ctx, glitchAnim, width, height);
+  const burnAnim = animFor('film-burn');
+  if (burnAnim) drawFilmBurnOverlay(ctx, burnAnim, width, height);
+  const vignetteAnim = animFor('vignette');
+  if (vignetteAnim) drawVignetteOverlay(ctx, vignetteAnim, width, height);
+  const grainAnim = animFor('grain');
+  if (grainAnim) drawGrainOverlay(ctx, grainAnim, width, height);
+
+  const slamAnim = animFor('slam-hit');
+  if (slamAnim) drawSlamHitOverlay(ctx, slamAnim, width, height);
+  const fireAnim = animFor('fire-burst');
+  if (fireAnim) drawFireBurstOverlay(ctx, fireAnim, width, height);
+  const lightningAnim = animFor('lightning-flash');
+  if (lightningAnim) drawLightningOverlay(ctx, lightningAnim, width, height);
+  const smokeAnim = animFor('smoke-cloud');
+  if (smokeAnim) drawSmokeCloudOverlay(ctx, smokeAnim, width, height);
+  const glitchRgbAnim = animFor('glitch-rgb');
+  if (glitchRgbAnim) drawGlitchRgbOverlay(ctx, glitchRgbAnim, width, height);
+  const rgbPulseAnim = animFor('rgb-pulse');
+  if (rgbPulseAnim) drawRgbPulseOverlay(ctx, rgbPulseAnim, width, height);
+  const flareAnim = animFor('lens-flare');
+  if (flareAnim) drawLensFlareOverlay(ctx, flareAnim, width, height);
+  const strobeAnim = animFor('strobe');
+  if (strobeAnim) drawStrobeOverlay(ctx, strobeAnim, width, height);
+  const pixelateAnim = animFor('pixelate');
+  if (pixelateAnim) drawPixelateOverlay(ctx, pixelateAnim, width, height);
+
+  const voronoiAnim = animFor('drift-voronoi');
+  if (voronoiAnim) drawDriftVoronoiOverlay(ctx, voronoiAnim, width, height);
+  const plasmaAnim = animFor('drift-plasma');
+  if (plasmaAnim) drawDriftPlasmaOverlay(ctx, plasmaAnim, width, height);
+  const matrixAnim = animFor('drift-matrix');
+  if (matrixAnim) drawDriftMatrixOverlay(ctx, matrixAnim, width, height);
+  const inkAnim = animFor('drift-ink');
+  if (inkAnim) drawDriftInkOverlay(ctx, inkAnim, width, height);
+  const interferenceAnim = animFor('drift-interference');
+  if (interferenceAnim) drawDriftInterferenceOverlay(ctx, interferenceAnim, width, height);
+  const bubblesAnim = animFor('drift-bubbles');
+  if (bubblesAnim) drawDriftBubblesOverlay(ctx, bubblesAnim, width, height);
+  const liquidAnim = animFor('drift-liquid');
+  if (liquidAnim) drawDriftLiquidOverlay(ctx, liquidAnim, width, height);
 
   ctx.restore();
   return visual;

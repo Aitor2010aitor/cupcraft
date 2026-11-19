@@ -70,6 +70,32 @@ import { capcutEffectToGL } from './gl-post.js';
 import { prepareStickerSrc } from './sticker-image.js';
 
 const CAPCUT_TRANSITION_MAP = [
+  [/golpe|slam|choque/i, 'slam-hit'],
+  [/sacud|shake|punch|vibrac/i, 'shake-punch'],
+  [/terremot|earthquake/i, 'earthquake'],
+  [/fuego|fire|flama|llama|ardient/i, 'fire-burst'],
+  [/rayo|relampag|lightning|trueno/i, 'lightning-flash'],
+  [/humo|smoke|niebla/i, 'smoke-cloud'],
+  [/glitch|rgb|cromat/i, 'glitch-rgb'],
+  [/latigazo|whip/i, 'whip-left'],
+  [/rebote|bounce|snap/i, 'zoom-snap'],
+  [/coraz|heart/i, 'heart-iris'],
+  [/estrella|star/i, 'star-iris'],
+  [/destello|flare|optico/i, 'lens-flare'],
+  [/estrob|strobe/i, 'strobe'],
+  [/pixel|mosaico/i, 'pixelate'],
+  [/remolino|vortice|swirl/i, 'swirl-warp'],
+  [/caleido|kaleido/i, 'kaleido'],
+  [/pliegue|pagina|page/i, 'page-curl'],
+  [/voronoi|shatter|fractura/i, 'drift-voronoi'],
+  [/plasma/i, 'drift-plasma'],
+  [/liquido|liquid|smudge|derret/i, 'drift-liquid'],
+  [/matrix/i, 'drift-matrix'],
+  [/tinta|ink|bleed/i, 'drift-ink'],
+  [/interferenc|analog/i, 'drift-interference'],
+  [/panal|honeycomb|hexagon/i, 'drift-honeycomb'],
+  [/burbuja|bubble/i, 'drift-bubbles'],
+  [/vhs|scanline/i, 'drift-vhs'],
   [/negro/i, 'black'],
   [/blanco/i, 'white'],
   [/fundid|fade/i, 'fade'],
@@ -205,7 +231,7 @@ let effectSource = 'capcut';
 let capcutCategory = 'Todos';
 let capcutSearch = '';
 let stickerSearch = '';
-let transitionSource = 'capcut';
+let transitionSource = 'local';
 let capcutTransitionCategory = 'Todas';
 let capcutTransitionSearch = '';
 let stickerSource = 'capcut';
@@ -586,7 +612,7 @@ export function mountLeftPanel(host) {
       toast('Cierre aplicado', 'success', 1800);
       return;
     }
-    const fades = TRANSITION_FADES[kind] || { fadeIn: 0.2, fadeOut: 0.2 };
+    const fades = TRANSITION_FADES[kind] || { fadeIn: 0, fadeOut: 0 };
     updateClip(found.clip.id, {
       transition: kind,
       transitionDuration: 0.6,
@@ -1546,7 +1572,6 @@ export function mountLeftPanel(host) {
     });
   }
 
-  let captionStyle = 'clean';
   let captionAnimation = 'none';
 
   function captionsPanel() {
@@ -3632,7 +3657,7 @@ export function mountDetailsPanel(host) {
     }
     if (target.matches('[data-clip-transition]')) {
       const type = target.value;
-      const fades = TRANSITION_FADES[type] || { fadeIn: 0.2, fadeOut: 0.2 };
+      const fades = TRANSITION_FADES[type] || { fadeIn: 0, fadeOut: 0 };
       updateClip(found.clip.id, {
         transition: type,
         transitionDuration: found.clip.transitionDuration || 0.6,

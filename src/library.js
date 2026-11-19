@@ -322,23 +322,95 @@ export const STICKER_CATEGORIES = [
 
 export const STICKERS = STICKER_CATEGORIES.flatMap((category) => category.items);
 
+/* Transiciones locales: se calculan en el renderizador Canvas2D, sin nube ni
+   descargas. Cada entrada declara la categoría y la clase CSS de su miniatura. */
 export const TRANSITIONS = [
   { id: 'fade', label: 'Fundido', category: 'Básicas', className: 'tr-fade' },
   { id: 'dissolve', label: 'Disolver', category: 'Básicas', className: 'tr-dissolve' },
   { id: 'black', label: 'Fundido a negro', category: 'Básicas', className: 'tr-black' },
   { id: 'white', label: 'Fundido a blanco', category: 'Básicas', className: 'tr-white' },
+  { id: 'flash', label: 'Flash', category: 'Básicas', className: 'tr-flash' },
+  { id: 'blur', label: 'Desenfoque', category: 'Básicas', className: 'tr-blur' },
+  { id: 'none', label: 'Sin transición', category: 'Básicas', className: 'tr-none' },
+
   { id: 'slide-left', label: 'Deslizar ←', category: 'Movimiento', className: 'tr-left' },
   { id: 'slide-right', label: 'Deslizar →', category: 'Movimiento', className: 'tr-right' },
   { id: 'slide-up', label: 'Deslizar ↑', category: 'Movimiento', className: 'tr-up' },
   { id: 'slide-down', label: 'Deslizar ↓', category: 'Movimiento', className: 'tr-down' },
+  { id: 'push-left', label: 'Empujar ←', category: 'Movimiento', className: 'tr-pushleft' },
+  { id: 'push-right', label: 'Empujar →', category: 'Movimiento', className: 'tr-pushright' },
+  { id: 'push-up', label: 'Empujar ↑', category: 'Movimiento', className: 'tr-pushup' },
+  { id: 'push-down', label: 'Empujar ↓', category: 'Movimiento', className: 'tr-pushdown' },
+  { id: 'diagonal', label: 'Diagonal', category: 'Movimiento', className: 'tr-diagonal' },
+  { id: 'swing', label: 'Balanceo', category: 'Movimiento', className: 'tr-swing' },
+
   { id: 'zoom-in', label: 'Acercar', category: 'Zoom', className: 'tr-zoomin' },
   { id: 'zoom-out', label: 'Alejar', category: 'Zoom', className: 'tr-zoomout' },
   { id: 'spin', label: 'Girar', category: 'Zoom', className: 'tr-spin' },
+  { id: 'rotate-in', label: 'Rotar y entrar', category: 'Zoom', className: 'tr-rotatein' },
+  { id: 'crosszoom', label: 'Zoom cruzado', category: 'Zoom', className: 'tr-crosszoom' },
+  { id: 'pulse', label: 'Pulso', category: 'Zoom', className: 'tr-pulse' },
+  { id: 'warp', label: 'Deformar', category: 'Zoom', className: 'tr-warp' },
+  { id: 'dolly', label: 'Dolly', category: 'Zoom', className: 'tr-dolly' },
+
   { id: 'wipe-left', label: 'Barrido ←', category: 'Cortinilla', className: 'tr-wipeleft' },
   { id: 'wipe-right', label: 'Barrido →', category: 'Cortinilla', className: 'tr-wiperight' },
-  { id: 'blur', label: 'Desenfoque', category: 'Cortinilla', className: 'tr-blur' },
-  { id: 'flash', label: 'Flash', category: 'Cortinilla', className: 'tr-flash' },
-  { id: 'none', label: 'Sin transición', category: 'Básicas', className: 'tr-none' },
+  { id: 'wipe-up', label: 'Barrido ↑', category: 'Cortinilla', className: 'tr-wipeup' },
+  { id: 'wipe-down', label: 'Barrido ↓', category: 'Cortinilla', className: 'tr-wipedown' },
+  { id: 'iris', label: 'Iris', category: 'Cortinilla', className: 'tr-iris' },
+  { id: 'barn', label: 'Puertas', category: 'Cortinilla', className: 'tr-barn' },
+  { id: 'blinds', label: 'Persianas', category: 'Cortinilla', className: 'tr-blinds' },
+  { id: 'clock', label: 'Reloj', category: 'Cortinilla', className: 'tr-clock' },
+  { id: 'split', label: 'Diagonal partida', category: 'Cortinilla', className: 'tr-split' },
+  { id: 'curtain', label: 'Cortina', category: 'Cortinilla', className: 'tr-curtain' },
+  { id: 'blocks', label: 'Bloques', category: 'Cortinilla', className: 'tr-blocks' },
+
+  { id: 'glitch', label: 'Glitch', category: 'Estilizada', className: 'tr-glitch' },
+  { id: 'film-burn', label: 'Quemadura', category: 'Estilizada', className: 'tr-filmburn' },
+  { id: 'vignette', label: 'Viñeta', category: 'Estilizada', className: 'tr-vignette' },
+  { id: 'grain', label: 'Grano', category: 'Estilizada', className: 'tr-grain' },
+
+  /* 20 Nuevas Transiciones Estilo CapCut */
+  { id: 'slam-hit', label: 'Golpe Slam', category: 'Impacto', className: 'tr-slamhit' },
+  { id: 'shake-punch', label: 'Sacudida Punch', category: 'Impacto', className: 'tr-shakepunch' },
+  { id: 'earthquake', label: 'Terremoto', category: 'Impacto', className: 'tr-earthquake' },
+
+  { id: 'fire-burst', label: 'Llamarada Fuego', category: 'Elementos', className: 'tr-fireburst' },
+  { id: 'lightning-flash', label: 'Rayo Eléctrico', category: 'Elementos', className: 'tr-lightning' },
+  { id: 'smoke-cloud', label: 'Humo Volumétrico', category: 'Elementos', className: 'tr-smoke' },
+
+  { id: 'glitch-rgb', label: 'Glitch RGB Split', category: 'Tendencia', className: 'tr-glitchrgb' },
+  { id: 'rgb-pulse', label: 'Pulso Cromático', category: 'Tendencia', className: 'tr-rgbpulse' },
+  { id: 'pixelate', label: 'Mosaico Pixel', category: 'Tendencia', className: 'tr-pixelate' },
+
+  { id: 'whip-left', label: 'Latigazo ←', category: 'Movimiento', className: 'tr-whipleft' },
+  { id: 'whip-right', label: 'Latigazo →', category: 'Movimiento', className: 'tr-whipright' },
+
+  { id: 'zoom-snap', label: 'Zoom Snap Rebote', category: 'Zoom', className: 'tr-zoomsnap' },
+  { id: 'spin-slam', label: 'Giro 360° Golpe', category: 'Zoom', className: 'tr-spinslam' },
+
+  { id: 'swirl-warp', label: 'Vórtice Espiral', category: 'Distorsión', className: 'tr-swirl' },
+  { id: 'kaleido', label: 'Caleidoscopio', category: 'Distorsión', className: 'tr-kaleido' },
+
+  { id: 'lens-flare', label: 'Destello Anamórfico', category: 'Luz', className: 'tr-lensflare' },
+  { id: 'strobe', label: 'Estroboscopio', category: 'Luz', className: 'tr-strobe' },
+
+  { id: 'heart-iris', label: 'Iris Corazón', category: 'Formas', className: 'tr-heartiris' },
+  { id: 'star-iris', label: 'Iris Estrella', category: 'Formas', className: 'tr-stariris' },
+
+  { id: 'page-curl', label: 'Pliegue Página', category: 'Cortinilla', className: 'tr-pagecurl' },
+
+  /* Transiciones de Drift (CutWire Studios) */
+  { id: 'drift-voronoi', label: 'Voronoi Shatter', category: 'Drift', className: 'tr-drift-voronoi' },
+  { id: 'drift-plasma', label: 'Plasma Burn', category: 'Drift', className: 'tr-drift-plasma' },
+  { id: 'drift-liquid', label: 'Liquid Smudge', category: 'Drift', className: 'tr-drift-liquid' },
+  { id: 'drift-matrix', label: 'Matrix Rain', category: 'Drift', className: 'tr-drift-matrix' },
+  { id: 'drift-ink', label: 'Ink Bleed', category: 'Drift', className: 'tr-drift-ink' },
+  { id: 'drift-interference', label: 'Analog Interference', category: 'Drift', className: 'tr-drift-interference' },
+  { id: 'drift-honeycomb', label: 'Honeycomb Hexagon', category: 'Drift', className: 'tr-drift-honeycomb' },
+  { id: 'drift-bubbles', label: 'Bubbling Dissolve', category: 'Drift', className: 'tr-drift-bubbles' },
+  { id: 'drift-vhs', label: 'VHS Scanline', category: 'Drift', className: 'tr-drift-vhs' },
+  { id: 'drift-swirl', label: 'Cross Zoom Swirl', category: 'Drift', className: 'tr-drift-swirl' },
 ];
 
 export const TRANSITION_IDS = TRANSITIONS.map((item) => item.id);

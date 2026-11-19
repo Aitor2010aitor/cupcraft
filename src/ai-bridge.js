@@ -349,7 +349,7 @@ const HANDLERS = {
     if (!found) throw new Error('No hay clip seleccionado');
     const type = String(params.transition || 'fade');
     if (!TRANSITIONS.some((item) => item.id === type)) throw new Error(`Transición no válida: ${type}`);
-    const fades = TRANSITION_FADES[type] || { fadeIn: 0.2, fadeOut: 0.2 };
+    const fades = TRANSITION_FADES[type] || { fadeIn: 0, fadeOut: 0 };
     updateClip(found.clip.id, {
       transition: type,
       transitionDuration: Math.max(0.1, Math.min(3, Number(params.duration) || 0.6)),

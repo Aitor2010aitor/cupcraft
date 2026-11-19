@@ -1,4 +1,4 @@
-﻿# Script para descargar e instalar FFmpeg estático para cupcraft
+# Script para descargar e instalar FFmpeg estático para cupcraft
 param(
     [string]$TargetDir = "$env:LOCALAPPDATA\cupcraft\bin"
 )

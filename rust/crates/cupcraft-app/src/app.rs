@@ -1,6 +1,5 @@
 //! Estado principal de cupcraft (pantallas, proyecto abierto, almacén, toasts).
 
-use crate::home;
 use crate::theme;
 use cupcraft_core::Editor;
 use cupcraft_persist::Store;
@@ -18,6 +17,9 @@ pub enum Screen {
 pub enum PanelTab {
     Media,
     Text,
+    Stickers,
+    Effects,
+    Transitions,
     Filters,
     Adjust,
 }
@@ -215,7 +217,7 @@ fn now_secs() -> f64 {
 pub fn show_toast(ctx: &egui::Context, app: &CupApp) {
     if let Some((msg, _)) = &app.toast {
         let msg = msg.clone();
-        egui::Area::new(egui::Id::new("toast"))
+        egui::Area::new(egui::Id::unique("toast"))
             .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -24.0))
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {

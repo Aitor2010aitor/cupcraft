@@ -1080,8 +1080,11 @@ dependencies = [
 name = "cupcraft-app"
 version = "0.4.5"
 dependencies = [
+ "cupcraft-audio",
  "cupcraft-core",
+ "cupcraft-media",
  "cupcraft-persist",
+ "cupcraft-render",
  "eframe",
  "rfd",
  "serde_json",

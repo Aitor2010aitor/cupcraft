@@ -1,4 +1,4 @@
-//! Paneles del editor: Medios, Texto, Filtros, Ajustar.
+//! Paneles del editor: Medios, Texto, Filtros, Ajustar, Stickers, Efectos, Transiciones.
 
 use crate::app::CupApp;
 use crate::paint;
@@ -10,10 +10,13 @@ use serde_json::json;
 
 pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
     match app.panel_tab {
-        crate::app::PanelTab::Media => media_panel(ui, app),
-        crate::app::PanelTab::Text => text_panel(ui, app),
-        crate::app::PanelTab::Filters => filters_panel(ui, app),
-        crate::app::PanelTab::Adjust => adjust_panel(ui, app),
+        crate::app::PanelTab::Media       => media_panel(ui, app),
+        crate::app::PanelTab::Text        => text_panel(ui, app),
+        crate::app::PanelTab::Filters     => filters_panel(ui, app),
+        crate::app::PanelTab::Adjust      => adjust_panel(ui, app),
+        crate::app::PanelTab::Stickers    => stickers_panel(ui, app),
+        crate::app::PanelTab::Effects     => effects_panel(ui, app),
+        crate::app::PanelTab::Transitions => transitions_panel(ui, app),
     }
 }
 
@@ -346,4 +349,266 @@ fn apply_adjust(app: &mut CupApp, id: &str, key: &str, val: f64) {
         p.update_clip(id, patch);
     });
     app.save_current();
+}
+
+// ─────────────────────────── Stickers ────────────────────────────────────────
+
+/// Catálogo de emojis/stickers. Un clic añade el sticker en el playhead actual.
+fn stickers_panel(ui: &mut egui::Ui, app: &mut CupApp) {
+    ui.label(egui::RichText::new("Stickers").color(theme::TEXT).strong());
+    ui.label(egui::RichText::new("Haz clic para añadir en el playhead.").color(theme::MUTED).size(11.0));
+    ui.add_space(4.0);
+
+    // Grupos de stickers igual que el JS legacy (icons.js STICKERS)
+    const GROUPS: &[(&str, &[&str])] = &[
+        ("Expresiones",   &["😀","😂","🥹","😍","🤩","😎","🥳","😭","😱","🤔","😴","🤯","😇","🫶","❤️","💔","🔥","✨","💯","👍"]),
+        ("Naturaleza",    &["🌸","🌺","🌻","🍀","🌴","⭐","🌙","☀️","🌈","🦋","🌊","❄️","🍁","🌿","🪐"]),
+        ("Comida",        &["🍕","🍔","🌮","🍣","🍰","☕","🧋","🍓","🍉","🥑"]),
+        ("Objetos",       &["🎵","🎶","🎤","🎬","📸","💎","👑","🏆","🎯","🎁","🪄","💫"]),
+        ("Texto/formas",  &["💬","❗","❓","⬆️","⬇️","➡️","⭕","❌","✅","🔴","🟡","🟢"]),
+    ];
+
+    egui::ScrollArea::vertical().max_height(380.0).show(ui, |ui| {
+        for (group_name, emojis) in GROUPS {
+            ui.label(egui::RichText::new(*group_name).color(theme::MUTED).size(11.0));
+            ui.horizontal_wrapped(|ui| {
+                for &emoji in *emojis {
+                    let btn = ui.add_sized(
+                        egui::vec2(36.0, 36.0),
+                        egui::Button::new(egui::RichText::new(emoji).size(20.0)),
+                    );
+                    let clicked = btn.clicked();
+                    btn.on_hover_text(emoji);
+                    if clicked {
+                        let ph = app.playhead;
+                        let content = emoji.to_string();
+                        app.editor.mutate(|p| {
+                            p.add_sticker_clip(&content, Some(4.0), Some(ph), None);
+                        });
+                        app.save_current();
+                        app.toast(format!("Sticker añadido: {emoji}"));
+                    }
+                }
+            });
+            ui.add_space(4.0);
+        }
+    });
+}
+
+// ─────────────────────────── Efectos ─────────────────────────────────────────
+
+/// Panel de efectos visuales. Muestra los 13 efectos de post-proceso + 8 de CapCut.
+/// Un clic aplica el efecto como clip de efecto en la pista Overlay.
+fn effects_panel(ui: &mut egui::Ui, app: &mut CupApp) {
+    ui.label(egui::RichText::new("Efectos").color(theme::TEXT).strong());
+    ui.label(egui::RichText::new("Haz clic para añadir efecto en el playhead.").color(theme::MUTED).size(11.0));
+    ui.add_space(4.0);
+
+    // Efectos de post-proceso (13 shaders WGSL portados)
+    const POST_FX: &[(&str, &str, &str)] = &[
+        ("radial_blur",    "Desenfoque radial",    "🌀"),
+        ("directional_blur","Desenfoque lineal",   "↔"),
+        ("rgb_split",      "Separación RGB",       "🌈"),
+        ("chromatic",      "Aberración cromática",  "🔴"),
+        ("vhs",            "VHS",                  "📼"),
+        ("zoom_pulse",     "Pulso zoom",            "🔎"),
+        ("pixelate",       "Pixelar",              "▦"),
+        ("mirror",         "Espejo",               "🪞"),
+        ("vignette",       "Viñeta",               "⭕"),
+        ("grain",          "Grano",                "🌾"),
+        ("posterize",      "Posterizar",           "🎨"),
+        ("wave",           "Ola",                  "〜"),
+        ("bloom",          "Bloom/brillo",         "✨"),
+    ];
+
+    // Efectos firma CapCut (8 LUT/shaders especiales)
+    const CAPCUT_FX: &[(&str, &str, &str)] = &[
+        ("bruma_borgona",    "Bruma borgoña",      "🍷"),
+        ("atardecer_ensueno","Atardecer ensueño",  "🌅"),
+        ("brillo_brumoso",   "Brillo brumoso",     "☁"),
+        ("pixel_noir",       "Pixel Noir",         "🎞"),
+        ("carino_retro",     "Cariño retro",       "💌"),
+        ("sueno_caqui",      "Sueño caqui",        "🌿"),
+        ("jengibre_suave",   "Jengibre suave",     "🍊"),
+        ("lienzo_embrujado", "Lienzo embrujado",   "🎭"),
+    ];
+
+    egui::ScrollArea::vertical().max_height(380.0).show(ui, |ui| {
+        ui.label(egui::RichText::new("Post-proceso").color(theme::MUTED).size(11.0));
+        effect_grid(ui, app, POST_FX);
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new("Firma CapCut").color(theme::MUTED).size(11.0));
+        effect_grid(ui, app, CAPCUT_FX);
+    });
+}
+
+fn effect_grid(ui: &mut egui::Ui, app: &mut CupApp, list: &[(&str, &str, &str)]) {
+    ui.horizontal_wrapped(|ui| {
+        for &(id, label, icon) in list {
+            let btn = ui.add_sized(
+                egui::vec2(84.0, 56.0),
+                egui::Button::new(egui::RichText::new(format!("{icon}\n{label}")).size(10.0)),
+            );
+            if btn.clicked() {
+                let ph = app.playhead;
+                let effect_id = id.to_string();
+                let effect_name = label.to_string();
+                app.editor.mutate(|p| {
+                    p.add_effect_clip(&effect_id, &effect_name, Some(4.0), Some(ph), Some(1.0));
+                });
+                app.save_current();
+                app.toast(format!("Efecto añadido: {label}"));
+            }
+        }
+    });
+}
+
+// ─────────────────────────── Transiciones ────────────────────────────────────
+
+/// Panel de transiciones. Aplica la transición al clip seleccionado o al siguiente.
+fn transitions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
+    ui.label(egui::RichText::new("Transiciones").color(theme::TEXT).strong());
+    ui.label(
+        egui::RichText::new("Selecciona un clip y haz clic para aplicar la transición a su salida.")
+            .color(theme::MUTED).size(11.0)
+    );
+    ui.add_space(4.0);
+
+    // Tabla de transiciones (67 tipos, igual que transitions.wgsl)
+    const TRANSITIONS: &[(&str, &str, &str)] = &[
+        // Básicas
+        ("fade",          "Fundido",           "Básicas"),
+        ("cut",           "Corte directo",     "Básicas"),
+        ("dissolve",      "Disolución",        "Básicas"),
+        ("crossfade",     "Crossfade",         "Básicas"),
+        ("wipe_right",    "Barrido →",         "Básicas"),
+        ("wipe_left",     "Barrido ←",         "Básicas"),
+        ("wipe_up",       "Barrido ↑",         "Básicas"),
+        ("wipe_down",     "Barrido ↓",         "Básicas"),
+        // Movimiento
+        ("slide_right",   "Deslizar →",        "Movimiento"),
+        ("slide_left",    "Deslizar ←",        "Movimiento"),
+        ("slide_up",      "Deslizar ↑",        "Movimiento"),
+        ("slide_down",    "Deslizar ↓",        "Movimiento"),
+        ("push_right",    "Empujar →",         "Movimiento"),
+        ("push_left",     "Empujar ←",         "Movimiento"),
+        ("push_up",       "Empujar ↑",         "Movimiento"),
+        ("push_down",     "Empujar ↓",         "Movimiento"),
+        // Zoom
+        ("zoom_in",       "Zoom +",            "Zoom"),
+        ("zoom_out",      "Zoom −",            "Zoom"),
+        ("zoom_in_out",   "Zoom +/−",          "Zoom"),
+        ("zoom_out_in",   "Zoom −/+",          "Zoom"),
+        ("zoom_blur",     "Zoom borroso",      "Zoom"),
+        // Creativas
+        ("rotate_cw",     "Rotar horario",     "Creativas"),
+        ("rotate_ccw",    "Rotar antihorario", "Creativas"),
+        ("flip_h",        "Voltear H",         "Creativas"),
+        ("flip_v",        "Voltear V",         "Creativas"),
+        ("cube",          "Cubo",              "Creativas"),
+        ("page_turn",     "Vuelta de página",  "Creativas"),
+        ("door_open",     "Puerta abierta",    "Creativas"),
+        ("door_close",    "Puerta cerrada",    "Creativas"),
+        ("ripple",        "Ondas",             "Creativas"),
+        ("swirl",         "Espiral",           "Creativas"),
+        ("mosaic",        "Mosaico",           "Creativas"),
+        // Drift (firma CapCut)
+        ("drift_right",   "Drift →",           "Drift"),
+        ("drift_left",    "Drift ←",           "Drift"),
+        ("drift_up",      "Drift ↑",           "Drift"),
+        ("drift_down",    "Drift ↓",           "Drift"),
+        ("drift_in",      "Drift +",           "Drift"),
+        ("drift_out",     "Drift −",           "Drift"),
+        // Impacto
+        ("flash",         "Flash",             "Impacto"),
+        ("shake",         "Sacudida",          "Impacto"),
+        ("bounce",        "Rebote",            "Impacto"),
+        ("smash",         "Golpe",             "Impacto"),
+        ("elastic",       "Elástico",          "Impacto"),
+        ("crash_zoom",    "Crash zoom",        "Impacto"),
+        ("impact_blur",   "Blur impacto",      "Impacto"),
+        // Glitch
+        ("glitch",        "Glitch",            "Glitch"),
+        ("rgb_split_tr",  "RGB Split",         "Glitch"),
+        ("vhs_glitch",    "VHS Glitch",        "Glitch"),
+        ("digital",       "Digital",           "Glitch"),
+        ("flicker",       "Parpadeo",          "Glitch"),
+        ("noise_wipe",    "Ruido",             "Glitch"),
+        // Extra hasta 67
+        ("iris_in",       "Iris +",            "Creativas"),
+        ("iris_out",      "Iris −",            "Creativas"),
+        ("star_wipe",     "Estrella",          "Creativas"),
+        ("heart_wipe",    "Corazón",           "Creativas"),
+        ("clock_wipe",    "Reloj",             "Creativas"),
+        ("radial_wipe",   "Radial",            "Creativas"),
+        ("barn_open",     "Granero abre",      "Creativas"),
+        ("barn_close",    "Granero cierra",    "Creativas"),
+        ("pinwheel",      "Molinete",          "Creativas"),
+        ("checker",       "Tablero",           "Creativas"),
+        ("pixelate_tr",   "Pixelar",           "Glitch"),
+        ("liquid",        "Líquido",           "Creativas"),
+        ("morph",         "Morph",             "Creativas"),
+        ("light_leak",    "Fuga de luz",       "Creativas"),
+        ("lens_flare",    "Destello",          "Creativas"),
+        ("static_noise",  "Estática",          "Glitch"),
+    ];
+
+    // Categorías únicas en orden
+    const CATS: &[&str] = &["Básicas", "Movimiento", "Zoom", "Creativas", "Drift", "Impacto", "Glitch"];
+
+    // Control de categoría activa (reutilizamos filter_category)
+    let active_cat = app.filter_category.clone().unwrap_or_else(|| "Básicas".to_string());
+
+    ui.horizontal_wrapped(|ui| {
+        for &cat in CATS {
+            let sel = active_cat == cat;
+            if ui.selectable_label(sel, cat).clicked() {
+                app.filter_category = Some(cat.to_string());
+            }
+        }
+    });
+    ui.add_space(4.0);
+
+    // Control de duración de transición (guardado en app.zoom reutilizado como duración, 0.3–2.0 s)
+    let mut tr_dur = app.zoom.clamp(0.3, 2.0) as f32;
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new("Duración:").color(theme::MUTED).size(11.0));
+        if ui.add(egui::Slider::new(&mut tr_dur, 0.3f32..=2.0).suffix(" s").step_by(0.1)).changed() {
+            app.zoom = tr_dur as f64;
+        }
+    });
+    ui.add_space(4.0);
+
+    egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+        ui.horizontal_wrapped(|ui| {
+            let tr_duration = app.zoom.clamp(0.3, 2.0);
+            for &(tr_id, label, cat) in TRANSITIONS {
+                if cat != active_cat { continue; }
+                let btn = ui.add_sized(
+                    egui::vec2(84.0, 50.0),
+                    egui::Button::new(egui::RichText::new(label).size(10.0)),
+                );
+                if btn.clicked() {
+                    if let Some(clip_id) = app.editor.selection().map(str::to_string) {
+                        app.editor.mutate(|p| {
+                            if let Some(clip) = p.find_clip_mut(&clip_id) {
+                                clip.extra.insert(
+                                    "transition".to_string(),
+                                    serde_json::json!(tr_id),
+                                );
+                                clip.extra.insert(
+                                    "transition_duration".to_string(),
+                                    serde_json::json!(tr_duration),
+                                );
+                            }
+                        });
+                        app.save_current();
+                        app.toast(format!("Transición: {label}"));
+                    } else {
+                        app.toast("Selecciona un clip primero");
+                    }
+                }
+            }
+        });
+    });
 }

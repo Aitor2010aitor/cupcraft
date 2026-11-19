@@ -125,9 +125,9 @@ pub fn font_family_for(name: &str) -> FontFamily {
 fn install_fonts(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     let sans = load(&mut fonts, CUP_SANS, r"C:\Windows\Fonts\segoeui.ttf");
-    let bold = load(&mut fonts, CUP_SANS_BOLD, r"C:\Windows\Fonts\segoeuib.ttf");
+    let _bold = load(&mut fonts, CUP_SANS_BOLD, r"C:\Windows\Fonts\segoeuib.ttf");
     let mono = load(&mut fonts, CUP_MONO, r"C:\Windows\Fonts\consola.ttf");
-    let serif = load(&mut fonts, CUP_SERIF, r"C:\Windows\Fonts\georgia.ttf");
+    let _serif = load(&mut fonts, CUP_SERIF, r"C:\Windows\Fonts\georgia.ttf");
 
     let mut sans_keys = vec![CUP_SANS.to_owned()];
     if sans {

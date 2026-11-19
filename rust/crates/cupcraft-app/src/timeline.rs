@@ -4,7 +4,7 @@ use crate::app::{CupApp, ToolMode};
 use crate::format::format_time;
 use crate::paint;
 use crate::theme;
-use cupcraft_core::ClipKind;
+use cupcraft_core::ClipKind as _ClipKind;
 use eframe::egui;
 
 const LABEL_W: f32 = 140.0;

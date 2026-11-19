@@ -27,6 +27,7 @@ pub enum ClipKind {
     Audio,
     Text,
     Sticker,
+    Effect,
 }
 
 /// Ajustes de color del clip (los mismos valores que usa el panel Ajustar).

@@ -105,6 +105,7 @@ pub fn clip_colors(kind: ClipKind) -> (Color32, Color32, Color32) {
         ClipKind::Audio => (hex("#2a2a52"), hex("#191a2e"), hex("#4a4a7d")),
         ClipKind::Text => (hex("#3b2a46"), hex("#241a2d"), hex("#6f4d86")),
         ClipKind::Sticker => (hex("#3b2a46"), hex("#241a2d"), hex("#6f4d86")),
+        ClipKind::Effect => (hex("#7b46d6"), hex("#5a2fa8"), hex("#a678ff")),
     }
 }
 

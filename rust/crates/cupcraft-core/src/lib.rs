@@ -6,6 +6,7 @@
 
 pub mod filters;
 pub mod history;
+pub mod keyframes;
 pub mod model;
 pub mod timeline;
 

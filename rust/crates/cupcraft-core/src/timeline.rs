@@ -520,6 +520,258 @@ impl Project {
             true
         }
     }
+
+    /// Congela un fotograma insertando un clip de 3 segundos estilo CapCut (velocidad 0.0001)
+    /// en la posición `time` y desplazando los clips posteriores.
+    pub fn freeze_frame(&mut self, clip_id: &str, time: f64) -> Option<String> {
+        let mut track_idx = None;
+        let mut clip_idx = None;
+        for (t_i, track) in self.tracks.iter().enumerate() {
+            if let Some(c_i) = track.clips.iter().position(|c| c.id == clip_id) {
+                track_idx = Some(t_i);
+                clip_idx = Some(c_i);
+                break;
+            }
+        }
+        let (t_i, c_i) = (track_idx?, clip_idx?);
+        let track = &mut self.tracks[t_i];
+        let clip = &mut track.clips[c_i];
+
+        if time < clip.start || time > clip.end() {
+            return None;
+        }
+
+        let freeze_duration = 3.0;
+        let freeze_in = clip.in_point + (time - clip.start) * clip.speed;
+        let left_duration = (time - clip.start).max(0.1);
+        let right_duration = clip.duration - (time - clip.start);
+
+        clip.duration = left_duration;
+
+        let mut freeze_clip = clip.clone();
+        let freeze_id = new_id("clip");
+        freeze_clip.id = freeze_id.clone();
+        freeze_clip.start = time;
+        freeze_clip.duration = freeze_duration;
+        freeze_clip.in_point = freeze_in;
+        freeze_clip.speed = 0.0001;
+        freeze_clip.name = format!("{} (Congelado)", clip.name);
+
+        let mut right_clip_opt = None;
+        if right_duration > 0.05 {
+            let mut right_clip = clip.clone();
+            right_clip.id = new_id("clip");
+            right_clip.start = time + freeze_duration;
+            right_clip.duration = right_duration;
+            right_clip.in_point = freeze_in;
+            right_clip.speed = clip.speed;
+            right_clip_opt = Some(right_clip);
+        }
+
+        let original_clip_id = clip.id.clone();
+        let right_id = right_clip_opt.as_ref().map(|c| c.id.clone());
+
+        for other in track.clips.iter_mut() {
+            if other.id != original_clip_id && other.start >= time - 0.001 {
+                if right_id.as_ref() != Some(&other.id) {
+                    other.start += freeze_duration;
+                }
+            }
+        }
+
+        track.clips.push(freeze_clip);
+        if let Some(rc) = right_clip_opt {
+            track.clips.push(rc);
+        }
+
+        Some(freeze_id)
+    }
+
+    /// Separa el audio de un clip de vídeo a una pista de audio (creándola si no existe)
+    /// y silencia el vídeo original (volume = 0.0).
+    pub fn separate_audio(&mut self, clip_id: &str) -> Option<String> {
+        let (media_id, name, start, duration, in_point, speed, volume, fade_in, fade_out) = {
+            let (_track, clip) = self.find_clip(clip_id)?;
+            if clip.kind != ClipKind::Video || clip.media_id.is_none() {
+                return None;
+            }
+            (
+                clip.media_id.clone(),
+                format!("{} (Audio)", clip.name),
+                clip.start,
+                clip.duration,
+                clip.in_point,
+                clip.speed,
+                clip.volume,
+                clip.fade_in,
+                clip.fade_out,
+            )
+        };
+
+        if let Some(clip) = self.find_clip_mut(clip_id) {
+            clip.volume = 0.0;
+        }
+
+        let audio_track_id = if let Some(t) = self.tracks.iter().find(|t| t.kind == TrackType::Audio) {
+            t.id.clone()
+        } else {
+            self.add_track(TrackType::Audio)
+        };
+
+        let new_clip_id = new_id("clip");
+        let mut audio_clip = make_clip(ClipKind::Audio, name, start, duration);
+        audio_clip.id = new_clip_id.clone();
+        audio_clip.media_id = media_id;
+        audio_clip.in_point = in_point;
+        audio_clip.speed = speed;
+        audio_clip.volume = volume;
+        audio_clip.fade_in = fade_in;
+        audio_clip.fade_out = fade_out;
+
+        if let Some(t) = self.tracks.iter_mut().find(|t| t.id == audio_track_id) {
+            t.clips.push(audio_clip);
+            Some(new_clip_id)
+        } else {
+            None
+        }
+    }
+
+    /// Añade un clip de sticker a la pista de texto o superposición.
+    pub fn add_sticker_clip(
+        &mut self,
+        content: &str,
+        duration: Option<f64>,
+        start: Option<f64>,
+        preset: Option<serde_json::Value>,
+    ) -> Option<String> {
+        let track_id = self
+            .tracks
+            .iter()
+            .find(|t| t.kind == TrackType::Text || t.kind == TrackType::Overlay)
+            .map(|t| t.id.clone())
+            .unwrap_or_else(|| self.add_track(TrackType::Text));
+
+        let dur = duration.unwrap_or(4.0).max(0.1);
+        let track = self.tracks.iter().find(|t| t.id == track_id)?;
+        let final_start = resolve_start(track, None, start.unwrap_or_else(|| track.end(None)), dur);
+
+        let mut clip = make_clip(ClipKind::Sticker, content, final_start, dur);
+        let cid = clip.id.clone();
+        clip.sticker = Some(preset.unwrap_or_else(|| serde_json::json!({
+            "content": content,
+            "size": 220,
+            "background": "transparent",
+            "shape": "none",
+            "color": "#ffffff"
+        })));
+
+        let t = self.tracks.iter_mut().find(|t| t.id == track_id)?;
+        t.clips.push(clip);
+        Some(cid)
+    }
+
+    /// Limpia todos los clips de texto de subtítulos en las pistas de texto.
+    pub fn clear_subtitle_clips(&mut self) -> usize {
+        let mut count = 0;
+        for track in self.tracks.iter_mut().filter(|t| t.kind == TrackType::Text) {
+            let initial = track.clips.len();
+            track.clips.retain(|c| c.kind != ClipKind::Text);
+            count += initial - track.clips.len();
+        }
+        count
+    }
+
+    /// Añade un lote de subtítulos con sincronización temporal.
+    pub fn add_subtitle_clips(
+        &mut self,
+        items: &[serde_json::Value],
+        _caption_style: Option<&str>,
+        replace: bool,
+    ) -> Vec<String> {
+        if replace {
+            self.clear_subtitle_clips();
+        }
+        let track_id = self
+            .tracks
+            .iter()
+            .find(|t| t.kind == TrackType::Text)
+            .map(|t| t.id.clone())
+            .unwrap_or_else(|| self.add_track(TrackType::Text));
+
+        let mut added = Vec::new();
+        for item in items {
+            let content = item.get("text").and_then(|v| v.as_str()).unwrap_or("").trim();
+            if content.is_empty() {
+                continue;
+            }
+            let start = item.get("start").and_then(|v| v.as_f64()).unwrap_or(0.0).max(0.0);
+            let duration = item
+                .get("duration")
+                .and_then(|v| v.as_f64())
+                .or_else(|| {
+                    let end = item.get("end").and_then(|v| v.as_f64())?;
+                    Some(end - start)
+                })
+                .unwrap_or(2.0)
+                .max(0.4);
+
+            let mut clip = make_clip(ClipKind::Text, content, start, duration);
+            let cid = clip.id.clone();
+
+            let mut text_obj = serde_json::json!({
+                "content": content,
+                "size": 56,
+                "weight": 600,
+                "color": "#ffffff",
+                "background": "transparent",
+                "shadow": true,
+                "align": "center",
+                "y": 28.0
+            });
+            if let Some(words) = item.get("words") {
+                if let Some(map) = text_obj.as_object_mut() {
+                    map.insert("words".to_string(), words.clone());
+                }
+            }
+            clip.text = Some(text_obj);
+
+            if let Some(t) = self.tracks.iter_mut().find(|t| t.id == track_id) {
+                t.clips.push(clip);
+                added.push(cid);
+            }
+        }
+        added
+    }
+
+    /// Añade un clip de efecto visual en la pista Overlay.
+    pub fn add_effect_clip(
+        &mut self,
+        effect_id: &str,
+        name: &str,
+        duration: Option<f64>,
+        start: Option<f64>,
+        strength: Option<f64>,
+    ) -> Option<String> {
+        let track_id = self
+            .tracks
+            .iter()
+            .find(|t| t.kind == TrackType::Overlay)
+            .map(|t| t.id.clone())
+            .unwrap_or_else(|| self.add_track(TrackType::Overlay));
+
+        let dur = duration.unwrap_or(4.0).max(0.1);
+        let track = self.tracks.iter().find(|t| t.id == track_id)?;
+        let final_start = resolve_start(track, None, start.unwrap_or_else(|| track.end(None)), dur);
+
+        let mut clip = make_clip(ClipKind::Effect, name, final_start, dur);
+        let cid = clip.id.clone();
+        clip.extra.insert("effect".to_string(), serde_json::json!(effect_id));
+        clip.extra.insert("effect_strength".to_string(), serde_json::json!(strength.unwrap_or(1.0)));
+
+        let t = self.tracks.iter_mut().find(|t| t.id == track_id)?;
+        t.clips.push(clip);
+        Some(cid)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -969,5 +1221,81 @@ mod tests {
         assert_eq!(p.markers, vec![5.0]);
         assert!(!p.toggle_marker(5.0), "elimina marcador si ya existe en el punto");
         assert!(p.markers.is_empty());
+    }
+
+    #[test]
+    fn freeze_frame_splits_and_shifts() {
+        let mut p = project_with_clip();
+        let clip_id = p.tracks[1].clips[0].id.clone();
+        // Clip inicial en start 0.0, duration 5.0
+        let freeze_id = p.freeze_frame(&clip_id, 2.0).expect("freeze frame succeed");
+        assert_ne!(freeze_id, clip_id);
+
+        let track = &p.tracks[1];
+        // Debe haber: clip original acortado a 2s, clip congelado de 3s (start 2s), y clip derecho de 3s (start 5s)
+        assert_eq!(track.clips.len(), 3);
+        let orig = track.clips.iter().find(|c| c.id == clip_id).unwrap();
+        assert_eq!(orig.duration, 2.0);
+
+        let freeze = track.clips.iter().find(|c| c.id == freeze_id).unwrap();
+        assert_eq!(freeze.start, 2.0);
+        assert_eq!(freeze.duration, 3.0);
+        assert_eq!(freeze.speed, 0.0001);
+
+        let right = track.clips.iter().find(|c| c.id != clip_id && c.id != freeze_id).unwrap();
+        assert_eq!(right.start, 5.0);
+        assert_eq!(right.duration, 3.0);
+    }
+
+    #[test]
+    fn separate_audio_silences_video_and_creates_audio_clip() {
+        let mut p = project_with_video_clip();
+        let clip_id = p.tracks[1].clips[0].id.clone();
+        let audio_id = p.separate_audio(&clip_id).expect("separate audio succeed");
+
+        // El video original debe estar silenciado
+        let vid = p.find_clip(&clip_id).unwrap().1;
+        assert_eq!(vid.volume, 0.0);
+
+        // El nuevo clip de audio debe estar en la pista de audio
+        let (t, aud) = p.find_clip(&audio_id).unwrap();
+        assert_eq!(t.kind, TrackType::Audio);
+        assert_eq!(aud.kind, ClipKind::Audio);
+        assert_eq!(aud.volume, 1.0);
+    }
+
+    #[test]
+    fn sticker_and_effect_clips_work() {
+        let mut p = Project::new("Demo");
+        let sticker_id = p.add_sticker_clip("✨", Some(3.0), Some(1.0), None).unwrap();
+        let (t_stk, stk) = p.find_clip(&sticker_id).unwrap();
+        assert_eq!(t_stk.kind, TrackType::Text);
+        assert_eq!(stk.kind, ClipKind::Sticker);
+        assert_eq!(stk.duration, 3.0);
+        assert_eq!(stk.start, 1.0);
+
+        let effect_id = p.add_effect_clip("glow", "Resplandor", Some(4.0), Some(0.0), Some(0.8)).unwrap();
+        let (t_fx, fx) = p.find_clip(&effect_id).unwrap();
+        assert_eq!(t_fx.kind, TrackType::Overlay);
+        assert_eq!(fx.kind, ClipKind::Effect);
+        assert_eq!(fx.duration, 4.0);
+    }
+
+    #[test]
+    fn subtitle_clips_add_and_clear() {
+        let mut p = Project::new("Demo");
+        let items = serde_json::json!([
+            { "text": "Hola mundo", "start": 0.0, "duration": 2.0 },
+            { "text": "Bienvenidos a cupcraft", "start": 2.5, "duration": 3.0 }
+        ]);
+        let added = p.add_subtitle_clips(items.as_array().unwrap(), None, false);
+        assert_eq!(added.len(), 2);
+        let text_track = p.tracks.iter().find(|t| t.kind == TrackType::Text).unwrap();
+        assert_eq!(text_track.clips.len(), 2);
+
+        let count = p.clear_subtitle_clips();
+        assert_eq!(count, 2);
+        let text_track = p.tracks.iter().find(|t| t.kind == TrackType::Text).unwrap();
+        assert_eq!(text_track.clips.len(), 0);
     }
 }

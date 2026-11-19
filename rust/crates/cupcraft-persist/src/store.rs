@@ -59,6 +59,7 @@ impl From<rusqlite::Error> for StoreError {
 /// Conexión con el almacén local (se abre sobre la ruta que se le indique).
 pub struct Store {
     conn: Connection,
+    media_dir: Option<std::path::PathBuf>,
 }
 
 const SCHEMA: &str = "
@@ -71,26 +72,48 @@ CREATE TABLE IF NOT EXISTS media (
   id TEXT PRIMARY KEY,
   mime TEXT NOT NULL DEFAULT '',
   meta TEXT NOT NULL,
-  bytes BLOB
+  bytes BLOB,
+  file_path TEXT DEFAULT ''
 );
 ";
 
 impl Store {
     /// Abre (creándolo si hace falta) el almacén de la ruta indicada.
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self, StoreError> {
-        if let Some(parent) = path.as_ref().parent() {
+        let path_ref = path.as_ref();
+        let media_dir = if let Some(parent) = path_ref.parent() {
             std::fs::create_dir_all(parent).map_err(|e| StoreError::CorruptMedia(e.to_string()))?;
-        }
-        let conn = Connection::open(path)?;
+            let m_dir = parent.join("media");
+            let _ = std::fs::create_dir_all(&m_dir);
+            Some(m_dir)
+        } else {
+            None
+        };
+        let conn = Connection::open(path_ref)?;
+        let _ = conn.pragma_update(None, "journal_mode", "WAL");
+        let _ = conn.pragma_update(None, "synchronous", "NORMAL");
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        // Asegurar columna file_path para bases de datos existentes
+        let _ = conn.execute("ALTER TABLE media ADD COLUMN file_path TEXT DEFAULT ''", []);
+        Ok(Self { conn, media_dir })
     }
 
     /// Abre un almacén en memoria (para pruebas y vistas previas).
     pub fn open_in_memory() -> Result<Self, StoreError> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA)?;
-        Ok(Self { conn })
+        Ok(Self { conn, media_dir: None })
+    }
+
+    /// Establece la carpeta para almacenar los medios en disco.
+    pub fn set_media_dir(&mut self, dir: std::path::PathBuf) {
+        let _ = std::fs::create_dir_all(&dir);
+        self.media_dir = Some(dir);
+    }
+
+    /// Carpeta donde se almacenan los medios físicos en disco.
+    pub fn media_dir(&self) -> Option<&std::path::Path> {
+        self.media_dir.as_deref()
     }
 
     /* ------------------------------- Proyectos ------------------------------ */
@@ -142,38 +165,75 @@ impl Store {
 
     /* --------------------------------- Medios ------------------------------- */
 
-    /// Guarda un medio (metadatos + bytes), como `db.saveMedia`.
+    /// Guarda un medio (metadatos + bytes en disco / base de datos), como `db.saveMedia`.
     pub fn save_media(&mut self, record: &MediaRecord) -> Result<(), StoreError> {
         let meta = serde_json::to_string(&record.meta).map_err(|e| StoreError::CorruptMedia(e.to_string()))?;
+        let mut file_path_str = String::new();
+
+        if let Some(media_dir) = &self.media_dir {
+            let ext = match record.mime.as_str() {
+                "video/mp4" => "mp4",
+                "video/webm" => "webm",
+                "image/png" => "png",
+                "image/jpeg" => "jpg",
+                "audio/wav" => "wav",
+                "audio/mp3" | "audio/mpeg" => "mp3",
+                _ => "bin",
+            };
+            let disk_file = media_dir.join(format!("{}.{}", record.meta.id, ext));
+            if !record.bytes.is_empty() {
+                let _ = std::fs::write(&disk_file, &record.bytes);
+                file_path_str = disk_file.to_string_lossy().to_string();
+            }
+        }
+
         self.conn.execute(
-            "INSERT INTO media (id, mime, meta, bytes) VALUES (?1, ?2, ?3, ?4)
-             ON CONFLICT(id) DO UPDATE SET mime = excluded.mime, meta = excluded.meta, bytes = excluded.bytes",
-            params![record.meta.id, record.mime, meta, record.bytes],
+            "INSERT INTO media (id, mime, meta, bytes, file_path) VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(id) DO UPDATE SET mime = excluded.mime, meta = excluded.meta, bytes = excluded.bytes, file_path = excluded.file_path",
+            params![record.meta.id, record.mime, meta, record.bytes, file_path_str],
         )?;
         Ok(())
     }
 
-    /// Recupera un medio por id, como `db.getMedia`.
+    /// Recupera un medio por id, leyendo del archivo en disco o del blob de reserva en SQLite.
     pub fn get_media(&self, id: &str) -> Result<Option<MediaRecord>, StoreError> {
-        let row: Option<(String, String, Option<Vec<u8>>)> = self
+        let row: Option<(String, String, Option<Vec<u8>>, Option<String>)> = self
             .conn
             .query_row(
-                "SELECT mime, meta, bytes FROM media WHERE id = ?1",
+                "SELECT mime, meta, bytes, file_path FROM media WHERE id = ?1",
                 params![id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .optional()?;
         match row {
             None => Ok(None),
-            Some((mime, meta, bytes)) => {
+            Some((mime, meta, bytes, file_path)) => {
                 let meta = serde_json::from_str(&meta).map_err(|e| StoreError::CorruptMedia(e.to_string()))?;
-                Ok(Some(MediaRecord { meta, mime, bytes: bytes.unwrap_or_default() }))
+                let data = if let Some(path) = file_path {
+                    if !path.is_empty() && std::path::Path::new(&path).is_file() {
+                        std::fs::read(&path).unwrap_or_else(|_| bytes.unwrap_or_default())
+                    } else {
+                        bytes.unwrap_or_default()
+                    }
+                } else {
+                    bytes.unwrap_or_default()
+                };
+                Ok(Some(MediaRecord { meta, mime, bytes: data }))
             }
         }
     }
 
-    /// Borra un medio por id, como `db.deleteMedia`.
+    /// Borra un medio por id de la base de datos y de disco.
     pub fn delete_media(&mut self, id: &str) -> Result<(), StoreError> {
+        let file_path: Option<String> = self
+            .conn
+            .query_row("SELECT file_path FROM media WHERE id = ?1", params![id], |row| row.get(0))
+            .optional()?;
+        if let Some(path) = file_path {
+            if !path.is_empty() {
+                let _ = std::fs::remove_file(&path);
+            }
+        }
         self.conn.execute("DELETE FROM media WHERE id = ?1", params![id])?;
         Ok(())
     }
@@ -389,5 +449,41 @@ mod tests {
         let mut store = Store::open_in_memory().unwrap();
         assert!(store.import_project_file("{}", ).is_err());
         assert!(store.import_project_file(r#"{"kind":"otra-cosa","project":{"tracks":[]}}"#).is_err());
+    }
+
+    #[test]
+    fn disk_backed_media_persists_files_and_cleans_up() {
+        let tmp = std::env::temp_dir().join(format!("cupcraft_test_{}", cupcraft_core::now_millis()));
+        let db_path = tmp.join("cupcraft.db");
+        let mut store = Store::open(&db_path).unwrap();
+
+        let media_id = "med_test_disk";
+        let record = MediaRecord {
+            meta: Media {
+                id: media_id.into(),
+                kind: Some("video".into()),
+                name: Some("clip.mp4".into()),
+                duration: Some(10.0),
+                thumb: None,
+                extra: Default::default(),
+            },
+            mime: "video/mp4".into(),
+            bytes: vec![0, 1, 2, 3, 4, 5],
+        };
+        store.save_media(&record).unwrap();
+
+        // El medio debe haberse escrito en disco en tmp/media/med_test_disk.mp4
+        let expected_file = tmp.join("media").join("med_test_disk.mp4");
+        assert!(expected_file.is_file(), "El archivo físico debe existir en disco");
+
+        // Leerlo de vuelta
+        let loaded = store.get_media(media_id).unwrap().unwrap();
+        assert_eq!(loaded.bytes, vec![0, 1, 2, 3, 4, 5]);
+
+        // Al borrar el medio, también debe eliminarse el archivo de disco
+        store.delete_media(media_id).unwrap();
+        assert!(!expected_file.exists(), "El archivo debe eliminarse de disco al borrar el medio");
+
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 }

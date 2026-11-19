@@ -186,6 +186,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
+
+[[package]]
 name = "arboard"
 version = "3.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -990,6 +996,20 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "cupcraft-render"
+version = "0.4.5"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cupcraft-core",
+ "image",
+ "log",
+ "pollster 0.4.0",
+ "thiserror 2.0.21",
+ "wgpu",
 ]
 
 [[package]]
@@ -2355,6 +2375,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

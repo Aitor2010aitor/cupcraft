@@ -1,0 +1,14 @@
+[package]
+name = "cupcraft-capcut"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Lector de borradores de CapCut (solo lectura, draft_content.json) y conversor al modelo de cupcraft"
+
+[dependencies]
+base64 = "0.22"
+cupcraft-core = { path = "../cupcraft-core" }
+percent-encoding = "2"
+serde.workspace = true
+serde_json.workspace = true

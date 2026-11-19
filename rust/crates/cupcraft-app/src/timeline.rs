@@ -4,7 +4,6 @@ use crate::app::{CupApp, ToolMode};
 use crate::format::format_time;
 use crate::paint;
 use crate::theme;
-use cupcraft_core::ClipKind as _ClipKind;
 use eframe::egui;
 
 const LABEL_W: f32 = 140.0;
@@ -257,6 +256,7 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
             if pos.y < ruler_top + RULER_H && pos.x > rect.min.x + LABEL_W {
                 let t = ((pos.x - (rect.min.x + LABEL_W)) / px_per_sec).max(0.0) as f64;
                 app.playhead = t;
+                app.audio_seek(t);
             } else {
                 let mut found = None;
                 let mut yy = ruler_top + RULER_H;
@@ -296,6 +296,7 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
             if pos.x > rect.min.x + LABEL_W {
                 let t = ((pos.x - (rect.min.x + LABEL_W)) / px_per_sec).max(0.0) as f64;
                 app.playhead = t;
+                app.audio_seek(t);
             }
         }
     }

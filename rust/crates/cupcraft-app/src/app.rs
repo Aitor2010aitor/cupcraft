@@ -1,6 +1,7 @@
 //! Estado principal de cupcraft (pantallas, proyecto abierto, almacén, toasts).
 
 use crate::theme;
+use cupcraft_audio::AudioEngine;
 use cupcraft_core::Editor;
 use cupcraft_persist::Store;
 use eframe::egui;
@@ -31,6 +32,19 @@ pub enum ToolMode {
     Split,
 }
 
+/// Estado del diálogo de exportación (None = cerrado).
+#[derive(Default)]
+pub struct ExportState {
+    pub open: bool,
+    pub format: u8,          // 0 = MP4 H.264, 1 = MP4 H.265, 2 = WebM VP9
+    pub resolution: u8,      // 0 = 1080p, 1 = 720p, 2 = 4K
+    pub fps: u8,             // 0 = 30, 1 = 60
+    pub use_gpu: bool,
+    pub progress: f32,       // 0.0–1.0, -1.0 = error
+    pub running: bool,
+    pub message: String,
+}
+
 pub struct CupApp {
     pub screen: Screen,
     pub editor: Editor,
@@ -56,6 +70,10 @@ pub struct CupApp {
     pub media_search: String,
     pub status: String,
     pub fps: u32,
+    /// Motor de audio en tiempo real (Some cuando hay proyecto abierto).
+    pub audio_engine: Option<AudioEngine>,
+    /// Estado del diálogo de exportación.
+    pub export: ExportState,
 }
 
 impl CupApp {
@@ -88,6 +106,8 @@ impl CupApp {
             media_search: String::new(),
             status: String::new(),
             fps: 30,
+            audio_engine: None,
+            export: ExportState { use_gpu: true, ..Default::default() },
         };
         let _ = &mut app;
         app
@@ -115,7 +135,9 @@ impl CupApp {
     pub fn open_project(&mut self, id: &str) {
         if let Some(store) = &self.store {
             if let Ok(Some(p)) = store.get_project(id) {
+                let engine = AudioEngine::new(p.clone());
                 self.editor.open(p);
+                self.audio_engine = Some(engine);
                 self.screen = Screen::Editor;
                 self.playhead = 0.0;
                 self.playing = false;
@@ -129,7 +151,9 @@ impl CupApp {
         if let Some(store) = &mut self.store {
             let _ = store.save_project(&p);
         }
+        let engine = AudioEngine::new(p.clone());
         self.editor.open(p);
+        self.audio_engine = Some(engine);
         self.screen = Screen::Editor;
         self.playhead = 0.0;
         self.playing = false;
@@ -138,21 +162,51 @@ impl CupApp {
 
     pub fn back_home(&mut self) {
         self.save_current();
+        self.audio_pause();
         self.playing = false;
         self.screen = Screen::Home;
+    }
+
+    /// Arranca la reproducción de audio y vídeo.
+    pub fn audio_play(&mut self) {
+        if let Some(eng) = &self.audio_engine {
+            eng.seek(self.playhead);
+            eng.play();
+        }
+    }
+
+    /// Pausa el audio.
+    pub fn audio_pause(&mut self) {
+        if let Some(eng) = &self.audio_engine {
+            eng.pause();
+        }
+    }
+
+    /// Busca el audio a un instante concreto.
+    pub fn audio_seek(&mut self, t: f64) {
+        if let Some(eng) = &self.audio_engine {
+            eng.seek(t);
+        }
     }
 
     pub fn tick(&mut self, ctx: &egui::Context) {
         let now = now_secs();
         if self.playing {
-            let dt = now - self.last_tick;
+            // Si el engine de audio está corriendo, tomamos su reloj como fuente de verdad
+            // (así el vídeo y el audio van sincronizados exactamente).
+            if let Some(eng) = &self.audio_engine {
+                self.playhead = eng.current_time();
+            } else {
+                let dt = now - self.last_tick;
+                self.playhead += dt;
+            }
             self.last_tick = now;
-            self.playhead += dt;
             if let Some(p) = self.editor.project() {
                 let len = p.timeline_length();
-                if self.playhead > len {
+                if self.playhead >= len {
                     self.playhead = len;
                     self.playing = false;
+                    self.audio_pause();
                 }
             }
             ctx.request_repaint();

@@ -26,7 +26,10 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
                 let name = app.editor.project().map(|p| p.name.clone()).unwrap_or_default();
                 ui.label(egui::RichText::new(name).color(theme::TEXT).strong());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Exportar").clicked() {
+                    let export_btn = egui::Button::new(
+                        egui::RichText::new("Exportar").color(egui::Color32::from_rgb(0x04, 0x14, 0x12)).size(12.0).strong()
+                    ).fill(theme::ACCENT);
+                    if ui.add(export_btn).clicked() {
                         app.export.open = true;
                     }
                     if ui.button("Guardar").clicked() {
@@ -47,7 +50,7 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
                             app.audio_pause();
                         }
                     }
-                    ui.label(egui::RichText::new(format_time(app.playhead)).color(theme::TEXT));
+                    ui.label(egui::RichText::new(format_time(app.playhead)).color(theme::TEXT).monospace());
                 });
             });
         });
@@ -122,23 +125,52 @@ fn preview(ui: &mut egui::Ui, app: &mut CupApp) {
     let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
     let p = ui.painter().with_clip_rect(rect);
     p.rect_filled(rect, egui::CornerRadius::ZERO, theme::BG2);
+
     let stage_w = rect.width().min(rect.height() * 16.0 / 9.0);
     let stage_h = stage_w * 9.0 / 16.0;
     let stage = egui::Rect::from_center_size(rect.center(), egui::vec2(stage_w, stage_h));
-    p.rect_filled(stage, egui::CornerRadius::from(4), theme::PANEL3);
-    let map = |c: egui::Color32| c;
-    paint::scene(&p, stage, &map);
+
+    // Monitor de vídeo negro 16:9 con borde profesional
+    p.rect_filled(stage, egui::CornerRadius::from(6), egui::Color32::from_rgb(0x08, 0x08, 0x0a));
+    p.rect_stroke(stage, egui::CornerRadius::from(6), egui::Stroke::new(1.0, egui::Color32::from_rgb(0x22, 0x25, 0x2b)), egui::StrokeKind::Inside);
+
+    let mut has_clips = false;
     if let Some(project) = app.editor.project() {
         let scale = stage.height() / 1080.0;
         for track in &project.tracks {
             for clip in &track.clips {
                 if clip.kind == ClipKind::Text {
                     if let Some(text) = &clip.text {
+                        has_clips = true;
                         paint::paint_text(&p, stage, text, scale);
                     }
+                } else if matches!(clip.kind, ClipKind::Video | ClipKind::Image) {
+                    has_clips = true;
+                    // Capa de vídeo o imagen en el monitor
+                    let clip_rect = stage.shrink(10.0);
+                    p.rect_filled(clip_rect, egui::CornerRadius::from(4), egui::Color32::from_rgb(0x18, 0x22, 0x26));
+                    p.text(clip_rect.center(), egui::Align2::CENTER_CENTER, &clip.name, egui::FontId::proportional(14.0), theme::TEXT);
                 }
             }
         }
+    }
+
+    if !has_clips {
+        // Overlay elegante cuando la línea de tiempo está vacía
+        p.text(
+            egui::pos2(stage.center().x, stage.center().y - 12.0),
+            egui::Align2::CENTER_CENTER,
+            "1920 × 1080 · 16:9",
+            egui::FontId::proportional(12.0),
+            egui::Color32::from_rgb(0x40, 0x48, 0x50),
+        );
+        p.text(
+            egui::pos2(stage.center().x, stage.center().y + 12.0),
+            egui::Align2::CENTER_CENTER,
+            "Añade medios o texto para previsualizar",
+            egui::FontId::proportional(11.0),
+            egui::Color32::from_rgb(0x30, 0x38, 0x40),
+        );
     }
 }
 

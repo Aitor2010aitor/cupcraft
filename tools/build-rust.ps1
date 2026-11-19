@@ -1,13 +1,15 @@
-# Compila cupcraft en modo release y monta una carpeta lista para copiar.
+﻿# Compila cupcraft nativo en modo release y genera el paquete ejecutable standalone.
 # Uso: powershell -NoProfile -ExecutionPolicy Bypass -File tools/build-rust.ps1
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"
 
+Write-Host "==> Compilando cupcraft nativo (Rust + wgpu + egui) en modo release..." -ForegroundColor Cyan
+
 Push-Location (Join-Path $root 'rust')
 try {
-  cargo build --release -p cupcraft-desktop
+  cargo build --release -p cupcraft-app
   if ($LASTEXITCODE -ne 0) { throw "cargo build fallo con codigo $LASTEXITCODE" }
 } finally {
   Pop-Location
@@ -16,23 +18,27 @@ try {
 $out = Join-Path $root 'dist\cupcraft-rust'
 New-Item -ItemType Directory -Path $out -Force | Out-Null
 
-# Se conserva el perfil de WebView2 que pueda haber junto al .exe: contiene los
-# proyectos del usuario y la app lo migra a %LOCALAPPDATA%\cupcraft al arrancar.
-Remove-Item (Join-Path $out 'cupcraft-desktop.exe') -Force -ErrorAction SilentlyContinue
+# Limpiar binarios anteriores
 Remove-Item (Join-Path $out 'cupcraft.exe') -Force -ErrorAction SilentlyContinue
-foreach ($item in 'index.html', 'src', 'assets') {
-  $target = Join-Path $out $item
-  if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+Remove-Item (Join-Path $out 'cupcraft-app.exe') -Force -ErrorAction SilentlyContinue
+
+# Copiar el binario nativo compilado
+$binPath = Join-Path $root 'rust\target\release\cupcraft-app.exe'
+Copy-Item $binPath (Join-Path $out 'cupcraft.exe') -Force
+
+# Copiar herramientas auxiliares si existen (piper, ffmpeg)
+$toolsOut = Join-Path $out 'tools'
+if (Test-Path (Join-Path $root 'tools\piper')) {
+  New-Item -ItemType Directory -Path $toolsOut -Force | Out-Null
+  Copy-Item (Join-Path $root 'tools\piper') (Join-Path $toolsOut 'piper') -Recurse -Force
+}
+if (Test-Path (Join-Path $root 'tools\ffmpeg')) {
+  New-Item -ItemType Directory -Path $toolsOut -Force | Out-Null
+  Copy-Item (Join-Path $root 'tools\ffmpeg') (Join-Path $toolsOut 'ffmpeg') -Recurse -Force
 }
 
-Copy-Item (Join-Path $root 'rust\target\release\cupcraft-desktop.exe') $out
-Copy-Item (Join-Path $out 'cupcraft-desktop.exe') (Join-Path $out 'cupcraft.exe')
-foreach ($item in 'index.html', 'src', 'assets') {
-  $source = Join-Path $root $item
-  if (Test-Path $source) {
-    Copy-Item $source (Join-Path $out $item) -Recurse
-  }
-}
-
-Write-Output "Listo: $out"
-Write-Output "Ejecuta $out\cupcraft-desktop.exe"
+$exeSize = (Get-Item (Join-Path $out 'cupcraft.exe')).Length / 1MB
+Write-Host "==> Compilación exitosa!" -ForegroundColor Green
+Write-Host "    Ubicación: $out\cupcraft.exe" -ForegroundColor White
+Write-Host ("    Tamaño del ejecutable nativo: {0:N2} MB" -f $exeSize) -ForegroundColor Gray
+Write-Host "    (100% nativo en Rust, sin WebView2, sin Node.js, sin Electron)" -ForegroundColor DarkGray

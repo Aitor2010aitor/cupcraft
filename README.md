@@ -296,6 +296,16 @@ Notas:
 - Las capturas se escriben en `shots/`; los archivos exportados de prueba, en `shots/*-test/`.
 - `tools/visual-test.mjs` genera capturas de la pantalla de inicio y del editor.
 
+## Contributors
+
+cupcraft está hecho por:
+
+- [@Aitor2010aitor](https://github.com/Aitor2010aitor) — autor y desarrollo.
+- [@claude-code](https://github.com/claude-code) (Claude Code / Anthropic) — asistente de desarrollo e inteligencia artificial.
+- [@opencode-ai](https://github.com/opencode-ai) (OpenCode) — asistente de desarrollo e inteligencia artificial.
+
+Gracias también a quienes reportan errores y proponen mejoras.
+
 ## Aviso
 
 cupcraft es un proyecto educativo e independiente. CapCut es una marca de ByteDance. Este repositorio no está afiliado a CapCut ni distribuye sus recursos.

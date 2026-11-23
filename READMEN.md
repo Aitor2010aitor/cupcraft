@@ -304,6 +304,16 @@ cupcraft includes the real CapCut panels (effects, transitions, filters, sticker
 - CapCut text templates can be applied: their cover colors are read through the local proxy and turned into an editable style (color, stroke, shadow, and glow) for the project text. CapCut fonts and assets are not copied.
 - 13 WebGL shaders ported from CapCut packages (src/gl-post.js).
 
+## Contributors
+
+cupcraft is made by:
+
+- [@Aitor2010aitor](https://github.com/Aitor2010aitor) — author and development.
+- [@claude-code](https://github.com/claude-code) (Claude Code / Anthropic) — development and artificial intelligence coding assistant.
+- [@opencode-ai](https://github.com/opencode-ai) (OpenCode) — development and artificial intelligence coding assistant.
+
+Thanks also to everyone reporting bugs and suggesting improvements.
+
 ## Notice
 
 cupcraft is an independent educational project. CapCut is a trademark of ByteDance. This repository is not affiliated with CapCut and does not distribute its assets.

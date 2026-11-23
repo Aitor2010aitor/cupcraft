@@ -1,0 +1,273 @@
+import { Button, ComboBox, Slider, CheckBox, ScrollView, VerticalBox, HorizontalBox, GroupBox } from "std-widgets.slint";
+
+// Tema oscuro de cupcraft
+export global Theme {
+    in property <color> bg-dark: #1a1a1a;
+    in property <color> bg-panel: #252525;
+    in property <color> bg-input: #333333;
+    in property <color> text-primary: #e0e0e0;
+    in property <color> text-secondary: #999999;
+    in property <color> accent: #00e5d0;
+    in property <color> border: #444444;
+    in property <color> hover: #3a3a3a;
+}
+
+// Componente de pestaña
+component TabButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+    
+    width: 80px;
+    height: 32px;
+    background: active ? Theme.accent : transparent;
+    border-radius: 4px;
+    
+    Text {
+        text: label;
+        color: active ? #000000 : Theme.text-primary;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Componente de switch
+component SwitchRow inherits HorizontalBox {
+    in property <string> label;
+    in property <bool> value;
+    callback toggled();
+    
+    spacing: 8px;
+    
+    Text {
+        text: label;
+        color: Theme.text-primary;
+        font-size: 11px;
+        vertical-alignment: center;
+    }
+    
+    Rectangle {
+        width: 36px;
+        height: 20px;
+        border-radius: 10px;
+        background: value ? Theme.accent : #555555;
+        
+        TouchArea {
+            clicked => { root.toggled(); }
+        }
+    }
+}
+
+// Componente de slider
+component DetailSlider inherits VerticalBox {
+    in property <string> label;
+    in property <float> value;
+    in property <float> min;
+    in property <float> max;
+    callback changed(float);
+    
+    spacing: 2px;
+    
+    Text {
+        text: label;
+        color: Theme.text-secondary;
+        font-size: 10px;
+    }
+    
+    HorizontalBox {
+        spacing: 8px;
+        
+        Slider {
+            value: root.value;
+            minimum: root.min;
+            maximum: root.max;
+            changed(val) => { root.changed(val); }
+        }
+        
+        Text {
+            text: Math.round(root.value);
+            color: Theme.text-primary;
+            font-size: 10px;
+            width: 30px;
+        }
+    }
+}
+
+// Ventana principal
+export component MainWindow inherits Window {
+    title: "cupcraft - Editor de video (Slint nativo)";
+    min-width: 1200px;
+    min-height: 800px;
+    background: Theme.bg-dark;
+    
+    // Estado
+    in-out property <int> active-tab: 0;
+    in-out property <int> active-sub: 0;
+    
+    // Layout principal: 3 columnas
+    HorizontalBox {
+        spacing: 0px;
+        
+        // Panel izquierdo (archivos multimedia)
+        Rectangle {
+            width: 280px;
+            background: Theme.bg-panel;
+            
+            VerticalBox {
+                padding: 8px;
+                spacing: 8px;
+                
+                Text {
+                    text: "Archivos multimedia";
+                    color: Theme.text-primary;
+                    font-size: 13px;
+                    font-weight: 600;
+                }
+                
+                Rectangle {
+                    height: 120px;
+                    background: Theme.bg-input;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    
+                    Text {
+                        text: "Arrastra y suelta archivos aquí";
+                        color: Theme.text-secondary;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                
+                Button {
+                    text: "Importar";
+                }
+            }
+        }
+        
+        // Panel central (preview + timeline)
+        VerticalBox {
+            // Preview
+            Rectangle {
+                height: 400px;
+                background: #000000;
+                
+                Text {
+                    text: "Vista previa";
+                    color: Theme.text-secondary;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            
+            // Timeline
+            Rectangle {
+                background: Theme.bg-panel;
+                
+                VerticalBox {
+                    padding: 4px;
+                    
+                    Text {
+                        text: "Línea de tiempo";
+                        color: Theme.text-primary;
+                        font-size: 12px;
+                    }
+                    
+                    Rectangle {
+                        height: 120px;
+                        background: Theme.bg-input;
+                        border-radius: 4px;
+                    }
+                }
+            }
+        }
+        
+        // Panel derecho (Detalles)
+        Rectangle {
+            width: 320px;
+            background: Theme.bg-panel;
+            
+            VerticalBox {
+                padding: 8px;
+                spacing: 4px;
+                
+                Text {
+                    text: "Detalles";
+                    color: Theme.text-primary;
+                    font-size: 14px;
+                    font-weight: 600;
+                }
+                
+                // Pestañas principales
+                HorizontalBox {
+                    spacing: 2px;
+                    
+                    TabButton { label: "Video"; active: active-tab == 0; clicked => { active-tab = 0; } }
+                    TabButton { label: "Audio"; active: active-tab == 1; clicked => { active-tab = 1; } }
+                    TabButton { label: "Velocidad"; active: active-tab == 2; clicked => { active-tab = 2; } }
+                    TabButton { label: "Animación"; active: active-tab == 3; clicked => { active-tab = 3; } }
+                    TabButton { label: "Ajustar"; active: active-tab == 4; clicked => { active-tab = 4; } }
+                    TabButton { label: "IA"; active: active-tab == 5; clicked => { active-tab = 5; } }
+                }
+                
+                // Sub-pestañas (ejemplo para Video)
+                if active-tab == 0: HorizontalBox {
+                    spacing: 2px;
+                    TabButton { label: "Básico"; active: active-sub == 0; clicked => { active-sub = 0; } }
+                    TabButton { label: "Eliminar fondo"; active: active-sub == 1; clicked => { active-sub = 1; } }
+                    TabButton { label: "Máscara"; active: active-sub == 2; clicked => { active-sub = 2; } }
+                    TabButton { label: "Retoque"; active: active-sub == 3; clicked => { active-sub = 3; } }
+                }
+                
+                // Contenido del panel
+                ScrollView {
+                    VerticalBox {
+                        spacing: 8px;
+                        padding: 4px;
+                        
+                        if active-tab == 0 && active-sub == 0: VerticalBox {
+                            SwitchRow { label: "Estabilización"; value: false; }
+                            SwitchRow { label: "Mejorar calidad"; value: false; }
+                            SwitchRow { label: "Reducir ruido"; value: false; }
+                            SwitchRow { label: "Eliminación de IA"; value: false; }
+                            DetailSlider { label: "Exposición"; value: 0; min: -100; max: 100; }
+                            DetailSlider { label: "Contraste"; value: 100; min: 0; max: 200; }
+                            DetailSlider { label: "Saturación"; value: 100; min: 0; max: 300; }
+                        }
+                        
+                        if active-tab == 0 && active-sub == 1: VerticalBox {
+                            SwitchRow { label: "Eliminación automática"; value: false; }
+                            SwitchRow { label: "Chroma key"; value: false; }
+                            Button { text: "Recortar con máscara"; }
+                        }
+                        
+                        if active-tab == 0 && active-sub == 2: VerticalBox {
+                            Text { text: "Formas de máscara"; color: Theme.text-secondary; font-size: 11px; }
+                            // Grid de máscaras (simplificado)
+                            HorizontalBox {
+                                Button { text: "Círculo"; }
+                                Button { text: "Rectángulo"; }
+                                Button { text: "Estrella"; }
+                            }
+                        }
+                        
+                        if active-tab == 4: VerticalBox {
+                            DetailSlider { label: "Temperatura"; value: 0; min: -100; max: 100; }
+                            DetailSlider { label: "Tinte"; value: 0; min: -100; max: 100; }
+                            DetailSlider { label: "Exposición"; value: 0; min: -100; max: 100; }
+                            DetailSlider { label: "Contraste"; value: 100; min: 0; max: 200; }
+                            DetailSlider { label: "Saturación"; value: 100; min: 0; max: 300; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

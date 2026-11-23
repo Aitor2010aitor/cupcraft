@@ -1,0 +1,157 @@
+/* ---------------------------------------------------------------------------
+   Marco de escritorio de cupcraft.
+   Solo se activa cuando la interfaz corre dentro de la app nativa (WebView2).
+   En un navegador normal no se muestra nada de esto.
+   --------------------------------------------------------------------------- */
+
+/* La barra de título redundante queda oculta para integrarse limpiamente con la barra única de la app */
+.app-titlebar {
+  display: none !important;
+}
+
+/* Scrollbars modernos estilo CapCut (delgados, oscuros y redondeados) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
+}
+
+.app-titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  min-width: 0;
+}
+.app-titlebar-brand span { opacity: 0.9; }
+.app-titlebar-logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  pointer-events: none;
+}
+
+.app-titlebar-spacer { flex: 1 1 auto; align-self: stretch; }
+
+.app-window-buttons {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  flex: 0 0 auto;
+}
+
+.app-window-btn {
+  width: 46px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #cfcfcf;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.app-window-btn svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.05;
+  stroke-linecap: square;
+  shape-rendering: geometricPrecision;
+}
+.app-window-btn:hover { background: #232326; color: #ffffff; }
+.app-window-btn:active { background: #2c2c30; }
+.app-window-close:hover { background: #c42b1c; color: #ffffff; }
+.app-window-close:active { background: #b1271a; }
+
+/* La app ocupa el resto de la ventana, debajo de la barra de título. */
+.app-desktop body {
+  display: flex;
+  flex-direction: column;
+}
+.app-desktop #app {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+/* Comportamiento de aplicación: sin selección de texto ni arrastre de medios. */
+.app-desktop body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.app-desktop input,
+.app-desktop textarea,
+.app-desktop [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+.app-desktop img,
+.app-desktop video,
+.app-desktop canvas {
+  -webkit-user-drag: none;
+}
+.app-desktop a { -webkit-user-drag: none; }
+
+/* Zonas de redimensionado en los bordes de la ventana sin bordes. */
+.app-resize {
+  position: fixed;
+  z-index: 95;
+  background: transparent;
+}
+.app-resize[data-dir="n"] { top: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+.app-resize[data-dir="s"] { bottom: 0; left: 10px; right: 10px; height: 5px; cursor: ns-resize; }
+.app-resize[data-dir="w"] { left: 0; top: 10px; bottom: 10px; width: 5px; cursor: ew-resize; }
+.app-resize[data-dir="e"] { right: 0; top: 10px; bottom: 10px; width: 5px; cursor: ew-resize; }
+.app-resize[data-dir="nw"] { top: 0; left: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+.app-resize[data-dir="ne"] { top: 0; right: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+.app-resize[data-dir="sw"] { bottom: 0; left: 0; width: 10px; height: 10px; cursor: nesw-resize; }
+.app-resize[data-dir="se"] { bottom: 0; right: 0; width: 10px; height: 10px; cursor: nwse-resize; }
+
+/* Con la ventana maximizada no se redimensiona desde los bordes. */
+.app-desktop.app-maximized .app-resize { display: none; }
+
+/* Menú contextual propio (solo en campos de texto editables). */
+.desktop-menu {
+  position: fixed;
+  z-index: 500;
+  min-width: 176px;
+  padding: 5px;
+  background: #262626;
+  border: 1px solid #3a3a3a;
+  border-radius: 6px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  font: 12px/1 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  color: #f0f0f0;
+}
+.desktop-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.desktop-menu button:hover:not(:disabled) { background: #353535; }
+.desktop-menu button:disabled { opacity: 0.4; cursor: default; }
+.desktop-menu kbd {
+  font: 10px/1 "Segoe UI", system-ui, sans-serif;
+  color: #8f8f8f;
+  letter-spacing: 0.2px;
+}

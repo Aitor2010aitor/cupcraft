@@ -6,6 +6,7 @@
 
 pub mod ai_bridge;
 pub mod capcut;
+pub mod fonts;
 pub mod tts;
 
 use ai_bridge::BridgeHandle;
@@ -97,6 +98,9 @@ fn static_mime(extension: &str) -> &'static str {
         "gif" => "image/gif",
         "ico" => "image/x-icon",
         "woff2" => "font/woff2",
+        "ttf" => "font/ttf",
+        "otf" => "font/otf",
+        "ttc" | "otc" => "font/collection",
         "mp4" => "video/mp4",
         "mov" => "video/quicktime",
         "webm" => "video/webm",
@@ -323,6 +327,29 @@ fn handle_api(mut request: Request, state: &State, url: &Url) {
         }
         (Method::Get, "/api/img") => {
             handle_image_proxy(request, &query);
+        }
+        (Method::Get, "/api/system-fonts") => {
+            let refresh = query
+                .get("refresh")
+                .map(|value| value == "1" || value == "true")
+                .unwrap_or(false);
+            let fonts = fonts::list(refresh);
+            respond_json(
+                request,
+                200,
+                &json!({
+                    "ok": true,
+                    "count": fonts.len(),
+                    "fonts": fonts::entries(&fonts),
+                }),
+            );
+        }
+        (Method::Get, "/api/system-fonts/file") => {
+            let name = query.get("name").map(String::as_str).unwrap_or("");
+            match fonts::find_file(name) {
+                Some(path) => serve_local_media(request, &path),
+                None => respond_text(request, 404, "Fuente no encontrada"),
+            }
         }
         (Method::Get, "/api/capcut/roots") => {
             respond_json(

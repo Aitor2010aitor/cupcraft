@@ -182,3 +182,14 @@ fn load(fonts: &mut FontDefinitions, key: &str, path: &str) -> bool {
         Err(_) => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_theme_apply() {
+        let ctx = egui::Context::default();
+        apply(&ctx);
+    }
+}

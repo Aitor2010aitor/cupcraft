@@ -1,0 +1,3754 @@
+import { FILTERS } from '../store.js';
+import { EFFECTS } from '../library.js';
+import { textAnimationById } from '../text-catalog.js';
+import { transformAt, keyframeValue } from '../keyframes.js';
+import { stickerAnimation, stickerAnimationFrame } from '../sticker-animation.js';
+
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
+
+function waitEvent(target, event, timeout = 6000) {
+  return new Promise((resolve) => {
+    let timer = 0;
+    const done = () => {
+      target.removeEventListener(event, done);
+      clearTimeout(timer);
+      resolve();
+    };
+    timer = setTimeout(done, timeout);
+    target.addEventListener(event, done, { once: true });
+  });
+}
+
+export function activeLayers(project, time) {
+  const layers = [];
+  if (!project) return layers;
+  for (const track of project.tracks || []) {
+    if (track.hidden) continue;
+    for (const clip of track.clips || []) {
+      if (time >= clip.start - 0.0001 && time < clip.start + clip.duration) {
+        layers.push({ clip, track, local: Math.max(0, time - clip.start) });
+      }
+    }
+  }
+  layers.sort((a, b) => {
+    const rank = (kind) => (kind === 'text' ? 3 : kind === 'sticker' ? 2 : kind === 'audio' ? -1 : 1);
+    return rank(a.clip.kind) - rank(b.clip.kind);
+  });
+  return layers;
+}
+
+export function clipAlpha(clip, local) {
+  let alpha = keyframeValue(clip, 'opacity', (clip.start || 0) + local, clip.opacity ?? 1);
+  const fadeIn = clip.fadeIn || 0;
+  const hasTransition = clip.transition && clip.transition !== 'none';
+  if (fadeIn > 0 && local < fadeIn && !hasTransition) alpha *= clamp01(local / fadeIn);
+  const fadeOut = clip.fadeOut || 0;
+  const remaining = clip.duration - local;
+  if (fadeOut > 0 && remaining < fadeOut) alpha *= clamp01(remaining / fadeOut);
+  return clamp01(alpha);
+}
+
+export function clipGain(clip, local) {
+  let gain = clip.volume ?? 1;
+  const fadeIn = clip.fadeIn || 0;
+  if (fadeIn > 0 && local < fadeIn) gain *= clamp01(local / fadeIn);
+  const fadeOut = clip.fadeOut || 0;
+  const remaining = clip.duration - local;
+  if (fadeOut > 0 && remaining < fadeOut) gain *= clamp01(remaining / fadeOut);
+  return clamp01(gain);
+}
+
+function effectSpec(clip) {
+  if (!clip?.effect || clip.effect === 'none') return null;
+  return EFFECTS[clip.effect] || null;
+}
+
+/* ------------------------- Text layout / layer boxes ------------------------- */
+
+const measureCanvas = document.createElement('canvas');
+const measureCtx = measureCanvas.getContext('2d');
+
+function textNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function applyTextCase(content, mode) {
+  if (mode === 'upper') return content.toLocaleUpperCase('es');
+  if (mode === 'lower') return content.toLocaleLowerCase('es');
+  if (mode === 'capitalize') {
+    return content.replace(/(^|[\s\n])(\p{L})/gu, (match, prefix, letter) => `${prefix}${letter.toLocaleUpperCase('es')}`);
+  }
+  return content;
+}
+
+function textFamily(value) {
+  const name = String(value || 'Inter');
+  const stack = name.includes(',') ? name : `"${name.replace(/"/g, '')}"`;
+  return `${stack}, "Segoe UI", "Segoe UI Emoji", system-ui, sans-serif`;
+}
+
+function textFontSpec(value, fontSize, weight) {
+  const italic = value.italic ? 'italic ' : '';
+  const boldWeight = value.bold ? 900 : weight;
+  return `${italic}${boldWeight} ${fontSize}px ${textFamily(value.font)}`;
+}
+
+function textLetterSpacing(text, fontSize) {
+  return textNumber(text?.letterSpacing, 0) * fontSize;
+}
+
+function measureRun(ctx, run, spacing) {
+  const width = ctx.measureText(run).width;
+  return width + Math.max(0, Array.from(run).length - 1) * spacing;
+}
+
+function textPadding(text, fontSize) {
+  return Math.max(0, textNumber(text?.backgroundPadding, 0.22)) * fontSize;
+}
+
+function textCurveExtra(text, fontSize) {
+  return Math.abs(textNumber(text?.curve, 0)) / 100 * fontSize * 0.9;
+}
+
+export function textLayout(text, width, height, ctx = measureCtx) {
+  const value = text || {};
+  const fontSize = Math.max(6, textNumber(value.size, 72) * (height / 1080));
+  const weight = Math.max(100, Math.min(900, textNumber(value.weight, 700)));
+  const family = textFamily(value.font);
+  const font = textFontSpec(value, fontSize, weight);
+  const maxWidth = Math.max(40, width * 0.82);
+  const content = applyTextCase(String(value.content ?? ''), value.textCase);
+  const paragraphs = content.split('\n');
+  const lines = [];
+  const letterSpacing = textLetterSpacing(value, fontSize);
+  ctx.font = font;
+  for (const paragraph of paragraphs) {
+    if (!paragraph) {
+      lines.push('');
+      continue;
+    }
+    const words = paragraph.split(/\s+/);
+    let line = '';
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (measureRun(ctx, candidate, letterSpacing) > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  const lineSpacing = Math.max(0.6, Math.min(3, textNumber(value.lineSpacing, 1.18)));
+  const lineHeight = fontSize * lineSpacing;
+  const blockHeight = lines.length * lineHeight;
+  const blockWidth = Math.max(...lines.map((line) => measureRun(ctx, line, letterSpacing)), fontSize);
+  return {
+    fontSize,
+    weight,
+    family,
+    font,
+    letterSpacing,
+    maxWidth,
+    lines,
+    lineHeight,
+    blockWidth,
+    blockHeight,
+    content,
+  };
+}
+
+/* Devuelve la caja de una capa de texto/sticker en píxeles del canvas.
+   Se usa tanto para dibujar los tiradores del preview como para el hit-testing. */
+export function clipLayerBox(clip, width, height, time = null) {
+  if (!clip) return null;
+  const tr = transformAt(clip, time === null ? (clip.start || 0) : time);
+  if (clip.kind === 'text') {
+    const text = clip.text || {};
+    const metrics = textLayout(text, width, height);
+    if (!metrics.lines.length) return null;
+    const hasBackground = text.background && text.background !== 'transparent';
+    const pad = hasBackground ? textPadding(text, metrics.fontSize) : 0;
+    const outline = textNumber(text.strokeWidth, 0) * metrics.fontSize * 0.6 +
+      (text.glow ? textNumber(text.glowBlur, 0.35) * metrics.fontSize * 0.35 : 0);
+    return {
+      width: metrics.blockWidth + pad * 2 + outline * 2 + metrics.fontSize * 0.1,
+      height: metrics.blockHeight + pad * 2 + outline * 2 +
+        textCurveExtra(text, metrics.fontSize) + metrics.fontSize * 0.08,
+      cx: width / 2 + ((tr.x + (text.x || 0)) / 100) * width,
+      cy: height / 2 + ((tr.y + (text.y || 0)) / 100) * height,
+      rotation: tr.rotate,
+      scale: tr.scaleX,
+      scaleX: tr.scaleX,
+      scaleY: tr.scaleY,
+      kind: 'text',
+    };
+  }
+  if (clip.kind === 'sticker') {
+    const sticker = clip.sticker || {};
+    const fontSize = Math.max(8, (sticker.size ?? 220) * (height / 1080));
+    const hasBackground = sticker.background && sticker.background !== 'transparent';
+    const size = hasBackground ? fontSize * 1.45 : fontSize * 1.18;
+    return {
+      width: size,
+      height: size,
+      cx: width / 2 + ((tr.x + (sticker.x || 0)) / 100) * width,
+      cy: height / 2 + ((tr.y + (sticker.y || 0)) / 100) * height,
+      rotation: tr.rotate + (sticker.rotate || 0),
+      scale: tr.scaleX,
+      scaleX: tr.scaleX,
+      scaleY: tr.scaleY,
+      kind: 'sticker',
+    };
+  }
+  return null;
+}
+
+export function adjustCss(adjust) {
+  const a = adjust || {};
+  const parts = [];
+  const num = (key, fallback) => Number(a[key] ?? fallback);
+  const brightness = num('brightness', 100)
+    + num('exposure', 0) * 0.9
+    + (num('whites', 0) - num('blacks', 0)) * 0.18
+    + (num('light', 0));
+  const contrast = num('contrast', 100)
+    + num('clarity', 0) * 0.35
+    + num('sharpen', 0) * 0.12
+    - num('fade', 0) * 0.45;
+  const saturate = num('saturate', 100);
+  const temperature = num('temperature', 0);
+  const tint = num('tint', 0);
+  if (Math.abs(brightness - 100) > 0.5) parts.push(`brightness(${clampNumber(brightness, 0, 300)})`);
+  if (Math.abs(contrast - 100) > 0.5) parts.push(`contrast(${clampNumber(contrast, 0, 300)})`);
+  if (Math.abs(saturate - 100) > 0.5) parts.push(`saturate(${clampNumber(saturate, 0, 400)})`);
+  if (temperature > 0) parts.push(`sepia(${clampNumber(temperature * 0.45, 0, 60)}%)`);
+  else if (temperature < 0) parts.push(`sepia(${clampNumber(-temperature * 0.45, 0, 60)}%) hue-rotate(${clampNumber(150 + -temperature * 0.35, 0, 220)}deg)`);
+  if (tint !== 0) parts.push(`hue-rotate(${clampNumber(tint * 0.15, -45, 45)}deg)`);
+  if (num('grayscale', 0) > 0) parts.push(`grayscale(${Math.min(100, a.grayscale)}%)`);
+  if (num('sepia', 0) > 0) parts.push(`sepia(${Math.min(100, a.sepia)}%)`);
+  if (num('hue', 0) !== 0) parts.push(`hue-rotate(${num('hue', 0)}deg)`);
+  return parts.length ? parts.join(' ') : 'none';
+}
+
+function clampNumber(value, min, max) {
+  return Math.round(Math.max(min, Math.min(max, value)) * 10) / 10;
+}
+
+/* HSL por familias: aproximación global con saturación/matiz/brillo. */
+export function hslCss(hsl) {
+  if (!hsl) return 'none';
+  const parts = [];
+  const hue = Number(hsl.hue ?? 0);
+  const sat = Number(hsl.sat ?? 0);
+  const light = Number(hsl.light ?? 0);
+  if (hue !== 0) parts.push(`hue-rotate(${clampNumber(hue * 0.5, -180, 180)}deg)`);
+  if (sat !== 0) parts.push(`saturate(${clampNumber(100 + sat * 0.6, 0, 300)})`);
+  if (light !== 0) parts.push(`brightness(${clampNumber(100 + light * 0.5, 0, 300)})`);
+  return parts.length ? parts.join(' ') : 'none';
+}
+
+/* Retoque cosmético local: piel suavizada (blur) y aclarada (brillo). */
+export function beautyCss(beauty) {
+  if (!beauty) return 'none';
+  const parts = [];
+  const smooth = Number(beauty.smooth ?? 0);
+  const whiten = Number(beauty.whiten ?? 0);
+  const rosy = Number(beauty.rosy ?? 0);
+  if (smooth > 0) parts.push(`blur(${clampNumber(smooth * 0.022, 0, 2.2)}px)`);
+  if (whiten > 0) parts.push(`brightness(${clampNumber(100 + whiten * 0.22, 100, 135)})`);
+  if (rosy > 0) parts.push(`saturate(${clampNumber(100 + rosy * 0.25, 100, 140)})`);
+  return parts.length ? parts.join(' ') : 'none';
+}
+
+function curveCss(clip) {
+  const curves = clip?.curves;
+  if (!curves) return 'none';
+  const channel = clip.curveChannel || 'luma';
+  const pts = curves[channel] || curves.luma;
+  if (!pts || pts.length < 2) return 'none';
+  const sorted = [...pts].sort((a, b) => a[0] - b[0]);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const slope = (last[1] - first[1]) / Math.max(0.01, last[0] - first[0]);
+  const mid = sorted[Math.floor(sorted.length / 2)];
+  const brightness = 0.6 + (mid[1] - 0.5) * 0.8;
+  const contrast = 0.6 + slope * 0.4;
+  const b = Math.max(0.6, Math.min(1.6, brightness));
+  const c = Math.max(0.6, Math.min(1.6, contrast));
+  if (Math.abs(b - 1) < 0.02 && Math.abs(c - 1) < 0.02) return 'none';
+  return `brightness(${b.toFixed(2)}) contrast(${c.toFixed(2)})`;
+}
+
+export function clipFilter(clip) {
+  const base = FILTERS[clip.filter]?.css || 'none';
+  const parts = [];
+  if (base !== 'none') parts.push(base);
+  const adjusted = adjustCss(clip.adjust);
+  if (adjusted !== 'none') parts.push(adjusted);
+  const hsl = hslCss(clip.hsl);
+  if (hsl !== 'none') parts.push(hsl);
+  const beauty = beautyCss(clip.beauty);
+  if (beauty !== 'none') parts.push(beauty);
+  if (clip.enhanceQuality) parts.push('contrast(1.08) saturate(1.05)');
+  if (clip.denoise) parts.push('blur(0.4px)');
+  if (clip.stabilize) parts.push('contrast(1.03) saturate(1.02)');
+  if (clip.opticalFlow) parts.push('blur(0.6px)');
+  if (clip.aiExpand) parts.push('brightness(1.05) saturate(1.08)');
+  if (clip.aiMotion) parts.push('brightness(1.03)');
+  if (clip.cameraTracking) parts.push('contrast(1.04)');
+  if (clip.eyeContact) parts.push('brightness(1.04) saturate(1.03)');
+  if (clip.lipSync) parts.push('contrast(1.02) saturate(1.02)');
+  if (clip.aiRemix) parts.push('hue-rotate(3deg) saturate(1.05)');
+  if (clip.aiRemove) { /* ya se aplica como blur de zona en drawMediaLayer */ }
+  const cc = curveCss(clip);
+  if (cc !== 'none') parts.push(cc);
+  const spec = effectSpec(clip);
+  if (spec?.css && spec.css !== 'none') parts.push(spec.css);
+  return parts.length ? parts.join(' ') : 'none';
+}
+
+function sourceTime(clip, local) {
+  return Math.max(0, (clip.in || 0) + local * (clip.speed || 1));
+}
+
+export class MediaPool {
+  constructor(mediaMap) {
+    this.media = mediaMap;
+    this.videos = new Map();
+    this.audios = new Map();
+    this.images = new Map();
+    this.frames = new Map();
+    this.audioContext = null;
+    this.audioDest = null;
+    this.muted = false;
+    this.onReady = null;
+    this.matteCache = new Map();
+    this.mattePending = new Set();
+    this.matteBg = new Map();
+  }
+
+  /* Fondo sólido alternativo cuando no hay foto del fondo. */
+  matteColorPlate(color) {
+    const key = `color:${color}`;
+    if (this.matteBg.has(key)) return this.matteBg.get(key);
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 288;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = color || '#00b140';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    this.matteBg.set(key, canvas);
+    return canvas;
+  }
+
+  /* Fondo (background plate) para BackgroundMattingV2. */
+  matteBackground(mediaId) {
+    if (this.matteBg.has(mediaId)) return this.matteBg.get(mediaId);
+    const media = this.mediaFor(mediaId);
+    if (!media?.url) return null;
+    const image = new Image();
+    image.decoding = 'async';
+    image.addEventListener('load', () => this.onReady?.());
+    image.src = media.url;
+    this.matteBg.set(mediaId, image);
+    return image;
+  }
+
+  matteOptions(clip) {
+    return {
+      temporal: clip.autoCutoutTemporal ?? 0.3,
+      edge: clip.autoCutoutEdge ?? 0.35,
+    };
+  }
+
+  matteKey(clip, local) {
+    const plate = clip.autoCutoutBg || clip.autoCutoutBgColor || '';
+    const options = this.matteOptions(clip);
+    return `${clip.id}:${Math.max(0, Math.round(local * 12))}:${plate}:${options.temporal}:${options.edge}`;
+  }
+
+  getMatte(clip, local) {
+    return this.matteCache.get(this.matteKey(clip, local)) || null;
+  }
+
+  /* Calcula la máscara IA del fotograma actual en segundo plano. El resultado
+     se guarda por clip+frame y se reutiliza al repintar/exportar. */
+  requestMatte(clip, local) {
+    const config = clip.autoCutout;
+    if (!config || config === false) return;
+    const plate = clip.autoCutoutBg || clip.autoCutoutBgColor || '';
+    const bg = clip.autoCutoutBg
+      ? this.matteBackground(clip.autoCutoutBg)
+      : clip.autoCutoutBgColor
+        ? this.matteColorPlate(clip.autoCutoutBgColor)
+        : null;
+    const media = this.mediaFor(clip.mediaId);
+    if (!bg || !media || !['video', 'image'].includes(media.kind)) return;
+    const key = this.matteKey(clip, local);
+    if (this.matteCache.has(key) || this.mattePending.has(key)) return;
+    this.mattePending.add(key);
+    (async () => {
+      try {
+        const source = media.kind === 'video' ? this.video(clip) : this.image(clip.mediaId);
+        if (!source || !(source.videoWidth || source.naturalWidth)) return;
+        if (bg instanceof HTMLImageElement && (bg.complete === false || !bg.naturalWidth)) return;
+        const mod = await import('../bg-matting.js');
+        const canvas = document.createElement('canvas');
+        const options = this.matteOptions(clip);
+        const result = await mod.matteSource(source, bg, canvas, {
+          temporalKey: `${clip.id}:${plate}:${options.temporal}:${options.edge}`,
+          time: Math.max(0, local),
+          temporal: options.temporal,
+          edge: options.edge,
+        });
+        if (!result) return;
+        this.matteCache.set(key, result);
+        if (this.matteCache.size > 240) {
+          const oldest = this.matteCache.keys().next().value;
+          this.matteCache.delete(oldest);
+        }
+        this.onReady?.();
+      } catch (error) {
+        console.warn('cupcraft: matting IA no disponible', error);
+      } finally {
+        this.mattePending.delete(key);
+      }
+    })();
+  }
+
+  /* Espera a que los mattes de un instante estén listos (capturas/exportación). */
+  async waitMatting(project, time) {
+    const clips = (project?.tracks || []).flatMap((track) => track.clips || [])
+      .filter((clip) => clip.autoCutout && (clip.autoCutoutBg || clip.autoCutoutBgColor));
+    for (const clip of clips) {
+      const local = Math.max(0, time - (clip.start || 0));
+      if (local > (clip.duration || 0)) continue;
+      const key = this.matteKey(clip, local);
+      this.requestMatte(clip, local);
+      for (let i = 0; i < 80 && !this.matteCache.has(key); i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  }
+
+  /* Precachea la línea de tiempo completa antes de exportar. La exportación
+     usa MediaRecorder en tiempo real y no tendría tiempo de inferir cada frame. */
+  async prefetchMatting(project, step = 1 / 12) {
+    const clips = (project?.tracks || []).flatMap((track) => track.clips || [])
+      .filter((clip) => clip.autoCutout && (clip.autoCutoutBg || clip.autoCutoutBgColor));
+    if (!clips.length) return;
+    const end = Math.max(0, ...(project.tracks || []).flatMap((track) => track.clips || [])
+      .map((clip) => (clip.start || 0) + (clip.duration || 0)));
+    for (let time = 0; time < end; time += step) {
+      await this.prepare(project, time);
+      await this.waitMatting(project, time);
+    }
+  }
+
+  mediaFor(mediaId) {
+    return this.media?.get(mediaId) || null;
+  }
+
+  image(mediaId) {
+    if (this.images.has(mediaId)) return this.images.get(mediaId);
+    const media = this.mediaFor(mediaId);
+    if (!media?.url) return null;
+    const image = new Image();
+    image.decoding = 'async';
+    image.addEventListener('load', () => this.onReady?.());
+    image.src = media.url;
+    this.images.set(mediaId, image);
+    return image;
+  }
+
+  video(clip) {
+    if (this.videos.has(clip.id)) return this.videos.get(clip.id);
+    const media = this.mediaFor(clip.mediaId);
+    if (!media?.url) return null;
+    const video = document.createElement('video');
+    video.src = media.url;
+    video.preload = 'auto';
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadeddata', () => this.onReady?.());
+    video.addEventListener('seeked', () => this.onReady?.());
+    this.videos.set(clip.id, video);
+    return video;
+  }
+
+  /* Guarda el último frame bueno de cada vídeo para que la vista previa
+     no se ponga en negro mientras el navegador resuelve un seek. */
+  captureFrame(clipId, video) {
+    try {
+      if (!video.videoWidth || !video.videoHeight) return;
+      let snap = this.frames.get(clipId);
+      if (!snap) {
+        snap = document.createElement('canvas');
+        this.frames.set(clipId, snap);
+      }
+      if (snap.width !== video.videoWidth || snap.height !== video.videoHeight) {
+        snap.width = video.videoWidth;
+        snap.height = video.videoHeight;
+      }
+      snap.getContext('2d').drawImage(video, 0, 0);
+    } catch {
+      /* frame aún no dibujable */
+    }
+  }
+
+  lastFrame(clipId) {
+    return this.frames.get(clipId) || null;
+  }
+
+  audio(clip) {
+    const cached = this.audios.get(clip.id);
+    if (cached) {
+      this.applyVoice(cached, clip);
+      return cached;
+    }
+    const media = this.mediaFor(clip.mediaId);
+    if (!media?.url) return null;
+    const audio = document.createElement('audio');
+    audio.src = media.url;
+    audio.preload = 'auto';
+    if (this.audioContext && this.audioDest) {
+      try {
+        const source = this.audioContext.createMediaElementSource(audio);
+        const chain = this.buildVoiceChain(source);
+        audio.__source = source;
+        audio.__chain = chain;
+        audio.__voiceTag = null;
+      } catch {
+        /* el elemento ya estaba conectado */
+      }
+    }
+    this.audios.set(clip.id, audio);
+    this.applyVoice(audio, clip);
+    return audio;
+  }
+
+  /* Cadena de filtros del Modificador de voz: EQ + eco paralelo. */
+  buildVoiceChain(source) {
+    const ctx = this.audioContext;
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 20;
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 20000;
+    const peak = ctx.createBiquadFilter();
+    peak.type = 'peaking';
+    peak.frequency.value = 200;
+    peak.Q.value = 1;
+    peak.gain.value = 0;
+    const delay = ctx.createDelay(1.0);
+    delay.delayTime.value = 0.18;
+    const feedback = ctx.createGain();
+    feedback.gain.value = 0;
+    const wet = ctx.createGain();
+    wet.gain.value = 0;
+    const dry = ctx.createGain();
+    dry.gain.value = 1;
+
+    source.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(peak);
+    peak.connect(dry);
+    dry.connect(this.audioDest);
+    peak.connect(delay);
+    delay.connect(wet);
+    wet.connect(this.audioDest);
+    delay.connect(feedback);
+    feedback.connect(delay);
+
+    return { highpass, lowpass, peak, delay, feedback, wet, dry };
+  }
+
+  /* Aproximación local del Modificador de voz de CapCut. */
+  applyVoice(audio, clip) {
+    const chain = audio.__chain;
+    if (!chain || !this.audioContext) return;
+    const voice = clip.voice || '';
+    const tag = voice;
+    if (audio.__voiceTag === tag) return;
+    audio.__voiceTag = tag;
+    const set = (node, key, value) => {
+      if (node && node[key]) node[key].value = value;
+    };
+    set(chain.highpass, 'frequency', 20);
+    set(chain.lowpass, 'frequency', 20000);
+    set(chain.peak, 'frequency', 200);
+    set(chain.peak, 'Q', 1);
+    set(chain.peak, 'gain', 0);
+    set(chain.delay, 'delayTime', 0.18);
+    set(chain.feedback, 'gain', 0);
+    set(chain.wet, 'gain', 0);
+    set(chain.dry, 'gain', 1);
+    if (!voice) return;
+    const name = voice.toLowerCase();
+    const has = (...keys) => keys.some((key) => name.includes(key));
+    if (has('grave', 'bajo', 'retumb', 'supergra')) {
+      set(chain.peak, 'frequency', 140);
+      set(chain.peak, 'Q', 0.9);
+      set(chain.peak, 'gain', 12);
+      set(chain.lowpass, 'frequency', 9000);
+    } else if (has('agudo', 'cristal', 'clara', 'alto', 'adolescente')) {
+      set(chain.highpass, 'frequency', 420);
+      set(chain.peak, 'frequency', 3200);
+      set(chain.peak, 'Q', 0.8);
+      set(chain.peak, 'gain', 8);
+    } else if (has('radio', 'teléfono', 'telefono', 'megáfono', 'megafono', 'micrófono', 'microfono', 'locutor')) {
+      set(chain.highpass, 'frequency', 900);
+      set(chain.lowpass, 'frequency', 3200);
+      set(chain.peak, 'frequency', 1800);
+      set(chain.peak, 'Q', 1.4);
+      set(chain.peak, 'gain', 8);
+    } else if (has('robot', 'droide', 'android', '8 bits', 'alien', 'cósmico', 'cosmico')) {
+      set(chain.highpass, 'frequency', 300);
+      set(chain.lowpass, 'frequency', 5200);
+      set(chain.peak, 'frequency', 1200);
+      set(chain.peak, 'Q', 3);
+      set(chain.peak, 'gain', 14);
+      set(chain.delay, 'delayTime', 0.045);
+      set(chain.wet, 'gain', 0.35);
+      set(chain.feedback, 'gain', 0.25);
+    } else if (has('retro', 'antiguo', 'fonógrafo', 'fonografo', 'casete', 'vhs', 'tubo', 'analógic', 'analogic')) {
+      set(chain.highpass, 'frequency', 320);
+      set(chain.lowpass, 'frequency', 4200);
+      set(chain.peak, 'frequency', 900);
+      set(chain.peak, 'Q', 1.1);
+      set(chain.peak, 'gain', 7);
+    } else if (has('susurr', 'ahogad', 'lejos', 'distancia', 'espacio', 'vientre')) {
+      set(chain.highpass, 'frequency', 200);
+      set(chain.lowpass, 'frequency', 2200);
+      set(chain.delay, 'delayTime', 0.26);
+      set(chain.wet, 'gain', 0.35);
+      set(chain.feedback, 'gain', 0.18);
+    } else if (has('eco', 'reverber', 'sala', 'concierto', 'estadio', 'cueva', 'envolvente', '9d', 'bucle', 'infinit')) {
+      set(chain.delay, 'delayTime', 0.22);
+      set(chain.wet, 'gain', 0.42);
+      set(chain.feedback, 'gain', 0.32);
+    } else if (has('doble', 'divi', 'coro', 'acorde', 'melodía', 'melodia')) {
+      set(chain.delay, 'delayTime', 0.032);
+      set(chain.wet, 'gain', 0.5);
+      set(chain.feedback, 'gain', 0.15);
+    } else if (has('distorsion', 'infierno', 'metálic', 'metalic', 'estrés', 'estres', 'roto', 'basura', 'probl')) {
+      set(chain.peak, 'frequency', 1600);
+      set(chain.peak, 'Q', 2.4);
+      set(chain.peak, 'gain', 16);
+      set(chain.lowpass, 'frequency', 6000);
+    } else {
+      set(chain.peak, 'frequency', 800);
+      set(chain.peak, 'Q', 1);
+      set(chain.peak, 'gain', 3);
+    }
+  }
+
+  attachAudio(audioContext, destination) {
+    this.audioContext = audioContext;
+    this.audioDest = destination;
+  }
+
+  syncElement(element, target, playing, volume, muted) {
+    if (!element) return;
+    if (element.volume !== volume) element.volume = volume;
+    if (element.muted !== muted) element.muted = muted;
+    if (playing) {
+      if (element.readyState === 0) {
+        try { element.load(); } catch { /* ignorado */ }
+      }
+      if (Math.abs(element.currentTime - target) > 0.32) {
+        try { element.currentTime = target; } catch { /* ignorado */ }
+      }
+      if (element.paused) element.play().catch(() => {});
+    } else {
+      if (!element.paused) element.pause();
+      if (Math.abs(element.currentTime - target) > 0.04) {
+        try { element.currentTime = target; } catch { /* ignorado */ }
+      }
+    }
+  }
+
+  syncPlayback(project, time, playing, muted = false) {
+    const layers = activeLayers(project, time);
+    const activeIds = new Set(layers.map((layer) => layer.clip.id));
+    for (const layer of layers) {
+      const { clip, track, local } = layer;
+      const target = sourceTime(clip, local);
+      const speed = Math.max(0.25, Math.min(4, clip.speed || 1));
+      if (clip.kind === 'video') {
+        const video = this.video(clip);
+        if (video) {
+          video.playbackRate = speed;
+          this.syncElement(video, target, playing && time < clip.start + clip.duration, 0, true);
+        }
+      }
+      if (clip.kind === 'video' || clip.kind === 'audio') {
+        const audio = this.audio(clip);
+        if (audio) {
+          audio.playbackRate = speed;
+          const gain = clipGain(clip, local) * (track.volume ?? 1);
+          this.syncElement(audio, target, playing, gain, muted || !!track.muted);
+        }
+      }
+    }
+    for (const [id, element] of this.audios) {
+      if (!activeIds.has(id) && !element.paused) element.pause();
+    }
+    for (const [id, element] of this.videos) {
+      if (!activeIds.has(id) && !element.paused) element.pause();
+    }
+  }
+
+  async prepare(project, time) {
+    const layers = activeLayers(project, time);
+    const jobs = [];
+    for (const { clip, local } of layers) {
+      if (clip.kind === 'image') {
+        const image = this.image(clip.mediaId);
+        if (image && !image.complete) jobs.push(waitEvent(image, 'load'));
+      }
+      if (clip.kind === 'video') {
+        const video = this.video(clip);
+        if (video) {
+          jobs.push((async () => {
+            if (video.readyState < 1) await waitEvent(video, 'loadedmetadata');
+            if (video.readyState < 2) await waitEvent(video, 'loadeddata');
+            const target = sourceTime(clip, local);
+            if (Math.abs(video.currentTime - target) > 0.02) {
+              const seeked = waitEvent(video, 'seeked', 5000);
+              try { video.currentTime = target; } catch { /* ignorado */ }
+              await seeked;
+            }
+          })());
+        }
+      }
+    }
+    await Promise.allSettled(jobs);
+  }
+
+  destroy() {
+    for (const element of this.videos.values()) {
+      element.pause();
+      element.removeAttribute('src');
+      try { element.load(); } catch { /* ignorado */ }
+    }
+    for (const element of this.audios.values()) {
+      element.pause();
+      element.removeAttribute('src');
+      try { element.load(); } catch { /* ignorado */ }
+    }
+    this.videos.clear();
+    this.audios.clear();
+    this.images.clear();
+    this.frames.clear();
+    this.onReady = null;
+  }
+}
+
+function roundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function drawContain(ctx, source, sourceWidth, sourceHeight, width, height) {
+  const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  ctx.drawImage(source, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+}
+
+function transitionState(clip, local) {
+  if (!clip.transition || clip.transition === 'none') return null;
+  const duration = Math.max(0.05, Math.min(Number(clip.transitionDuration) || 0.6, clip.duration * 0.62));
+  if (local > duration + 0.0001) return null;
+  return { type: clip.transition, p: clamp01(local / duration), duration };
+}
+
+function transitionAlpha(anim) {
+  if (!anim) return 1;
+  const p = anim.p;
+  switch (anim.type) {
+    case 'flash':
+      return clamp01(p * 1.8);
+    case 'slide-left':
+    case 'slide-right':
+    case 'slide-up':
+    case 'slide-down':
+    case 'push-left':
+    case 'push-right':
+    case 'push-up':
+    case 'push-down':
+    case 'diagonal':
+    case 'swing':
+    case 'wipe-left':
+    case 'wipe-right':
+    case 'wipe-up':
+    case 'wipe-down':
+    case 'iris':
+    case 'barn':
+    case 'blinds':
+    case 'clock':
+    case 'split':
+    case 'curtain':
+    case 'blocks':
+    case 'vignette':
+    case 'slam-hit':
+    case 'shake-punch':
+    case 'earthquake':
+    case 'whip-left':
+    case 'whip-right':
+    case 'zoom-snap':
+    case 'spin-slam':
+    case 'swirl-warp':
+    case 'heart-iris':
+    case 'star-iris':
+    case 'page-curl':
+    case 'kaleido':
+    case 'drift-voronoi':
+    case 'drift-swirl':
+    case 'drift-honeycomb':
+    case 'drift-vhs':
+      return 1;
+    case 'fire-burst':
+    case 'lightning-flash':
+    case 'lens-flare':
+    case 'strobe':
+    case 'smoke-cloud':
+    case 'glitch-rgb':
+    case 'pixelate':
+    case 'rgb-pulse':
+    case 'drift-plasma':
+    case 'drift-liquid':
+    case 'drift-matrix':
+    case 'drift-ink':
+    case 'drift-interference':
+    case 'drift-bubbles':
+      return clamp01(0.25 + p * 0.9);
+    case 'zoom-in':
+    case 'zoom-out':
+    case 'spin':
+      return clamp01(0.25 + p * 1.4);
+    case 'crosszoom':
+    case 'dolly':
+      return clamp01(0.15 + p * 1.6);
+    case 'rotate-in':
+    case 'warp':
+    case 'pulse':
+      return clamp01(p * 1.35);
+    case 'glitch':
+      return clamp01(p * 1.5);
+    case 'film-burn':
+    case 'grain':
+      return clamp01(0.35 + p * 0.9);
+    default:
+      return p;
+  }
+}
+
+function applyEntrance(ctx, anim, width, height) {
+  if (!anim) return;
+  const gap = 1 - anim.p;
+  const p = anim.p;
+  if (anim.type === 'slide-left' || anim.type === 'push-left') ctx.translate(width * gap, 0);
+  else if (anim.type === 'slide-right' || anim.type === 'push-right') ctx.translate(-width * gap, 0);
+  else if (anim.type === 'slide-up' || anim.type === 'push-up') ctx.translate(0, height * gap);
+  else if (anim.type === 'slide-down' || anim.type === 'push-down') ctx.translate(0, -height * gap);
+  else if (anim.type === 'diagonal') ctx.translate(width * gap, height * gap);
+  else if (anim.type === 'swing') {
+    ctx.translate(-width * gap, 0);
+    ctx.rotate((-gap * 16 * Math.PI) / 180);
+    ctx.scale(0.9 + p * 0.1, 0.9 + p * 0.1);
+  } else if (anim.type === 'zoom-in') ctx.scale(1 + gap * 0.34, 1 + gap * 0.34);
+  else if (anim.type === 'zoom-out') ctx.scale(0.68 + p * 0.32, 0.68 + p * 0.32);
+  else if (anim.type === 'spin') {
+    ctx.rotate((gap * -14 * Math.PI) / 180);
+    ctx.scale(0.9 + p * 0.1, 0.9 + p * 0.1);
+  } else if (anim.type === 'rotate-in') {
+    ctx.rotate((gap * -90 * Math.PI) / 180);
+    ctx.scale(0.55 + p * 0.45, 0.55 + p * 0.45);
+  } else if (anim.type === 'crosszoom') ctx.scale(1 + gap * 1.1, 1 + gap * 1.1);
+  else if (anim.type === 'pulse') {
+    const overshoot = Math.sin(p * Math.PI) * 0.14;
+    const scale = 0.8 + easeOutCubic(p) * 0.2 + overshoot;
+    ctx.scale(scale, scale);
+  } else if (anim.type === 'warp') ctx.scale(0.2 + p * 0.8, 1.3 - p * 0.3);
+  else if (anim.type === 'dolly') {
+    ctx.scale(1.4 - p * 0.4, 1.4 - p * 0.4);
+    ctx.rotate((gap * 6 * Math.PI) / 180);
+  } else if (anim.type === 'slam-hit') {
+    const shake = Math.sin(p * 40) * (gap * gap) * 24;
+    const slamScale = 1 + (gap * gap) * 0.68;
+    ctx.translate(shake, Math.cos(p * 30) * (gap * gap) * 14);
+    ctx.scale(slamScale, slamScale);
+  } else if (anim.type === 'shake-punch') {
+    const punch = Math.sin(p * Math.PI) * 0.22;
+    const shakeX = Math.sin(p * 45) * gap * 26;
+    const shakeY = Math.cos(p * 35) * gap * 16;
+    ctx.translate(shakeX, shakeY);
+    ctx.scale(1 + punch, 1 + punch);
+  } else if (anim.type === 'earthquake') {
+    const decay = gap * gap;
+    const jx = (Math.sin(p * 55) + Math.cos(p * 80)) * decay * 18;
+    const jy = (Math.cos(p * 65) + Math.sin(p * 90)) * decay * 16;
+    const rot = Math.sin(p * 45) * decay * 0.05;
+    ctx.translate(jx, jy);
+    ctx.rotate(rot);
+  } else if (anim.type === 'whip-left') {
+    const fastGap = Math.pow(gap, 2.8);
+    ctx.translate(width * fastGap, 0);
+    ctx.scale(1 + fastGap * 0.45, 1);
+  } else if (anim.type === 'whip-right') {
+    const fastGap = Math.pow(gap, 2.8);
+    ctx.translate(-width * fastGap, 0);
+    ctx.scale(1 + fastGap * 0.45, 1);
+  } else if (anim.type === 'zoom-snap') {
+    const spring = 1 + Math.sin(p * Math.PI * 2.5) * gap * 0.28;
+    ctx.scale(spring, spring);
+  } else if (anim.type === 'spin-slam') {
+    ctx.rotate(-gap * Math.PI * 2);
+    const s = 0.4 + p * 0.6;
+    ctx.scale(s, s);
+  } else if (anim.type === 'swirl-warp') {
+    ctx.rotate(gap * Math.PI * 1.5);
+    ctx.scale(0.3 + p * 0.7, 0.3 + p * 0.7);
+  } else if (anim.type === 'rgb-pulse') {
+    const pulse = 1 + Math.sin(p * Math.PI * 3) * gap * 0.16;
+    ctx.scale(pulse, pulse);
+  } else if (anim.type === 'kaleido') {
+    const s = 0.6 + easeOutCubic(p) * 0.4;
+    ctx.scale(s, s);
+  } else if (anim.type === 'drift-swirl') {
+    ctx.rotate(gap * Math.PI * 2.5);
+    ctx.scale(0.25 + p * 0.75, 0.25 + p * 0.75);
+  } else if (anim.type === 'drift-vhs') {
+    const shift = Math.sin(p * 50) * gap * 16;
+    ctx.translate(shift, (hash01(Math.floor(p * 20)) - 0.5) * gap * 10);
+  }
+}
+
+function transitionPreviousOffset(anim, width, height) {
+  if (!anim) return null;
+  const p = anim.p;
+  if (anim.type === 'push-left') return { x: -width * p, y: 0 };
+  if (anim.type === 'push-right') return { x: width * p, y: 0 };
+  if (anim.type === 'push-up') return { x: 0, y: -height * p };
+  if (anim.type === 'push-down') return { x: 0, y: height * p };
+  return null;
+}
+
+function wipeClip(ctx, anim, width, height) {
+  if (!anim) return false;
+  const p = anim.p;
+  ctx.beginPath();
+  switch (anim.type) {
+    case 'wipe-left': {
+      ctx.rect(-width / 2, -height / 2, width * p, height);
+      break;
+    }
+    case 'wipe-right': {
+      const size = width * p;
+      ctx.rect(width / 2 - size, -height / 2, size, height);
+      break;
+    }
+    case 'wipe-up': {
+      const size = height * p;
+      ctx.rect(-width / 2, height / 2 - size, width, size);
+      break;
+    }
+    case 'wipe-down': {
+      ctx.rect(-width / 2, -height / 2, width, height * p);
+      break;
+    }
+    case 'iris': {
+      const radius = Math.max(0.01, Math.hypot(width, height) * 0.55 * easeOutCubic(p));
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      break;
+    }
+    case 'barn': {
+      const half = (width / 2) * easeOutCubic(p);
+      ctx.rect(-width / 2, -height / 2, half, height);
+      ctx.rect(width / 2 - half, -height / 2, half, height);
+      break;
+    }
+    case 'blinds': {
+      const rows = 8;
+      const rowHeight = height / rows;
+      for (let index = 0; index < rows; index += 1) {
+        ctx.rect(-width / 2, -height / 2 + index * rowHeight, width, rowHeight * p);
+      }
+      break;
+    }
+    case 'clock': {
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, Math.hypot(width, height) * 0.75, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * easeOutCubic(p));
+      ctx.closePath();
+      break;
+    }
+    case 'split': {
+      ctx.rotate(Math.PI / 4);
+      const reach = Math.hypot(width, height) * 0.75;
+      ctx.rect(-reach, -reach, reach * 2 * easeOutCubic(p), reach * 2);
+      break;
+    }
+    case 'curtain': {
+      const size = width * easeOutCubic(p);
+      ctx.rect(-size / 2, -height / 2, size, height);
+      break;
+    }
+    case 'blocks': {
+      const cols = 8;
+      const rows = 5;
+      const cellW = width / cols;
+      const cellH = height / rows;
+      const eased = easeOutCubic(p);
+      for (let row = 0; row < rows; row += 1) {
+        for (let col = 0; col < cols; col += 1) {
+          const order = (col + row * 0.6) / (cols + rows * 0.6);
+          const threshold = order * 0.55 + hash01(col * 13.7 + row * 7.3) * 0.45;
+          if (eased >= threshold) {
+            ctx.rect(-width / 2 + col * cellW, -height / 2 + row * cellH, cellW + 0.5, cellH + 0.5);
+          }
+        }
+      }
+      break;
+    }
+    case 'heart-iris': {
+      const size = Math.max(0.01, Math.hypot(width, height) * 0.042 * easeOutCubic(p));
+      ctx.beginPath();
+      for (let theta = 0; theta <= Math.PI * 2 + 0.05; theta += 0.06) {
+        const hx = 16 * Math.pow(Math.sin(theta), 3);
+        const hy = -(13 * Math.cos(theta) - 5 * Math.cos(2 * theta) - 2 * Math.cos(3 * theta) - Math.cos(4 * theta));
+        if (theta === 0) ctx.moveTo(hx * size, hy * size);
+        else ctx.lineTo(hx * size, hy * size);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'star-iris': {
+      const outerR = Math.max(0.01, Math.hypot(width, height) * 0.72 * easeOutCubic(p));
+      const innerR = outerR * 0.44;
+      const points = 5;
+      const rot = (1 - p) * 0.5;
+      ctx.beginPath();
+      for (let i = 0; i < points * 2; i++) {
+        const r = i % 2 === 0 ? outerR : innerR;
+        const angle = (i * Math.PI) / points - Math.PI / 2 + rot;
+        const sx = Math.cos(angle) * r;
+        const sy = Math.sin(angle) * r;
+        if (i === 0) ctx.moveTo(sx, sy);
+        else ctx.lineTo(sx, sy);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'page-curl': {
+      const reach = Math.hypot(width, height) * 1.5;
+      const prog = easeOutCubic(p) * reach;
+      ctx.rotate(Math.PI / 6);
+      ctx.rect(-reach / 2, -reach / 2 + reach - prog, reach, prog);
+      break;
+    }
+    case 'drift-honeycomb': {
+      const hexSize = Math.max(16, width / 14);
+      const eased = easeOutCubic(p);
+      const cols = Math.ceil(width / (hexSize * 1.5)) + 2;
+      const rows = Math.ceil(height / (hexSize * 1.732)) + 2;
+      for (let c = -Math.floor(cols / 2); c <= Math.ceil(cols / 2); c += 1) {
+        for (let r = -Math.floor(rows / 2); r <= Math.ceil(rows / 2); r += 1) {
+          const hx = c * hexSize * 1.5;
+          const hy = r * hexSize * 1.732 + ((Math.abs(c) % 2) * (hexSize * 0.866));
+          const dist = Math.hypot(hx, hy) / (Math.hypot(width / 2, height / 2) || 1);
+          if (eased >= dist * 0.7) {
+            const s = Math.min(1, (eased - dist * 0.7) / 0.3) * hexSize * 0.95;
+            ctx.moveTo(hx + s, hy);
+            for (let a = 1; a < 6; a += 1) {
+              const ang = (a * Math.PI) / 3;
+              ctx.lineTo(hx + Math.cos(ang) * s, hy + Math.sin(ang) * s);
+            }
+            ctx.closePath();
+          }
+        }
+      }
+      break;
+    }
+    default:
+      return false;
+  }
+  ctx.clip();
+  return true;
+}
+
+function previousClipOnTrack(track, clip) {
+  let best = null;
+  for (const candidate of track.clips || []) {
+    if (candidate.id === clip.id) continue;
+    const end = candidate.start + candidate.duration;
+    if (Math.abs(end - clip.start) <= 0.08) {
+      if (!best || candidate.start > best.start) best = candidate;
+    }
+  }
+  return best;
+}
+
+let grainTile = null;
+function noiseTile() {
+  if (grainTile) return grainTile;
+  const canvas = document.createElement('canvas');
+  canvas.width = 160;
+  canvas.height = 160;
+  const ctx = canvas.getContext('2d');
+  const image = ctx.createImageData(canvas.width, canvas.height);
+  for (let index = 0; index < image.data.length; index += 4) {
+    const value = Math.random() * 255;
+    image.data[index] = value;
+    image.data[index + 1] = value;
+    image.data[index + 2] = value;
+    image.data[index + 3] = 26;
+  }
+  ctx.putImageData(image, 0, 0);
+  grainTile = canvas;
+  return canvas;
+}
+
+function hash01(value) {
+  const x = Math.sin(value * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+const EMOJI_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+
+const PARTICLE_GLYPHS = {
+  heart: ['❤', '💖', '💕'],
+  star: ['★', '✦', '✧'],
+  spark: ['✦', '✧', '·'],
+  bubble: ['○', '◯', '●'],
+  dust: ['·'],
+  emoji: ['✨'],
+};
+
+function particleGlyphs(spec) {
+  if (Array.isArray(spec.glyphs) && spec.glyphs.length) return spec.glyphs;
+  return PARTICLE_GLYPHS[spec.particles] || PARTICLE_GLYPHS.emoji;
+}
+
+function drawParticles(ctx, spec, local, width, height, alpha) {
+  const kind = spec.particles;
+  if (!kind) return;
+  const count = Math.max(4, Math.min(80, spec.count || 24));
+  const baseSize = Math.max(4, (spec.size || 30) * (height / 1080));
+  const speed = spec.speed ?? 0.5;
+  const colors = Array.isArray(spec.colors) && spec.colors.length ? spec.colors : ['#ffffff'];
+  const glyphs = particleGlyphs(spec);
+  const burst = kind === 'firework' || kind === 'explosion';
+  const shapes = kind === 'confetti';
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let index = 0; index < count; index += 1) {
+    const seed = hash01(index + 1);
+    const seed2 = hash01(index + 17.3);
+    const seed3 = hash01(index + 41.7);
+    let x = 0;
+    let y = 0;
+    let life = 1;
+    if (burst) {
+      const cycle = 1.8;
+      const phase = ((local * speed + seed) % cycle) / cycle;
+      const angle = seed2 * Math.PI * 2;
+      const radius = phase * Math.min(width, height) * (0.28 + seed3 * 0.34);
+      x = width / 2 + Math.cos(angle) * radius;
+      y = height / 2 + Math.sin(angle) * radius;
+      life = 1 - phase;
+    } else {
+      const drift = (local * speed * 0.075 + seed2) % 1;
+      const bubbles = kind === 'bubble';
+      y = bubbles || spec.spawn === 'bottom' ? height * (1 - drift) : height * drift;
+      x = seed * width + Math.sin(local * speed * 2.2 + index * 1.7) * width * 0.035;
+      x = ((x % width) + width) % width;
+      life = 0.55 + seed3 * 0.45;
+    }
+    const size = baseSize * (0.55 + seed3 * 0.75);
+    if (x < -size || x > width + size || y < -size || y > height + size) continue;
+    const color = colors[index % colors.length];
+    if (shapes) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(local * (1.4 + seed) + seed2 * Math.PI);
+      ctx.globalAlpha = alpha * life * 0.92;
+      ctx.fillStyle = color;
+      if (index % 3 === 0) {
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillRect(-size * 0.24, -size * 0.5, size * 0.48, size * 0.9);
+      }
+      ctx.restore();
+      continue;
+    }
+    if (kind === 'spark') {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(seed * Math.PI + local * 1.8);
+      ctx.globalAlpha = alpha * life;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      const arm = size * 0.52;
+      const thin = size * 0.1;
+      ctx.moveTo(0, -arm);
+      ctx.lineTo(thin, -thin);
+      ctx.lineTo(arm, 0);
+      ctx.lineTo(thin, thin);
+      ctx.lineTo(0, arm);
+      ctx.lineTo(-thin, thin);
+      ctx.lineTo(-arm, 0);
+      ctx.lineTo(-thin, -thin);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+    if (kind === 'bubble') {
+      ctx.globalAlpha = alpha * life * 0.5;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1, size * 0.06);
+      ctx.beginPath();
+      ctx.arc(x, y, size * 0.32, 0, Math.PI * 2);
+      ctx.stroke();
+      continue;
+    }
+    if (kind === 'dust') {
+      ctx.globalAlpha = alpha * life * 0.7;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(0.7, size * 0.08), 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    const glyph = glyphs[index % glyphs.length];
+    ctx.globalAlpha = alpha * life * 0.9;
+    ctx.font = `${Math.max(6, size)}px ${EMOJI_FONT}`;
+    ctx.fillStyle = color;
+    ctx.fillText(glyph, x, y);
+  }
+  ctx.restore();
+}
+
+function drawFrameFx(ctx, spec, width, height, alpha) {
+  const style = spec.frame;
+  if (!style) return;
+  const accent = spec.accent || '#ffffff';
+  const edge = Math.max(6, Math.min(width, height) * 0.035);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (style === 'polaroid') {
+    const bottom = edge * 3.4;
+    ctx.fillStyle = '#f7f2e6';
+    ctx.fillRect(0, 0, width, edge);
+    ctx.fillRect(0, height - bottom, width, bottom);
+    ctx.fillRect(0, 0, edge, height);
+    ctx.fillRect(width - edge, 0, edge, height);
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = Math.max(1, edge * 0.08);
+    ctx.strokeRect(edge * 0.35, edge * 0.35, width - edge * 0.7, height - edge * 0.7);
+  } else if (style === 'film') {
+    const strip = Math.max(10, height * 0.075);
+    ctx.fillStyle = '#0b0b0d';
+    ctx.fillRect(0, 0, width, strip);
+    ctx.fillRect(0, height - strip, width, strip);
+    const holeW = strip * 0.55;
+    const holeH = strip * 0.32;
+    ctx.fillStyle = 'rgba(245,242,226,0.9)';
+    for (let x = strip * 0.35; x < width; x += holeW * 1.7) {
+      roundedRect(ctx, x, strip * 0.28, holeW, holeH, holeH * 0.25);
+      ctx.fill();
+      roundedRect(ctx, x, height - strip * 0.6, holeW, holeH, holeH * 0.25);
+      ctx.fill();
+    }
+  } else if (style === 'tape') {
+    const tape = Math.min(width, height) * 0.13;
+    ctx.fillStyle = 'rgba(255,238,166,0.72)';
+    for (const corner of [[0, 0, -1, -1], [width, 0, 1, -1], [0, height, -1, 1], [width, height, 1, 1]]) {
+      ctx.save();
+      ctx.translate(corner[0], corner[1]);
+      ctx.rotate(corner[2] * corner[3] * 0.75);
+      ctx.fillRect(-tape * 0.14, -tape * 0.5, tape * 0.28, tape);
+      ctx.restore();
+    }
+  } else if (style === 'neon') {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(3, edge * 0.28);
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = Math.max(10, edge * 1.4);
+    roundedRect(ctx, edge * 0.7, edge * 0.7, width - edge * 1.4, height - edge * 1.4, edge * 1.2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = Math.max(1, edge * 0.08);
+    ctx.stroke();
+  } else if (style === 'floral') {
+    const glyphs = ['🌸', '🌺', '🌼', '🍃'];
+    for (let index = 0; index < 12; index += 1) {
+      const side = index % 4;
+      const t = (Math.floor(index / 4) + 0.5) / 3;
+      const x = side === 0 || side === 2 ? t * width : side === 1 ? width - edge * 0.6 : edge * 0.6;
+      const y = side === 0 ? edge * 0.6 : side === 2 ? height - edge * 0.6 : t * height;
+      ctx.font = `${Math.max(12, edge * 0.95)}px ${EMOJI_FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(glyphs[index % glyphs.length], x, y);
+    }
+  } else if (style === 'torn') {
+    ctx.fillStyle = '#f2ecdd';
+    ctx.fillRect(0, 0, width, edge * 0.7);
+    ctx.fillRect(0, height - edge * 0.7, width, edge * 0.7);
+    ctx.fillRect(0, 0, edge * 0.7, height);
+    ctx.fillRect(width - edge * 0.7, 0, edge * 0.7, height);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    for (let index = 0; index < 22; index += 1) {
+      const x = hash01(index + 4) * width;
+      const h = edge * (0.15 + hash01(index + 9) * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(x - h * 0.5, edge * 0.7);
+      ctx.lineTo(x, edge * 0.7 + h);
+      ctx.lineTo(x + h * 0.5, edge * 0.7);
+      ctx.closePath();
+      ctx.fill();
+    }
+  } else if (style === 'wood') {
+    ctx.fillStyle = '#5a3823';
+    ctx.fillRect(0, 0, width, edge);
+    ctx.fillRect(0, height - edge, width, edge);
+    ctx.fillRect(0, 0, edge, height);
+    ctx.fillRect(width - edge, 0, edge, height);
+    ctx.strokeStyle = 'rgba(35,18,8,0.55)';
+    ctx.lineWidth = Math.max(1, edge * 0.08);
+    for (let index = 0; index < 14; index += 1) {
+      const y = (index / 13) * height;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(width * 0.3, y + edge * 0.3, width * 0.7, y - edge * 0.3, width, y);
+      ctx.stroke();
+    }
+  } else if (style === 'dots') {
+    const step = Math.max(10, Math.min(width, height) * 0.055);
+    ctx.fillStyle = accent;
+    for (let x = step; x < width; x += step) {
+      ctx.beginPath();
+      ctx.arc(x, step * 0.7, step * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x, height - step * 0.7, step * 0.14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (style === 'rainbow') {
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    ['#ff4d6d', '#ffd166', '#8ac926', '#4cc9f0', '#c77dff'].forEach((color, index, list) => {
+      gradient.addColorStop(index / (list.length - 1), color);
+    });
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = Math.max(6, edge * 0.5);
+    ctx.strokeRect(edge * 0.5, edge * 0.5, width - edge, height - edge);
+  } else if (style === 'web') {
+    ctx.strokeStyle = 'rgba(235,240,250,0.72)';
+    ctx.lineWidth = Math.max(1, edge * 0.08);
+    for (const corner of [[0, 0, 0], [width, 0, Math.PI / 2], [0, height, -Math.PI / 2], [width, height, Math.PI]]) {
+      for (let index = 0; index < 6; index += 1) {
+        const angle = corner[2] + (index / 5) * (Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(corner[0], corner[1]);
+        ctx.lineTo(corner[0] + Math.cos(angle) * edge * 4, corner[1] + Math.sin(angle) * edge * 4);
+        ctx.stroke();
+      }
+      for (let radius = edge * 0.8; radius < edge * 3.4; radius += edge * 0.62) {
+        ctx.beginPath();
+        ctx.arc(corner[0], corner[1], radius, corner[2], corner[2] + Math.PI / 2);
+        ctx.stroke();
+      }
+    }
+  } else if (style === 'coupon') {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(2, edge * 0.16);
+    ctx.setLineDash([edge * 0.45, edge * 0.32]);
+    roundedRect(ctx, edge * 0.8, edge * 0.8, width - edge * 1.6, height - edge * 1.6, edge * 0.9);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (style === 'comic') {
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = Math.max(5, edge * 0.38);
+    ctx.strokeRect(edge * 0.5, edge * 0.5, width - edge, height - edge);
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(width - edge * 3.4, 0);
+    ctx.lineTo(width, 0);
+    ctx.lineTo(width, edge * 3.4);
+    ctx.closePath();
+    ctx.fill();
+  } else if (style === 'badge') {
+    const radius = Math.max(16, edge * 1.35);
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.arc(width - radius * 1.2, radius * 1.2, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#071016';
+    ctx.font = `800 ${Math.max(10, radius * 0.55)}px "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('NUEVO', width - radius * 1.2, radius * 1.2);
+  } else if (style === 'open') {
+    const gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, 'rgba(255,214,153,0.28)');
+    gradient.addColorStop(0.45, 'rgba(255,255,255,0)');
+    gradient.addColorStop(1, 'rgba(120,200,255,0.22)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+  ctx.restore();
+}
+
+function drawOverlayFx(ctx, spec, local, width, height, alpha) {
+  const overlay = spec.overlay;
+  if (!overlay) return;
+  const accent = spec.accent || '#ffffff';
+  const unit = Math.min(width, height);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (overlay === 'vignette' || overlay === 'silhouette' || overlay === 'slim' || overlay === 'shadow') {
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, unit * 0.2, width / 2, height / 2, Math.max(width, height) * 0.72);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, overlay === 'slim' ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.62)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    if (overlay === 'slim') {
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(0, 0, width * 0.09, height);
+      ctx.fillRect(width * 0.91, 0, width * 0.09, height);
+    }
+  }
+  if (overlay === 'grain' || overlay === 'oldFilm' || overlay === 'projector' || overlay === 'chalk' || overlay === 'print' || overlay === 'watercolor') {
+    ctx.globalAlpha = alpha * 0.72;
+    ctx.drawImage(noiseTile(), 0, 0, width, height);
+    ctx.globalAlpha = alpha;
+  }
+  if (overlay === 'scanlines' || overlay === 'vhs' || overlay === 'vcr' || overlay === 'pixel' || overlay === 'thermal' || overlay === 'xray') {
+    const step = Math.max(2, Math.round(height / 260));
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let y = 0; y < height; y += step * 2) ctx.fillRect(0, y, width, step);
+    ctx.globalAlpha = alpha;
+  }
+  if (overlay === 'oldFilm' || overlay === 'projector') {
+    ctx.globalAlpha = alpha * (0.32 + Math.abs(Math.sin(local * 9)) * 0.12);
+    ctx.strokeStyle = 'rgba(237,219,178,0.7)';
+    ctx.lineWidth = Math.max(1, width / 900);
+    for (let index = 0; index < 3; index += 1) {
+      const x = ((local * 13 + index * 31.7) % 1) * width;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + Math.sin(local * 2 + index) * 8, height);
+      ctx.stroke();
+    }
+    if (overlay === 'projector') {
+      ctx.fillStyle = 'rgba(25,15,6,0.18)';
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+  if (overlay === 'strobe' || overlay === 'flash') {
+    const pulse = overlay === 'flash'
+      ? Math.max(0, Math.sin(local * 8) - 0.72) * 2.8
+      : (Math.sin(local * 18) > 0.55 ? 0.1 : 0);
+    if (pulse > 0) {
+      ctx.globalAlpha = alpha * Math.min(0.3, pulse);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+  if (overlay === 'glow' || overlay === 'dreamy' || overlay === 'aura' || overlay === 'bodyGlow' || overlay === 'magic' || overlay === 'fog') {
+    const color = overlay === 'glow' || overlay === 'aura' || overlay === 'bodyGlow' ? accent : '#ffffff';
+    const amount = overlay === 'dreamy' ? 0.035 : overlay === 'fog' ? 0.12 : 0.09;
+    ctx.globalAlpha = alpha * amount;
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, width, height);
+    if (overlay === 'aura' || overlay === 'bodyGlow' || overlay === 'magic') {
+      const gradient = ctx.createRadialGradient(width / 2, height / 2, unit * 0.08, width / 2, height / 2, unit * 0.58);
+      gradient.addColorStop(0, `${accent}88`);
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = alpha * 0.75;
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+  if (overlay === 'chroma') {
+    ctx.globalCompositeOperation = 'screen';
+    const red = ctx.createLinearGradient(0, 0, width * 0.25, 0);
+    red.addColorStop(0, 'rgba(255,0,60,0.28)');
+    red.addColorStop(1, 'rgba(255,0,60,0)');
+    ctx.fillStyle = red;
+    ctx.fillRect(0, 0, width * 0.25, height);
+    const cyan = ctx.createLinearGradient(width, 0, width * 0.75, 0);
+    cyan.addColorStop(0, 'rgba(0,240,255,0.28)');
+    cyan.addColorStop(1, 'rgba(0,240,255,0)');
+    ctx.fillStyle = cyan;
+    ctx.fillRect(width * 0.75, 0, width * 0.25, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'vhs' || overlay === 'vcr' || overlay === 'tracking') {
+    const bandY = ((local * 0.35) % 1.2) * height - height * 0.1;
+    const band = ctx.createLinearGradient(0, bandY - height * 0.08, 0, bandY + height * 0.08);
+    band.addColorStop(0, 'rgba(255,255,255,0)');
+    band.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    band.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = band;
+    ctx.fillRect(0, bandY - height * 0.08, width, height * 0.16);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = `600 ${Math.max(9, height * 0.032)}px "Consolas", monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const stamp = `PLAY ▶  ${String(Math.floor(local / 60)).padStart(2, '0')}:${String(Math.floor(local % 60)).padStart(2, '0')}:${String(Math.floor((local * 30) % 30)).padStart(2, '0')}`;
+    ctx.fillText(stamp, width * 0.035, height * 0.04);
+    if (overlay === 'vcr') {
+      ctx.fillStyle = '#ff3b3b';
+      ctx.beginPath();
+      ctx.arc(width * 0.05, height * 0.9, Math.max(3, height * 0.012), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillText('REC', width * 0.065, height * 0.88);
+    }
+  }
+  if (overlay === 'glitch' || overlay === 'datamosh' || overlay === 'tracking') {
+    for (let index = 0; index < 10; index += 1) {
+      const seed = hash01(index + Math.floor(local * 16));
+      const y = seed * height;
+      const h = Math.max(2, hash01(index + 3.3) * height * 0.045);
+      const x = hash01(index + 8.8) * width * 0.28 - width * 0.14;
+      ctx.globalAlpha = alpha * (0.1 + seed * 0.22);
+      ctx.fillStyle = index % 3 === 0 ? '#ff2f5e' : index % 3 === 1 ? '#28e7ff' : '#ffffff';
+      ctx.fillRect(x, y, width * (0.35 + seed * 0.5), h);
+    }
+    ctx.globalAlpha = alpha * 0.35;
+    for (let index = 0; index < 4; index += 1) {
+      const y = hash01(index + Math.floor(local * 8) + 2) * height;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, y, width, Math.max(1, height * 0.004));
+    }
+  }
+  if (overlay === 'pixel') {
+    const cols = 24;
+    const rows = 14;
+    ctx.globalAlpha = alpha * 0.18;
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    for (let x = 0; x < cols; x += 1) {
+      for (let y = 0; y < rows; y += 1) {
+        if (hash01(x * 17 + y * 31) > 0.82) ctx.fillRect((x / cols) * width, (y / rows) * height, width / cols * 0.8, height / rows * 0.8);
+      }
+    }
+  }
+  if (overlay === 'lightLeak') {
+    const x = width * (0.75 + Math.sin(local * 0.6) * 0.18);
+    const gradient = ctx.createRadialGradient(x, height * 0.08, 0, x, height * 0.08, unit * 0.95);
+    gradient.addColorStop(0, 'rgba(255,213,128,0.65)');
+    gradient.addColorStop(0.35, 'rgba(255,114,94,0.32)');
+    gradient.addColorStop(1, 'rgba(255,60,90,0)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'flare') {
+    const x = width * (0.68 + Math.sin(local * 0.4) * 0.1);
+    const y = height * (0.28 + Math.cos(local * 0.5) * 0.08);
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, unit * 0.55);
+    gradient.addColorStop(0, 'rgba(255,255,255,0.75)');
+    gradient.addColorStop(0.15, 'rgba(255,238,180,0.35)');
+    gradient.addColorStop(1, 'rgba(255,220,140,0)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(255,245,210,0.6)';
+    ctx.lineWidth = Math.max(1, unit * 0.003);
+    for (let index = 0; index < 6; index += 1) {
+      const angle = (index / 6) * Math.PI * 2 + local * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(angle) * unit * 0.08, y + Math.sin(angle) * unit * 0.08);
+      ctx.lineTo(x + Math.cos(angle) * unit * 0.46, y + Math.sin(angle) * unit * 0.46);
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'spotlight') {
+    const x = width * (0.5 + Math.sin(local * 0.55) * 0.26);
+    const y = height * (0.5 + Math.cos(local * 0.43) * 0.2);
+    const gradient = ctx.createRadialGradient(x, y, unit * 0.05, x, y, unit * 0.62);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(0.55, 'rgba(0,0,0,0.25)');
+    gradient.addColorStop(1, 'rgba(0,0,0,0.78)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+  if (overlay === 'bokeh') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 22; index += 1) {
+      const seed = hash01(index + 3);
+      const x = ((seed * width + Math.sin(local * 0.3 + index) * 30) % width + width) % width;
+      const y = ((hash01(index + 9) * height + Math.cos(local * 0.24 + index) * 24) % height + height) % height;
+      const r = unit * (0.015 + hash01(index + 14) * 0.05);
+      ctx.globalAlpha = alpha * (0.08 + hash01(index + 21) * 0.16);
+      ctx.fillStyle = index % 2 ? 'rgba(255,235,180,1)' : 'rgba(180,235,255,1)';
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'rays') {
+    ctx.globalCompositeOperation = 'screen';
+    ctx.translate(width * 0.5, -height * 0.12);
+    ctx.rotate(Math.sin(local * 0.25) * 0.12);
+    ctx.fillStyle = 'rgba(255,238,180,0.16)';
+    for (let index = 0; index < 9; index += 1) {
+      const angle = (-Math.PI / 2) + (index - 4) * 0.17;
+      const spread = 0.035;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(angle - spread) * height * 1.25, Math.sin(angle - spread) * height * 1.25);
+      ctx.lineTo(Math.cos(angle + spread) * height * 1.25, Math.sin(angle + spread) * height * 1.25);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'aurora') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let band = 0; band < 3; band += 1) {
+      const gradient = ctx.createLinearGradient(0, height * 0.2, width, height * 0.6);
+      gradient.addColorStop(0, `rgba(${60 + band * 40},${220 - band * 30},${200 + band * 20},0)`);
+      gradient.addColorStop(0.5, `rgba(${80 + band * 30},${230 - band * 20},${180 + band * 30},${0.18 - band * 0.04})`);
+      gradient.addColorStop(1, 'rgba(80,180,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(0, height * (0.28 + band * 0.09));
+      for (let x = 0; x <= width; x += width / 12) {
+        ctx.lineTo(x, height * (0.28 + band * 0.09) + Math.sin(x / width * 6 + local * 0.8 + band) * height * 0.07);
+      }
+      ctx.lineTo(width, height);
+      ctx.lineTo(0, height);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'matrix') {
+    const fontSize = Math.max(10, height * 0.032);
+    const columns = 18;
+    ctx.font = `600 ${fontSize}px "Consolas", monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let column = 0; column < columns; column += 1) {
+      const x = (column + 0.5) * (width / columns);
+      const offset = (local * (0.35 + hash01(column + 2) * 0.3) + hash01(column + 5)) % 1;
+      const glyphs = '01アイウエオカキクケコサシスセソ';
+      for (let line = 0; line < 9; line += 1) {
+        const y = ((offset + line / 9) % 1) * height;
+        ctx.globalAlpha = alpha * (0.12 + (line / 9) * 0.3);
+        ctx.fillStyle = line === 0 ? '#c8ffd4' : '#3dff7a';
+        ctx.fillText(glyphs[(column + line) % glyphs.length], x, y);
+      }
+    }
+  }
+  if (overlay === 'halftone' || overlay === 'comic' || overlay === 'boom') {
+    const step = Math.max(5, unit * 0.018);
+    ctx.fillStyle = 'rgba(0,0,0,0.16)';
+    for (let y = step; y < height; y += step * 1.5) {
+      for (let x = step; x < width; x += step * 1.5) {
+        ctx.beginPath();
+        ctx.arc(x, y, step * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    if (overlay === 'boom') {
+      ctx.fillStyle = '#ffd166';
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = Math.max(3, unit * 0.008);
+      ctx.save();
+      ctx.translate(width * 0.62, height * 0.36);
+      ctx.rotate(-0.12);
+      ctx.beginPath();
+      for (let index = 0; index < 14; index += 1) {
+        const angle = (index / 14) * Math.PI * 2;
+        const radius = unit * (index % 2 ? 0.12 : 0.19);
+        ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#111111';
+      ctx.font = `900 ${Math.max(14, unit * 0.055)}px "Arial Black", sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('BOOM!', 0, 0);
+      ctx.restore();
+    }
+  }
+  if (overlay === 'thermal') {
+    ctx.globalCompositeOperation = 'screen';
+    const gradient = ctx.createLinearGradient(0, height, width, 0);
+    gradient.addColorStop(0, 'rgba(20,20,255,0.42)');
+    gradient.addColorStop(0.5, 'rgba(255,190,0,0.28)');
+    gradient.addColorStop(1, 'rgba(255,20,20,0.38)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'xray') {
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = 'rgba(110,210,255,0.22)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'neon' || overlay === 'neonOutline' || overlay === 'outline' || overlay === 'doubleBorder' || overlay === 'extrude' || overlay === 'depth') {
+    ctx.strokeStyle = overlay === 'neon' ? accent : 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = Math.max(2, unit * 0.006);
+    if (overlay === 'neon' || overlay === 'neonOutline') {
+      ctx.shadowColor = accent;
+      ctx.shadowBlur = unit * 0.035;
+    }
+    roundedRect(ctx, unit * 0.04, unit * 0.04, width - unit * 0.08, height - unit * 0.08, unit * 0.03);
+    ctx.stroke();
+    if (overlay === 'doubleBorder') {
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffd166';
+      roundedRect(ctx, unit * 0.075, unit * 0.075, width - unit * 0.15, height - unit * 0.15, unit * 0.02);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+  }
+  if (overlay === 'disco' || overlay === 'party') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 6; index += 1) {
+      const angle = local * 0.5 + (index / 6) * Math.PI * 2;
+      const x = width * 0.5 + Math.cos(angle) * width * 0.4;
+      const y = height * 0.5 + Math.sin(angle) * height * 0.4;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, unit * 0.35);
+      const colors = ['255,80,140', '80,220,255', '255,210,80', '150,100,255'];
+      gradient.addColorStop(0, `rgba(${colors[index % 4]},0.22)`);
+      gradient.addColorStop(1, `rgba(${colors[index % 4]},0)`);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'sale') {
+    ctx.save();
+    ctx.translate(width * 0.5, height * 0.18);
+    ctx.rotate(-0.06);
+    ctx.fillStyle = accent;
+    ctx.fillRect(-width * 0.18, -height * 0.045, width * 0.36, height * 0.09);
+    ctx.fillStyle = '#111111';
+    ctx.font = `900 ${Math.max(12, height * 0.045)}px "Arial Black", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('OFERTA', 0, 0);
+    ctx.restore();
+  }
+  if (overlay === 'action') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = Math.max(1, unit * 0.003);
+    for (let index = 0; index < 18; index += 1) {
+      const y = hash01(index + 2) * height;
+      const x = ((local * 900 + index * 91) % (width + 300)) - 150;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - width * 0.16, y);
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'mosaic') {
+    const cols = 14;
+    const rows = 8;
+    ctx.globalAlpha = alpha * 0.16;
+    for (let x = 0; x < cols; x += 1) {
+      for (let y = 0; y < rows; y += 2) {
+        ctx.fillStyle = (x + y) % 3 === 0 ? '#ffffff' : '#000000';
+        ctx.fillRect((x / cols) * width, (y / rows) * height, width / cols, height / rows);
+      }
+    }
+  }
+  if (overlay === 'doodle') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = Math.max(1.5, unit * 0.004);
+    for (let index = 0; index < 8; index += 1) {
+      const x = hash01(index + 3) * width;
+      const y = hash01(index + 11) * height;
+      ctx.beginPath();
+      for (let step = 0; step < 5; step += 1) {
+        ctx.lineTo(x + Math.sin(local * 0.8 + step + index) * unit * 0.05 + step * unit * 0.02, y + Math.cos(step * 2 + index) * unit * 0.03);
+      }
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'countdown') {
+    const value = Math.max(1, Math.ceil(3 - (local % 4)));
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.font = `900 ${Math.max(36, unit * 0.22)}px "Arial Black", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(value), width / 2, height / 2);
+  }
+  if (overlay === 'curtain') {
+    const amount = Math.max(0, Math.sin(local * 1.2)) * width * 0.18;
+    const gradient = ctx.createLinearGradient(0, 0, amount + unit * 0.08, 0);
+    gradient.addColorStop(0, 'rgba(90,0,20,0.9)');
+    gradient.addColorStop(1, 'rgba(90,0,20,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, amount + unit * 0.08, height);
+    ctx.save();
+    ctx.translate(width, 0);
+    ctx.scale(-1, 1);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, amount + unit * 0.08, height);
+    ctx.restore();
+  }
+  if (overlay === 'wipe') {
+    const x = ((local * 0.8) % 1) * width;
+    const gradient = ctx.createLinearGradient(x - width * 0.08, 0, x + width * 0.08, 0);
+    gradient.addColorStop(0, 'rgba(255,255,255,0)');
+    gradient.addColorStop(0.5, 'rgba(255,255,255,0.65)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - width * 0.08, 0, width * 0.16, height);
+  }
+  if (overlay === 'close') {
+    const bar = height * 0.08;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, bar);
+    ctx.fillRect(0, height - bar, width, bar);
+  }
+  if (overlay === 'impact') {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(2, unit * 0.006);
+    for (let index = 0; index < 20; index += 1) {
+      const angle = (index / 20) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(width / 2 + Math.cos(angle) * unit * 0.12, height / 2 + Math.sin(angle) * unit * 0.12);
+      ctx.lineTo(width / 2 + Math.cos(angle) * unit * (0.2 + hash01(index + 2) * 0.22), height / 2 + Math.sin(angle) * unit * (0.2 + hash01(index + 2) * 0.22));
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'fire') {
+    const gradient = ctx.createLinearGradient(0, height, 0, height * 0.55);
+    gradient.addColorStop(0, 'rgba(255,90,0,0.5)');
+    gradient.addColorStop(1, 'rgba(255,180,0,0)');
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'fog') {
+    for (let index = 0; index < 5; index += 1) {
+      const x = ((local * (12 + index * 3) + index * 300) % (width + 400)) - 200;
+      const gradient = ctx.createRadialGradient(x, height * (0.55 + index * 0.06), 0, x, height * (0.55 + index * 0.06), unit * 0.32);
+      gradient.addColorStop(0, 'rgba(220,230,240,0.14)');
+      gradient.addColorStop(1, 'rgba(220,230,240,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, width, height);
+    }
+  }
+  if (overlay === 'lightning') {
+    if (Math.sin(local * 7) > 0.86) {
+      ctx.strokeStyle = 'rgba(235,245,255,0.9)';
+      ctx.lineWidth = Math.max(2, unit * 0.005);
+      ctx.beginPath();
+      let x = width * 0.58;
+      ctx.moveTo(x, 0);
+      for (let y = 0; y < height; y += height * 0.08) {
+        x += (hash01(y + Math.floor(local * 10)) - 0.5) * unit * 0.08;
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'eyes') {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(0, 0, width, height);
+    const glow = Math.max(0.25, Math.abs(Math.sin(local * 1.4)));
+    ctx.shadowColor = '#ff3b3b';
+    ctx.shadowBlur = unit * 0.04;
+    ctx.fillStyle = `rgba(255,60,60,${glow})`;
+    for (const offset of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(width / 2 + offset * unit * 0.07, height * 0.46, unit * 0.022, unit * 0.014, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+  if (overlay === 'blood') {
+    ctx.fillStyle = 'rgba(150,0,18,0.55)';
+    for (let index = 0; index < 9; index += 1) {
+      const x = hash01(index + 4) * width;
+      const length = height * (0.08 + hash01(index + 8) * 0.3);
+      const w = unit * (0.006 + hash01(index + 12) * 0.018);
+      ctx.beginPath();
+      ctx.moveTo(x - w, 0);
+      ctx.lineTo(x + w, 0);
+      ctx.lineTo(x + w * 0.6, length);
+      ctx.arc(x, length, w * 0.6, 0, Math.PI);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  if (overlay === 'ripple') {
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(1, unit * 0.003);
+    for (let index = 0; index < 5; index += 1) {
+      const p = ((local * 0.35 + index / 5) % 1);
+      ctx.globalAlpha = alpha * (1 - p) * 0.55;
+      ctx.beginPath();
+      ctx.arc(width / 2, height / 2, p * unit * 0.7, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'breeze') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = Math.max(1, unit * 0.003);
+    for (let index = 0; index < 7; index += 1) {
+      const y = hash01(index + 6) * height;
+      const x = ((local * 220 + index * 160) % (width + 300)) - 150;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.bezierCurveTo(x + 60, y - 30, x + 120, y + 30, x + 180, y);
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'gold') {
+    const gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, 'rgba(255,205,110,0.3)');
+    gradient.addColorStop(0.5, 'rgba(255,240,190,0.12)');
+    gradient.addColorStop(1, 'rgba(180,120,20,0.22)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+  }
+  if (overlay === 'print') {
+    ctx.fillStyle = 'rgba(245,235,214,0.1)';
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(60,45,30,0.3)';
+    ctx.lineWidth = Math.max(1, unit * 0.002);
+    for (let index = 0; index < 40; index += 1) {
+      const y = (index / 40) * height;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y + (hash01(index + 3) - 0.5) * 6);
+      ctx.stroke();
+    }
+  }
+  if (overlay === 'glass') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 4; index += 1) {
+      const x = ((index * 0.3 + local * 0.04) % 1) * width;
+      const gradient = ctx.createLinearGradient(x - width * 0.04, 0, x + width * 0.04, height);
+      gradient.addColorStop(0, 'rgba(255,255,255,0)');
+      gradient.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - width * 0.04, 0, width * 0.08, height);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'hologram') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 7; index += 1) {
+      const y = (index / 7) * height + ((local * 40) % (height / 7));
+      const gradient = ctx.createLinearGradient(0, y, width, y);
+      gradient.addColorStop(0, 'rgba(255,80,180,0.12)');
+      gradient.addColorStop(0.5, 'rgba(80,255,230,0.1)');
+      gradient.addColorStop(1, 'rgba(120,120,255,0.12)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, y, width, height / 28);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'prism') {
+    ctx.globalCompositeOperation = 'screen';
+    for (let index = 0; index < 5; index += 1) {
+      ctx.fillStyle = ['rgba(255,60,120,0.1)', 'rgba(255,200,60,0.1)', 'rgba(60,255,180,0.1)', 'rgba(60,180,255,0.1)', 'rgba(180,80,255,0.1)'][index];
+      ctx.beginPath();
+      ctx.moveTo(width * (0.1 + index * 0.16), height);
+      ctx.lineTo(width * (0.45 + index * 0.1), 0);
+      ctx.lineTo(width * (0.62 + index * 0.08), 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (overlay === 'pulse') {
+    const p = (local * 1.3) % 1;
+    ctx.strokeStyle = accent;
+    ctx.globalAlpha = alpha * (1 - p) * 0.6;
+    ctx.lineWidth = Math.max(2, unit * 0.01);
+    ctx.beginPath();
+    ctx.arc(width / 2, height / 2, unit * (0.18 + p * 0.42), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (overlay === 'magic') {
+    ctx.globalCompositeOperation = 'screen';
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, unit * 0.7);
+    gradient.addColorStop(0, 'rgba(180,120,255,0.14)');
+    gradient.addColorStop(1, 'rgba(80,180,255,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  ctx.restore();
+}
+
+function drawEffectOverlay(ctx, clip, local, width, height, alpha) {
+  const spec = effectSpec(clip);
+  if (!spec || alpha <= 0.001) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  drawOverlayFx(ctx, spec, local, width, height, alpha);
+  drawFrameFx(ctx, spec, width, height, alpha);
+  drawParticles(ctx, spec, local, width, height, alpha);
+  ctx.restore();
+}
+
+function drawMediaSource(ctx, clip, media, width, height, pool) {
+  if (media.kind === 'video') {
+    const video = pool.video(clip);
+    const ready = Boolean(video && video.readyState >= 2 && video.videoWidth);
+    // Mientras el navegador resuelve un seek el elemento puede devolver un
+    // fotograma en negro: se dibuja la última imagen buena guardada.
+    if (ready && !video.seeking) {
+      pool.captureFrame(clip.id, video);
+      drawContain(ctx, video, video.videoWidth, video.videoHeight, width, height);
+      return true;
+    }
+    const snapshot = pool.lastFrame(clip.id);
+    if (snapshot && snapshot.width) {
+      drawContain(ctx, snapshot, snapshot.width, snapshot.height, width, height);
+      return true;
+    }
+    if (ready) {
+      drawContain(ctx, video, video.videoWidth, video.videoHeight, width, height);
+      return true;
+    }
+  } else if (media.kind === 'image') {
+    const image = pool.image(clip.mediaId);
+    if (image && image.complete && image.naturalWidth) {
+      drawContain(ctx, image, image.naturalWidth, image.naturalHeight, width, height);
+      return true;
+    }
+  }
+  return false;
+}
+
+function effectMotion(spec, local, width, height) {
+  const motion = { tx: 0, ty: 0, rot: 0, scale: 1, sx: 1, sy: 1 };
+  if (!spec?.move) return motion;
+  const speed = spec.speed || 1;
+  const amount = spec.amount || 1;
+  switch (spec.move) {
+    case 'zoom':
+      motion.scale = 1 + Math.sin(local * 6.2 * speed) * 0.06;
+      break;
+    case 'heartbeat': {
+      const beat = Math.max(0, Math.sin(local * 7.4 * speed));
+      motion.scale = 1 + beat * beat * beat * 0.1;
+      break;
+    }
+    case 'shake':
+      motion.tx = Math.sin(local * 43) * width * 0.006 * amount;
+      motion.ty = Math.cos(local * 37) * height * 0.006 * amount;
+      break;
+    case 'wave':
+      motion.tx = Math.sin(local * 4.1 * speed) * width * 0.028;
+      motion.ty = Math.cos(local * 4.6 * speed) * height * 0.018;
+      motion.rot = Math.sin(local * 4.1 * speed) * 0.012;
+      break;
+    case 'spin':
+      motion.rot = local * 0.55 * speed;
+      break;
+    case 'drift':
+      motion.tx = Math.sin(local * 2.1 * speed) * width * 0.03;
+      motion.ty = Math.cos(local * 1.7 * speed) * height * 0.02;
+      break;
+    case 'swing':
+      motion.rot = Math.sin(local * 3.2 * speed) * 0.04;
+      motion.tx = Math.sin(local * 3.2 * speed) * width * 0.01;
+      break;
+    case 'float':
+      motion.ty = Math.sin(local * 2.7 * speed) * height * 0.02;
+      motion.tx = Math.cos(local * 2.1 * speed) * width * 0.01;
+      break;
+    case 'pan':
+      motion.tx = Math.sin(local * 1.8 * speed) * width * 0.04;
+      break;
+    case 'tilt':
+      motion.ty = Math.sin(local * 1.8 * speed) * height * 0.04;
+      break;
+    case 'roll':
+      motion.rot = Math.sin(local * 2.2 * speed) * 0.055;
+      break;
+    case 'orbit':
+      motion.tx = Math.sin(local * 3.1 * speed) * width * 0.022;
+      motion.ty = Math.cos(local * 3.1 * speed) * height * 0.022;
+      break;
+    case 'jelly':
+      motion.sx = 1 + Math.sin(local * 6.4 * speed) * 0.035;
+      motion.sy = 1 - Math.sin(local * 6.4 * speed) * 0.035;
+      break;
+    case 'rebound':
+      motion.ty = -Math.abs(Math.sin(local * 5.2 * speed)) * height * 0.04;
+      break;
+    case 'parallax':
+      motion.tx = Math.sin(local * 1.2 * speed) * width * 0.03;
+      motion.ty = Math.cos(local * 1.2 * speed) * height * 0.016;
+      motion.scale = 1.04;
+      break;
+    case 'flip':
+      motion.sx = Math.max(0.12, Math.abs(Math.cos(local * 1.7 * speed)));
+      break;
+    case 'cube':
+      motion.sx = Math.max(0.2, Math.abs(Math.cos(local * 1.9 * speed)));
+      motion.tx = Math.sin(local * 1.9 * speed) * width * 0.035;
+      break;
+    case 'tilt3d':
+      motion.sy = 0.84 + Math.sin(local * 2.1 * speed) * 0.08;
+      motion.rot = Math.sin(local * 2.1 * speed) * 0.02;
+      break;
+    case 'zoomIn':
+      motion.scale = 1 + Math.max(0, 1 - local / 1.4) * 0.32;
+      break;
+    case 'impact':
+      motion.scale = 1 + Math.max(0, Math.sin(local * 9.4)) * 0.06;
+      motion.tx = Math.sin(local * 51) * width * 0.003;
+      motion.ty = Math.cos(local * 47) * height * 0.003;
+      break;
+    case 'flap':
+      motion.sy = 1 + Math.sin(local * 8.2 * speed) * 0.035;
+      motion.ty = Math.sin(local * 8.2 * speed) * height * 0.006;
+      break;
+    case 'glitch':
+      motion.tx = (hash01(Math.floor(local * 18)) - 0.5) * width * 0.022;
+      break;
+    case 'cloneGhost':
+      break;
+    default:
+      break;
+  }
+  return motion;
+}
+
+function maskActive(clip) {
+  return !!(clip?.mask?.shape && clip.mask.shape !== 'none');
+}
+
+/* Traza la forma de máscara en el espacio del clip (centro 0,0). */
+function traceMaskPath(ctx, clip, width, height) {
+  const mask = clip.mask || {};
+  const scale = Math.max(0.05, Number(mask.scale ?? 1));
+  const w = width * scale;
+  const h = height * scale;
+  ctx.translate(((mask.x ?? 0) / 100) * width, ((mask.y ?? 0) / 100) * height);
+  if (mask.rotate) ctx.rotate((mask.rotate * Math.PI) / 180);
+  ctx.beginPath();
+  switch (mask.shape) {
+    case 'circle':
+      ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+      break;
+    case 'rect':
+      ctx.rect(-w / 2, -h / 2, w, h);
+      break;
+    case 'rounded':
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(w, h) * 0.12);
+      else ctx.rect(-w / 2, -h / 2, w, h);
+      break;
+    case 'triangle':
+      ctx.moveTo(0, -h / 2);
+      ctx.lineTo(w / 2, h / 2);
+      ctx.lineTo(-w / 2, h / 2);
+      ctx.closePath();
+      break;
+    case 'heart': {
+      const s = Math.min(w, h) / 2;
+      ctx.moveTo(0, s * 0.9);
+      ctx.bezierCurveTo(s * 1.2, s * 0.1, s * 0.6, -s, 0, -s * 0.35);
+      ctx.bezierCurveTo(-s * 0.6, -s, -s * 1.2, s * 0.1, 0, s * 0.9);
+      ctx.closePath();
+      break;
+    }
+    case 'star': {
+      const outer = Math.min(w, h) / 2;
+      const inner = outer * 0.45;
+      for (let index = 0; index < 10; index += 1) {
+        const radius = index % 2 === 0 ? outer : inner;
+        const angle = (Math.PI / 5) * index - Math.PI / 2;
+        const px = Math.cos(angle) * radius;
+        const py = Math.sin(angle) * radius;
+        if (index === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'linear':
+      ctx.moveTo(-w / 2, -h / 2);
+      ctx.lineTo(w * 0.1, -h / 2);
+      ctx.lineTo(-w * 0.1, h / 2);
+      ctx.lineTo(-w / 2, h / 2);
+      ctx.closePath();
+      break;
+    case 'mirror':
+      ctx.rect(-w / 2, -h / 2, w / 2, h);
+      break;
+    default:
+      ctx.rect(-w / 2, -h / 2, w, h);
+  }
+}
+
+/* Recorta el clip con su máscara. Devuelve true si hay que restaurar. */
+function applyMask(ctx, clip, width, height) {
+  if (!maskActive(clip)) return false;
+  const invert = !!clip.mask.invert;
+  ctx.save();
+  if (invert) {
+    // Invertir = dibujar todo menos la forma, con regla evenodd.
+    ctx.beginPath();
+    ctx.rect(-width * 2, -height * 2, width * 4, height * 4);
+    traceMaskPath(ctx, clip, width, height);
+    ctx.clip('evenodd');
+  } else {
+    traceMaskPath(ctx, clip, width, height);
+    ctx.clip();
+  }
+  return true;
+}
+
+function drawAiRemove(ctx, clip, width, height) {
+  if (!clip.aiRemove) return;
+  const area = clip.aiRemoveArea || {};
+  const w = width * Math.max(0.02, Math.min(1, (area.w ?? 30) / 100));
+  const h = height * Math.max(0.02, Math.min(1, (area.h ?? 30) / 100));
+  const dx = (width * (area.x ?? 0)) / 100 - w / 2;
+  const dy = (height * (area.y ?? 0)) / 100 - h / 2;
+  const sx = dx + width / 2;
+  const sy = dy + height / 2;
+  const blur = Math.max(4, Math.min(60, Number(clip.aiRemoveStrength ?? 28)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(dx, dy, w, h);
+  ctx.clip();
+  ctx.filter = `blur(${blur}px)`;
+  try {
+    ctx.drawImage(ctx.canvas, sx, sy, w, h, dx, dy, w, h);
+  } catch {
+    // El canvas puede no ser accesible como fuente en algunos contextos.
+  }
+  ctx.restore();
+}
+
+function drawVignette(ctx, clip, width, height) {
+  const amount = Number(clip.adjust?.vignette ?? 0);
+  if (amount <= 0) return;
+  const strength = Math.min(0.85, amount / 100);
+  const radius = Math.hypot(width, height) / 2;
+  const gradient = ctx.createRadialGradient(0, 0, radius * 0.42, 0, 0, radius);
+  gradient.addColorStop(0, 'rgba(0,0,0,0)');
+  gradient.addColorStop(1, `rgba(0,0,0,${strength})`);
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = gradient;
+  ctx.fillRect(-width, -height, width * 2, height * 2);
+  ctx.restore();
+}
+
+function applyChromaKeyPixels(ctx, clip, width, height) {
+  const ck = clip?.chromaKey || {};
+  const keyColor = ck.color || '#00ff00';
+  const strength = (ck.strength ?? 20) / 100;
+  const feather = (ck.feather ?? 0) / 100;
+  const shadow = (ck.shadow ?? 0) / 100;
+  const cleanup = (ck.cleanup ?? 0) / 100;
+  let kr = 0, kg = 255, kb = 0;
+  if (keyColor.startsWith('#') && keyColor.length >= 7) {
+    kr = parseInt(keyColor.slice(1, 3), 16);
+    kg = parseInt(keyColor.slice(3, 5), 16);
+    kb = parseInt(keyColor.slice(5, 7), 16);
+  }
+  let imgData;
+  try { imgData = ctx.getImageData(0, 0, width, height); }
+  catch { return; }
+  const data = imgData.data;
+  const threshold = 0.15 + strength * 0.6 + cleanup * 0.15;
+  const featherBand = Math.max(0.02, feather + 0.05);
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i], g = data[i + 1], b = data[i + 2];
+    const dist = Math.sqrt((r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2) / 441.67;
+    if (dist < threshold) {
+      const alpha = Math.min(1, (threshold - dist) / featherBand);
+      data[i + 3] = Math.round(data[i + 3] * (1 - alpha));
+    } else if (shadow > 0) {
+      // Oscurecer ligeramente el resto para simular sombra del recorte
+      data[i] = Math.round(data[i] * (1 - shadow * 0.25));
+      data[i + 1] = Math.round(data[i + 1] * (1 - shadow * 0.25));
+      data[i + 2] = Math.round(data[i + 2] * (1 - shadow * 0.25));
+    }
+  }
+  // Despill: reducir el componente del color clave en los píxeles restantes
+  // Para verde: g = min(g, max(r, b)) en píxeles cercanos al color clave
+  // Para azul: b = min(b, max(r, g))
+  if (ck.despill !== false) {
+    const despillStrength = 0.3 + strength * 0.4;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 0) { // píxel no eliminado
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        const dist = Math.sqrt((r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2) / 441.67;
+        if (dist < threshold + 0.15) { // solo en bordes cercanos
+          const weight = 1 - Math.min(1, dist / (threshold + 0.15));
+          if (kg > kr && kg > kb) {
+            // Verde: limitar canal verde
+            data[i + 1] = Math.round(g * (1 - weight * despillStrength) + Math.max(r, b) * weight * despillStrength);
+          } else if (kb > kr && kb > kg) {
+            // Azul: limitar canal azul
+            data[i + 2] = Math.round(b * (1 - weight * despillStrength) + Math.max(r, g) * weight * despillStrength);
+          } else if (kr > kg && kr > kb) {
+            // Rojo: limitar canal rojo
+            data[i] = Math.round(r * (1 - weight * despillStrength) + Math.max(g, b) * weight * despillStrength);
+          }
+        }
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+function drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter) {
+  if (!clip?.chromaKey?.active) {
+    drawMediaSource(ctx, clip, media, width, height, pool);
+    return;
+  }
+  const off = document.createElement('canvas');
+  off.width = width;
+  off.height = height;
+  const oc = off.getContext('2d');
+  oc.translate(width / 2, height / 2);
+  drawMediaSource(oc, clip, media, width, height, pool);
+  applyChromaKeyPixels(oc, clip, width, height);
+  ctx.drawImage(off, -width / 2, -height / 2);
+}
+
+function drawStroke(ctx, clip, width, height) {
+  const stroke = clip?.cutoutStroke;
+  if (!stroke?.active || !maskActive(clip)) return;
+  const color = stroke.color || '#ffffff';
+  const size = Math.max(1, Number(stroke.size ?? 10));
+  const spacing = Number(stroke.spacing ?? 0);
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = size;
+  if (spacing > 0) ctx.setLineDash([spacing, spacing]);
+  else ctx.setLineDash([]);
+  traceMaskPath(ctx, clip, width, height);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* Eliminación personalizada: se pintan zonas sobre el vídeo y se recortan
+   del clip antes de componerlo, para que se vean las capas inferiores. */
+let cutoutScratch = null;
+
+function customCutoutStrokes(clip) {
+  return clip?.customCutout?.active ? (clip.customCutout.strokes || []) : [];
+}
+
+function eraseCutoutStrokes(targetCtx, strokes, width, height) {
+  if (!strokes.length) return;
+  targetCtx.save();
+  targetCtx.globalCompositeOperation = 'destination-out';
+  targetCtx.globalAlpha = 1;
+  targetCtx.fillStyle = '#000';
+  targetCtx.strokeStyle = '#000';
+  for (const stroke of strokes) {
+    const points = stroke.points || [];
+    if (!points.length) continue;
+    const radius = Math.max(0.004, stroke.radius || 0.02) * width;
+    if (stroke.closed && points.length > 2) {
+      targetCtx.beginPath();
+      points.forEach((point, index) => {
+        const x = point.x * width;
+        const y = point.y * height;
+        if (index === 0) targetCtx.moveTo(x, y);
+        else targetCtx.lineTo(x, y);
+      });
+      targetCtx.closePath();
+      targetCtx.fill();
+    } else {
+      targetCtx.lineWidth = radius * 2;
+      targetCtx.lineCap = 'round';
+      targetCtx.lineJoin = 'round';
+      targetCtx.beginPath();
+      targetCtx.moveTo(points[0].x * width, points[0].y * height);
+      if (points.length === 1) {
+        targetCtx.arc(points[0].x * width, points[0].y * height, radius, 0, Math.PI * 2);
+        targetCtx.fill();
+      } else {
+        for (let index = 1; index < points.length; index += 1) {
+          targetCtx.lineTo(points[index].x * width, points[index].y * height);
+        }
+        targetCtx.stroke();
+      }
+    }
+  }
+  targetCtx.restore();
+}
+
+/* En la vista previa se muestra una cuadrícula en los huecos para que el
+   borrado sea visible incluso sobre zonas oscuras. En la exportación no. */
+let cutoutCheckerTile = null;
+
+function cutoutCheckerPattern(targetCtx) {
+  if (!cutoutCheckerTile) {
+    cutoutCheckerTile = document.createElement('canvas');
+    cutoutCheckerTile.width = 16;
+    cutoutCheckerTile.height = 16;
+    const tileCtx = cutoutCheckerTile.getContext('2d');
+    tileCtx.fillStyle = '#d3d9d9';
+    tileCtx.fillRect(0, 0, 16, 16);
+    tileCtx.fillStyle = '#87928f';
+    tileCtx.fillRect(0, 0, 8, 8);
+    tileCtx.fillRect(8, 8, 8, 8);
+  }
+  return targetCtx.createPattern(cutoutCheckerTile, 'repeat');
+}
+
+function fillCutoutChecker(targetCtx, strokes, width, height) {
+  if (!strokes.length) return;
+  const pattern = cutoutCheckerPattern(targetCtx);
+  targetCtx.save();
+  targetCtx.globalCompositeOperation = 'destination-over';
+  targetCtx.globalAlpha = 1;
+  targetCtx.fillStyle = pattern;
+  targetCtx.strokeStyle = pattern;
+  for (const stroke of strokes) {
+    const points = stroke.points || [];
+    if (!points.length) continue;
+    const radius = Math.max(0.004, stroke.radius || 0.02) * width;
+    if (stroke.closed && points.length > 2) {
+      targetCtx.beginPath();
+      points.forEach((point, index) => {
+        const x = point.x * width;
+        const y = point.y * height;
+        if (index === 0) targetCtx.moveTo(x, y);
+        else targetCtx.lineTo(x, y);
+      });
+      targetCtx.closePath();
+      targetCtx.fill();
+    } else {
+      targetCtx.lineWidth = radius * 2;
+      targetCtx.lineCap = 'round';
+      targetCtx.lineJoin = 'round';
+      targetCtx.beginPath();
+      targetCtx.moveTo(points[0].x * width, points[0].y * height);
+      if (points.length === 1) {
+        targetCtx.arc(points[0].x * width, points[0].y * height, radius, 0, Math.PI * 2);
+        targetCtx.fill();
+      } else {
+        for (let index = 1; index < points.length; index += 1) {
+          targetCtx.lineTo(points[index].x * width, points[index].y * height);
+        }
+        targetCtx.stroke();
+      }
+    }
+  }
+  targetCtx.restore();
+}
+
+/* Cuadrícula de transparencia bajo el resultado del matting IA. Solo se
+   usa en la vista previa; la exportación no pasa showCutoutChecker. */
+function fillMatteChecker(targetCtx, width, height) {
+  const pattern = cutoutCheckerPattern(targetCtx);
+  targetCtx.save();
+  targetCtx.globalCompositeOperation = 'destination-over';
+  targetCtx.globalAlpha = 1;
+  targetCtx.fillStyle = pattern;
+  targetCtx.fillRect(0, 0, width, height);
+  targetCtx.restore();
+}
+
+function drawMediaLayer(ctx, layer, width, height, pool, options = {}) {
+  const strokes = customCutoutStrokes(layer.clip);
+  const wantsMatteChecker = !!layer.clip.autoCutout && !!options.showCutoutChecker;
+  if (!strokes.length && !wantsMatteChecker) {
+    drawMediaLayerRaw(ctx, layer, width, height, pool, options);
+    return;
+  }
+  const scale = Math.min(2.5, (ctx.canvas?.width || width) / Math.max(1, width)) || 1;
+  const pixelWidth = Math.max(1, Math.round(width * scale));
+  const pixelHeight = Math.max(1, Math.round(height * scale));
+  if (!cutoutScratch) cutoutScratch = document.createElement('canvas');
+  if (cutoutScratch.width !== pixelWidth || cutoutScratch.height !== pixelHeight) {
+    cutoutScratch.width = pixelWidth;
+    cutoutScratch.height = pixelHeight;
+  }
+  const scratchCtx = cutoutScratch.getContext('2d');
+  scratchCtx.setTransform(1, 0, 0, 1, 0, 0);
+  scratchCtx.clearRect(0, 0, pixelWidth, pixelHeight);
+  scratchCtx.setTransform(scale, 0, 0, scale, 0, 0);
+  drawMediaLayerRaw(scratchCtx, layer, width, height, pool, options);
+  scratchCtx.globalCompositeOperation = 'source-over';
+  scratchCtx.globalAlpha = 1;
+  scratchCtx.filter = 'none';
+  eraseCutoutStrokes(scratchCtx, strokes, width, height);
+  if (options.showCutoutChecker) {
+    if (wantsMatteChecker) fillMatteChecker(scratchCtx, width, height);
+    if (strokes.length) fillCutoutChecker(scratchCtx, strokes, width, height);
+  }
+  ctx.drawImage(cutoutScratch, 0, 0, width, height);
+}
+
+/* Dibuja el resultado del matting IA si ya está calculado para este frame. */
+function drawMattingSource(ctx, clip, media, width, height, pool, filter, local) {
+  pool.requestMatte?.(clip, local);
+  const matte = pool.getMatte?.(clip, local);
+  if (!matte) return false;
+  const previous = ctx.filter;
+  const previousAlpha = ctx.globalAlpha;
+  const intensity = Math.max(0, Math.min(1, Number(clip.autoCutoutIntensity ?? 1)));
+  if (intensity < 0.999) {
+    // Intensidad parcial: se ve el original debajo y el recorte se mezcla.
+    drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter);
+    ctx.globalAlpha = previousAlpha * intensity;
+  }
+  if (filter && filter !== 'none') ctx.filter = filter;
+  drawContain(ctx, matte, matte.width, matte.height, width, height);
+  ctx.filter = previous;
+  ctx.globalAlpha = previousAlpha;
+  return true;
+}
+
+function drawMediaLayerRaw(ctx, layer, width, height, pool, options = {}) {
+  const { clip, local } = layer;
+  const media = clip.mediaId ? pool.mediaFor(clip.mediaId) : null;
+  if (!media) return;
+  const time = (clip.start || 0) + local;
+  const tr = transformAt(clip, time);
+  const anim = options.ignoreTransition ? null : transitionState(clip, local);
+  const alpha = (options.ignoreFades ? tr.opacity : clipAlpha(clip, local)) * transitionAlpha(anim);
+  if (alpha <= 0.002) return;
+  const filter = clipFilter(clip);
+  const spec = effectSpec(clip);
+  const motion = effectMotion(spec, local, width, height);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (filter !== 'none') ctx.filter = filter;
+  if (anim && ['blur', 'dolly', 'crosszoom'].includes(anim.type)) {
+    const amount = (1 - anim.p) * (anim.type === 'blur' ? 10 : 6);
+    ctx.filter = `${filter === 'none' ? '' : `${filter} `}blur(${amount}px)`;
+  }
+  ctx.translate(width / 2 + (tr.x / 100) * width, height / 2 + (tr.y / 100) * height);
+  if (tr.rotate) ctx.rotate((tr.rotate * Math.PI) / 180);
+  applyEntrance(ctx, anim, width, height);
+  ctx.translate(motion.tx, motion.ty);
+  if (motion.rot) ctx.rotate(motion.rot);
+  const flipSign = clip.flipH ? -1 : 1;
+  ctx.scale(tr.scaleX * motion.scale * motion.sx * flipSign, tr.scaleY * motion.scale * motion.sy);
+  wipeClip(ctx, anim, width, height);
+  const restoreMask = applyMask(ctx, clip, width, height);
+  if (spec?.mirror) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-width / 2, -height / 2, width / 2, height);
+    ctx.clip();
+    if (!drawMattingSource(ctx, clip, media, width, height, pool, filter, local)) drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter);
+    ctx.restore();
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.beginPath();
+    ctx.rect(-width / 2, -height / 2, width / 2, height);
+    ctx.clip();
+    if (!drawMattingSource(ctx, clip, media, width, height, pool, filter, local)) drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter);
+    ctx.restore();
+  } else {
+    if (!drawMattingSource(ctx, clip, media, width, height, pool, filter, local)) drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter);
+    const ghosts = spec?.ghost || (spec?.move === 'cloneGhost' ? 2 : 0);
+    for (let index = 0; index < ghosts; index += 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha * (0.16 + index * 0.04);
+      if (spec.move === 'cloneGhost') {
+        const direction = index % 2 === 0 ? -1 : 1;
+        ctx.translate(direction * width * (0.16 + index * 0.04), 0);
+        ctx.scale(0.92, 0.92);
+      } else {
+        ctx.translate(width * 0.04 * (index + 1), height * 0.006 * (index + 1));
+      }
+      if (!drawMattingSource(ctx, clip, media, width, height, pool, filter, local)) drawMediaSourceChroma(ctx, clip, media, width, height, pool, filter);
+      ctx.restore();
+    }
+  }
+  drawAiRemove(ctx, clip, width, height);
+  drawStroke(ctx, clip, width, height);
+  drawVignette(ctx, clip, width, height);
+  if (restoreMask) ctx.restore();
+  ctx.restore();
+  drawEffectOverlay(ctx, clip, local, width, height, alpha);
+}
+
+const stickerImageCache = new Map();
+
+function stickerImage(src, fallback = null) {
+  const key = src + '|' + (fallback || '');
+  let img = stickerImageCache.get(key);
+  if (!img) {
+    img = new Image();
+    img.onload = () => window.dispatchEvent(new CustomEvent('opencup:glfx'));
+    img.onerror = () => {
+      if (fallback && !img.dataset.retried) {
+        img.dataset.retried = '1';
+        img.src = `/api/img?u=${encodeURIComponent(fallback)}`;
+        return;
+      }
+      console.warn('[cupcraft] no se pudo cargar el sticker', src);
+    };
+    img.src = src;
+    stickerImageCache.set(key, img);
+  }
+  return img;
+}
+
+function drawStickerLayer(ctx, layer, width, height, options = {}) {
+  const { clip, local } = layer;
+  const sticker = clip.sticker || {};
+  const time = (clip.start || 0) + local;
+  const tr = transformAt(clip, time);
+  const anim = options.ignoreTransition ? null : transitionState(clip, local);
+  const alpha = (options.ignoreFades ? tr.opacity : clipAlpha(clip, local)) * transitionAlpha(anim);
+  if (alpha <= 0.002) return;
+  const fontSize = Math.max(8, (sticker.size ?? 220) * (height / 1080));
+  const offsetX = (tr.x + (sticker.x || 0)) / 100 * width;
+  const offsetY = (tr.y + (sticker.y || 0)) / 100 * height;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(width / 2 + offsetX, height / 2 + offsetY);
+  ctx.rotate(((tr.rotate + (sticker.rotate || 0)) * Math.PI) / 180);
+  applyEntrance(ctx, anim, width, height);
+  let sx = tr.scaleX;
+  let sy = tr.scaleY;
+  if (clip.effect === 'zoomPulse') {
+    const pulse = 1 + Math.sin(local * 6.2) * 0.055;
+    sx *= pulse;
+    sy *= pulse;
+  }
+  ctx.scale(sx, sy);
+  wipeClip(ctx, anim, width, height);
+  if (sticker.src) {
+    const box = fontSize * 2.4;
+    // Los stickers animados se dibujan por fotograma según el tiempo del clip:
+    // así avanzan al reproducir, se congelan al pausar y siguen al cursor.
+    const animation = stickerAnimation(sticker.src, sticker.srcFallback);
+    const frame = animation
+      ? stickerAnimationFrame(animation, local * (clip.speed || 1))
+      : null;
+    if (frame) {
+      ctx.drawImage(frame, -box / 2, -box / 2, box, box);
+    } else {
+      const img = stickerImage(sticker.src, sticker.srcFallback);
+      if (img.complete && img.naturalWidth) {
+        ctx.drawImage(img, -box / 2, -box / 2, box, box);
+      } else {
+        ctx.font = `${Math.max(10, fontSize * 0.35)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        ctx.fillText('cargando…', 0, 0);
+      }
+    }
+    ctx.restore();
+    return;
+  }
+  const content = String(sticker.content || '✨');
+  const family = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+  ctx.font = `${fontSize}px ${family}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (sticker.background && sticker.background !== 'transparent') {
+    const radius = fontSize * 0.68;
+    ctx.fillStyle = sticker.background;
+    ctx.beginPath();
+    if (sticker.shape === 'square') {
+      roundedRect(ctx, -radius, -radius, radius * 2, radius * 2, radius * 0.28);
+    } else {
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+  if (sticker.shadow !== false) {
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = fontSize * 0.08;
+    ctx.shadowOffsetY = fontSize * 0.03;
+  }
+  ctx.fillStyle = sticker.color || '#ffffff';
+  ctx.fillText(content, 0, fontSize * 0.04);
+  ctx.restore();
+}
+
+function colorWithAlpha(color, alpha = 1) {
+  const value = String(color || '#ffffff');
+  const short = value.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (short) {
+    return `rgba(${parseInt(short[1] + short[1], 16)}, ${parseInt(short[2] + short[2], 16)}, ${parseInt(short[3] + short[3], 16)}, ${alpha})`;
+  }
+  const long = value.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i);
+  if (long) {
+    return `rgba(${parseInt(long[1], 16)}, ${parseInt(long[2], 16)}, ${parseInt(long[3], 16)}, ${alpha})`;
+  }
+  return value;
+}
+
+function easeOutCubic(value) {
+  return 1 - ((1 - value) ** 3);
+}
+
+function easeOutBack(value) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * ((value - 1) ** 3) + c1 * ((value - 1) ** 2);
+}
+
+function textAnimationState(text, local, duration) {
+  const id = text?.animation;
+  if (!id || id === 'none') return null;
+  const spec = textAnimationById(id);
+  if (!spec) return null;
+  const phase = text.animationPhase || spec.phase || 'in';
+  const animDuration = Math.max(0.1, textNumber(text.animationDuration, spec.duration || 0.6));
+  let progress = 1;
+  if (phase === 'in') progress = clamp01(local / animDuration);
+  else if (phase === 'out') progress = clamp01((Math.max(0.001, duration) - local) / animDuration);
+  const eased = easeOutCubic(progress);
+  const state = {
+    id, phase, progress, eased,
+    alpha: 1, dx: 0, dy: 0, scale: 1, rotate: 0, blur: 0, reveal: 1,
+  };
+  const t = local;
+  switch (id) {
+    case 'in-fade':
+      state.alpha = eased;
+      break;
+    case 'in-slide-up':
+      state.alpha = eased;
+      state.dy = (1 - eased) * 0.6;
+      break;
+    case 'in-slide-down':
+      state.alpha = eased;
+      state.dy = -(1 - eased) * 0.6;
+      break;
+    case 'in-slide-left':
+      state.alpha = eased;
+      state.dx = (1 - eased) * 0.7;
+      break;
+    case 'in-slide-right':
+      state.alpha = eased;
+      state.dx = -(1 - eased) * 0.7;
+      break;
+    case 'in-zoom':
+      state.alpha = eased;
+      state.scale = 0.7 + eased * 0.3;
+      break;
+    case 'in-pop':
+      state.alpha = clamp01(eased * 3);
+      state.scale = 0.3 + easeOutBack(eased) * 0.7;
+      break;
+    case 'in-typewriter':
+      state.reveal = eased;
+      break;
+    case 'in-spin':
+      state.alpha = eased;
+      state.rotate = (1 - eased) * -22;
+      break;
+    case 'in-blur':
+      state.alpha = clamp01(eased * 1.5);
+      state.blur = (1 - eased) * 0.24;
+      break;
+    case 'in-bounce':
+      state.alpha = clamp01(eased * 1.5);
+      state.scale = 0.55 + easeOutBack(eased) * 0.45;
+      break;
+    case 'in-diagonal':
+      state.alpha = eased;
+      state.dx = (1 - eased) * 0.45;
+      state.dy = -(1 - eased) * 0.35;
+      break;
+    case 'in-flip':
+      state.alpha = eased;
+      state.scale = 0.25 + eased * 0.75;
+      state.rotate = (1 - eased) * 160;
+      break;
+    case 'out-fade':
+      state.alpha = eased;
+      break;
+    case 'out-slide-up':
+      state.alpha = eased;
+      state.dy = -(1 - eased) * 0.45;
+      break;
+    case 'out-slide-down':
+      state.alpha = eased;
+      state.dy = (1 - eased) * 0.45;
+      break;
+    case 'out-slide-left':
+      state.alpha = eased;
+      state.dx = -(1 - eased) * 0.55;
+      break;
+    case 'out-slide-right':
+      state.alpha = eased;
+      state.dx = (1 - eased) * 0.55;
+      break;
+    case 'out-zoom':
+      state.alpha = eased;
+      state.scale = 1 + (1 - eased) * 0.5;
+      break;
+    case 'out-blur':
+      state.alpha = eased;
+      state.blur = (1 - eased) * 0.28;
+      break;
+    case 'out-spin':
+      state.alpha = eased;
+      state.rotate = (1 - eased) * -150;
+      state.scale = 0.7 + eased * 0.3;
+      break;
+    case 'loop-wave':
+      state.dy = Math.sin(t * 3.2) * 0.08;
+      break;
+    case 'loop-pulse':
+      state.scale = 1 + Math.sin(t * 4.4) * 0.035;
+      break;
+    case 'loop-shake':
+      state.dx = Math.sin(t * 38) * 0.04 + Math.sin(t * 23) * 0.02;
+      break;
+    case 'loop-swing':
+      state.rotate = Math.sin(t * 2.6) * 3.5;
+      break;
+    case 'loop-float':
+      state.dy = Math.sin(t * 1.9) * 0.06;
+      break;
+    case 'loop-blink':
+      state.alpha = 0.55 + (Math.sin(t * 5) + 1) * 0.225;
+      break;
+    case 'loop-orbit':
+      state.dx = Math.cos(t * 2.8) * 0.08;
+      state.dy = Math.sin(t * 2.8) * 0.08;
+      break;
+    case 'loop-wiggle':
+      state.rotate = Math.sin(t * 7) * 4.5;
+      break;
+    default:
+      break;
+  }
+  return state;
+}
+
+/* Desfase de previsualización para las animaciones mientras el reproductor
+   está pausado: los bucles avanzan y las entradas/salidas se repiten. */
+function pausedAnimOffset(text, clock) {
+  const spec = textAnimationById(text?.animation);
+  if (!spec) return 0;
+  const phase = text.animationPhase || spec.phase || 'in';
+  if (phase === 'loop') return clock;
+  const duration = Math.max(0.1, textNumber(text.animationDuration, spec.duration || 0.6));
+  // Entrada: se reproduce una vez y deja el texto visible.
+  if (phase === 'in') return Math.min(duration * 0.1 + clock, duration);
+  // Salida: se repite para poder verla estando en pausa.
+  return clock % (duration + 0.8);
+}
+
+function paintTextGlyph(ctx, run, x, y, text, metrics, color) {
+  const strokeWidth = Math.max(0, textNumber(text.strokeWidth, 0)) *
+    metrics.fontSize *
+    (text.strokeMode === 'inside' ? 0.6 : text.strokeMode === 'center' ? 0.8 : 1);
+  if (strokeWidth > 0.01) {
+    ctx.lineWidth = strokeWidth;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.miterLimit = 2;
+    ctx.strokeStyle = colorWithAlpha(text.strokeColor || '#000000', textNumber(text.strokeAlpha, 1));
+    ctx.strokeText(run, x, y);
+  }
+  ctx.fillStyle = color || text.color || '#ffffff';
+  ctx.fillText(run, x, y);
+}
+
+/* Pinta un fragmento una sola vez y devuelve el ancho real usado. Así el
+   resaltado de subtítulos no necesita repintar encima de la palabra base. */
+function paintTextSegment(ctx, run, x, y, text, metrics, color) {
+  const spacing = metrics.letterSpacing;
+  if (Math.abs(spacing) > 0.01) {
+    let cursor = x;
+    for (const character of Array.from(run)) {
+      paintTextGlyph(ctx, character, cursor, y, text, metrics, color);
+      cursor += ctx.measureText(character).width + spacing;
+    }
+    return cursor - x;
+  }
+  paintTextGlyph(ctx, run, x, y, text, metrics, color);
+  return measureRun(ctx, run, spacing);
+}
+
+function paintTextLine(ctx, line, x, y, text, metrics) {
+  if (!line) return;
+  paintTextSegment(ctx, line, x, y, text, metrics);
+}
+
+function paintCurvedLine(ctx, line, centerX, y, text, metrics) {
+  const characters = Array.from(line);
+  if (!characters.length) return;
+  const spacing = metrics.letterSpacing;
+  const widths = characters.map((character) => ctx.measureText(character).width);
+  const total = widths.reduce((sum, width) => sum + width, 0) + spacing * Math.max(0, characters.length - 1);
+  const curve = textNumber(text.curve, 0);
+  const span = Math.max(0.02, Math.min(0.98, Math.abs(curve) / 100) * Math.PI);
+  const radius = Math.max(total / span, metrics.fontSize * 0.2);
+  const direction = curve >= 0 ? 1 : -1;
+  let cursor = 0;
+  ctx.save();
+  ctx.textAlign = 'center';
+  characters.forEach((character, index) => {
+    const width = widths[index];
+    const center = cursor + width / 2;
+    const angle = direction * ((center - total / 2) / radius);
+    const px = centerX + radius * Math.sin(angle);
+    const py = y + (direction > 0 ? radius * (1 - Math.cos(angle)) : -radius * (1 - Math.cos(angle)));
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(direction > 0 ? angle : -angle);
+    paintTextGlyph(ctx, character, 0, 0, text, metrics);
+    ctx.restore();
+    cursor += width + spacing;
+  });
+  ctx.restore();
+  ctx.textAlign = 'left';
+}
+
+function paintTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo = {}) {
+  const curve = textNumber(text.curve, 0);
+  const align = text.align === 'left' ? 'left' : text.align === 'right' ? 'right' : 'center';
+  const typewriter = Boolean(revealInfo.typewriter);
+  const reveal = typewriter ? Math.max(0, Math.min(1, textNumber(revealInfo.reveal, 1))) : 1;
+  const totalChars = metrics.lines.reduce((sum, line) => sum + Array.from(line).length + 1, 0);
+  let remaining = Math.max(0, Math.ceil(totalChars * reveal));
+  metrics.lines.forEach((line, index) => {
+    let shown = line;
+    if (typewriter) {
+      const characters = Array.from(line);
+      const count = Math.max(0, Math.min(characters.length, remaining));
+      shown = characters.slice(0, count).join('');
+      remaining -= characters.length + 1;
+    }
+    if (!shown) return;
+    const lineWidth = measureRun(ctx, line, metrics.letterSpacing);
+    const startX = align === 'left'
+      ? -blockWidth / 2
+      : align === 'right'
+        ? blockWidth / 2 - lineWidth
+        : -lineWidth / 2;
+    const baselineY = startY + index * metrics.lineHeight;
+    if (Math.abs(curve) > 1) paintCurvedLine(ctx, shown, startX + lineWidth / 2, baselineY, text, metrics);
+    else paintTextLine(ctx, shown, startX, baselineY, text, metrics);
+    if (text.underline && Math.abs(curve) <= 1) {
+      ctx.beginPath();
+      ctx.moveTo(startX, baselineY + metrics.fontSize * 0.42);
+      ctx.lineTo(startX + lineWidth, baselineY + metrics.fontSize * 0.42);
+      ctx.strokeStyle = text.color || '#ffffff';
+      ctx.lineWidth = Math.max(1, metrics.fontSize * 0.045);
+      ctx.stroke();
+    }
+  });
+}
+
+function normalizedCaptionWord(word) {
+  return String(word || '').toLocaleLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/* Asigna el timing de cada palabra al texto ya partido en líneas. Se empareja
+   en orden para que una palabra repetida no pinte siempre la primera. */
+function captionWordStates(text, metrics, sourceTime) {
+  const mode = text.captionAnimation || 'none';
+  if (mode === 'none' || !Array.isArray(text.words) || !text.words.length) return null;
+  const timed = text.words
+    .map((entry) => {
+      const start = Number(entry?.start);
+      const end = Number(entry?.end ?? (start + 0.3));
+      const word = String(entry?.word ?? entry?.text ?? '').trim();
+      if (!word || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+      return { word, start, end };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.start - b.start);
+  if (!timed.length) return null;
+
+  const flat = [];
+  metrics.lines.forEach((line, lineIndex) => {
+    line.split(/\s+/).filter(Boolean).forEach((word, wordIndex) => {
+      flat.push({ lineIndex, wordIndex, word });
+    });
+  });
+  const assigned = new Array(flat.length).fill(null);
+  let cursor = 0;
+  for (const entry of timed) {
+    const target = normalizedCaptionWord(entry.word);
+    let found = -1;
+    for (let i = cursor; i < flat.length; i += 1) {
+      if (normalizedCaptionWord(flat[i].word) === target) { found = i; break; }
+    }
+    if (found < 0) {
+      for (let i = 0; i < flat.length; i += 1) {
+        if (!assigned[i] && normalizedCaptionWord(flat[i].word) === target) { found = i; break; }
+      }
+    }
+    if (found >= 0) {
+      assigned[found] = entry;
+      cursor = found + 1;
+    }
+  }
+  for (let i = 0; i < flat.length; i += 1) {
+    if (assigned[i]) continue;
+    const next = assigned.slice(i + 1).find(Boolean);
+    const from = assigned.slice(0, i).reverse().find(Boolean);
+    const a = from ? from.end : timed[0].start;
+    const b = next ? next.start : timed[timed.length - 1].end;
+    const guess = Math.max(a, Math.min(b, (a + b) / 2));
+    assigned[i] = { word: flat[i].word, start: guess, end: Math.max(guess + 0.15, b) };
+  }
+
+  const highlight = text.highlight || '#ffeb3b';
+  const base = text.color || '#ffffff';
+  const states = metrics.lines.map(() => []);
+  flat.forEach((entry, index) => {
+    const timing = assigned[index];
+    const active = sourceTime >= timing.start && sourceTime < timing.end;
+    const done = sourceTime >= timing.end;
+    states[entry.lineIndex][entry.wordIndex] = {
+      color: mode === 'karaoke' && (active || done) ? highlight : base,
+      pop: mode === 'pop' && active,
+    };
+  });
+  return states;
+}
+
+function paintCaptionBlock(ctx, text, metrics, blockWidth, startY, wordStates) {
+  const align = text.align === 'left' ? 'left' : text.align === 'right' ? 'right' : 'center';
+  metrics.lines.forEach((line, index) => {
+    const words = line.split(/\s+/).filter(Boolean);
+    if (!words.length) return;
+    const lineWidth = measureRun(ctx, line, metrics.letterSpacing);
+    const startX = align === 'left'
+      ? -blockWidth / 2
+      : align === 'right'
+        ? blockWidth / 2 - lineWidth
+        : -lineWidth / 2;
+    const baselineY = startY + index * metrics.lineHeight;
+    const spaceAdvance = measureRun(ctx, ' ', metrics.letterSpacing);
+    let cursor = startX;
+    words.forEach((word, wordIndex) => {
+      const state = wordStates?.[index]?.[wordIndex] || {};
+      const width = measureRun(ctx, word, metrics.letterSpacing);
+      if (state.pop) {
+        ctx.save();
+        ctx.translate(cursor + width / 2, baselineY);
+        ctx.scale(1.12, 1.12);
+        ctx.translate(-(cursor + width / 2), -baselineY);
+      }
+      paintTextSegment(ctx, word, cursor, baselineY, text, metrics, state.color);
+      if (state.pop) ctx.restore();
+      cursor += width + spaceAdvance;
+    });
+    if (text.underline) {
+      ctx.beginPath();
+      ctx.moveTo(startX, baselineY + metrics.fontSize * 0.42);
+      ctx.lineTo(startX + lineWidth, baselineY + metrics.fontSize * 0.42);
+      ctx.strokeStyle = text.color || '#ffffff';
+      ctx.lineWidth = Math.max(1, metrics.fontSize * 0.045);
+      ctx.stroke();
+    }
+  });
+}
+
+function paintCaptionTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, wordStates) {
+  if (!wordStates || revealInfo?.typewriter || Math.abs(textNumber(text.curve, 0)) > 1) {
+    paintTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo);
+    return;
+  }
+  paintCaptionBlock(ctx, text, metrics, blockWidth, startY, wordStates);
+}
+
+function clearShadow(ctx) {
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
+function drawTextLayer(ctx, layer, width, height, options = {}) {
+  const { clip, local } = layer;
+  const text = clip.text || {};
+  const time = (clip.start || 0) + local;
+  const tr = transformAt(clip, time);
+  const anim = options.ignoreTransition ? null : transitionState(clip, local);
+  const animClock = Number.isFinite(options.animClock) ? options.animClock : 0;
+  const textAnim = textAnimationState(text, animClock ? local + pausedAnimOffset(text, animClock) : local, clip.duration || 1);
+  const alpha = (options.ignoreFades ? tr.opacity : clipAlpha(clip, local)) *
+    transitionAlpha(anim) *
+    keyframeValue(clip, 'text.opacity', time, textNumber(text.opacity, 1)) *
+    (textAnim?.alpha ?? 1);
+  if (alpha <= 0.002) return;
+  const metrics = textLayout(text, width, height);
+  if (!metrics.lines.length) return;
+  const { fontSize, lineHeight, blockHeight, blockWidth } = metrics;
+  const offsetX = (tr.x + (text.x || 0)) / 100 * width;
+  const offsetY = (tr.y + (text.y || 0)) / 100 * height;
+  const centerX = width / 2 + offsetX;
+  const centerY = height / 2 + offsetY;
+  const revealInfo = {
+    typewriter: text.animation === 'in-typewriter' && (text.animationPhase || 'in') === 'in',
+    reveal: textAnim?.reveal ?? 1,
+  };
+  // Las palabras de Whisper usan tiempos de la línea de tiempo; así el
+  // resaltado sigue al subtítulo aunque esté colocado a mitad del vídeo.
+  const wordStates = captionWordStates(text, metrics, (clip.start || 0) + local * (clip.speed || 1));
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(centerX, centerY);
+  if (tr.rotate) ctx.rotate((tr.rotate * Math.PI) / 180);
+  applyEntrance(ctx, anim, width, height);
+  const animScale = textAnim?.scale ?? 1;
+  ctx.scale(
+    tr.scaleX * (text.flipX ? -1 : 1) * animScale,
+    tr.scaleY * (text.flipY ? -1 : 1) * animScale,
+  );
+  if (textAnim) {
+    ctx.translate((textAnim.dx || 0) * fontSize, (textAnim.dy || 0) * fontSize);
+    if (textAnim.rotate) ctx.rotate((textAnim.rotate * Math.PI) / 180);
+    if (textAnim.blur > 0) ctx.filter = `blur(${textAnim.blur * fontSize}px)`;
+  }
+  wipeClip(ctx, anim, width, height);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  // La medición y el dibujo deben usar exactamente la misma fuente; si no, los
+  // caracteres se pintan con anchos distintos y parecen unos encima de otros.
+  ctx.font = metrics.font;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = '0px';
+
+  const startY = -blockHeight / 2 + lineHeight / 2;
+
+  if (text.strokeWidth > 0 && text.strokeColor) {
+    ctx.strokeStyle = colorWithAlpha(text.strokeColor, 1);
+    ctx.lineWidth = Math.max(0, textNumber(text.strokeWidth, 0.08)) * fontSize;
+    ctx.lineJoin = 'round';
+    paintCaptionTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, wordStates);
+  }
+
+  if (text.background && text.background !== 'transparent') {
+    const pad = textPadding(text, fontSize);
+    const bgWidth = blockWidth + pad * 2;
+    const bgHeight = blockHeight + pad * 2;
+    let radius = Math.max(0, Math.min(0.5, textNumber(text.backgroundRadius, 0.16))) * Math.min(bgWidth, bgHeight);
+    if (text.backgroundStyle === 'pill') radius = Math.min(bgWidth, bgHeight) / 2;
+    else if (text.backgroundStyle === 'square') radius = 0;
+    ctx.save();
+    ctx.globalAlpha = alpha * Math.max(0, Math.min(1, textNumber(text.backgroundAlpha, 1)));
+    ctx.fillStyle = text.background;
+    roundedRect(ctx, -bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, radius);
+    ctx.fill();
+    const borderWidth = Math.max(0, textNumber(text.backgroundBorderWidth, 0)) * fontSize;
+    if (borderWidth > 0.01) {
+      ctx.lineWidth = borderWidth;
+      ctx.strokeStyle = colorWithAlpha(text.backgroundBorderColor || '#000000', 1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (text.glow) {
+    ctx.shadowColor = colorWithAlpha(text.glowColor || '#00e5d0', 1);
+    ctx.shadowBlur = Math.max(0, textNumber(text.glowBlur, 0.35)) * fontSize;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    paintCaptionTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, wordStates);
+    clearShadow(ctx);
+  }
+
+  if (text.shadow !== false) {
+    const angle = textNumber(text.shadowAngle, 90) * (Math.PI / 180);
+    const distance = Math.max(0, textNumber(text.shadowDistance, 0.05)) * fontSize;
+    ctx.shadowColor = colorWithAlpha(text.shadowColor || '#000000', textNumber(text.shadowAlpha, 0.58));
+    ctx.shadowBlur = Math.max(0, textNumber(text.shadowBlur, 0.2)) * fontSize;
+    ctx.shadowOffsetX = Math.cos(angle) * distance;
+    ctx.shadowOffsetY = Math.sin(angle) * distance;
+    paintCaptionTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, wordStates);
+    clearShadow(ctx);
+  }
+
+  paintCaptionTextBlock(ctx, text, metrics, blockWidth, startY, revealInfo, wordStates);
+
+  ctx.restore();
+}
+
+function drawVisualLayer(ctx, layer, width, height, pool, options = {}) {
+  if (layer.clip.kind === 'text') drawTextLayer(ctx, layer, width, height, options);
+  else if (layer.clip.kind === 'sticker') drawStickerLayer(ctx, layer, width, height, options);
+  else if (layer.clip.kind === 'video' || layer.clip.kind === 'image') {
+    drawMediaLayer(ctx, layer, width, height, pool, options);
+  }
+}
+
+/* Overlays de transiciones estilizadas: se dibujan sobre el fotograma ya
+   compuesto, así funcionan igual en la vista previa y en la exportación. */
+function drawGlitchOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  const canvas = ctx.canvas;
+  const cw = canvas.width || width;
+  const ch = canvas.height || height;
+  const matrix = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null;
+  const scaleX = matrix ? Math.hypot(matrix.a, matrix.b) || 1 : 1;
+  const scaleY = matrix ? Math.hypot(matrix.c, matrix.d) || 1 : 1;
+  const seed = Math.floor(anim.p * 24);
+  ctx.save();
+  const slices = 7;
+  const sliceHeight = ch / slices;
+  for (let index = 0; index < slices; index += 1) {
+    const y = index * sliceHeight;
+    const shift = (hash01(index * 3.1 + seed) - 0.5) * cw * 0.18 * strength;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(
+      canvas,
+      0, y, cw, sliceHeight,
+      shift / scaleX, y / scaleY, cw / scaleX, sliceHeight / scaleY,
+    );
+  }
+  ctx.globalAlpha = Math.min(1, strength * 1.2);
+  ctx.fillStyle = 'rgba(0, 240, 255, 0.24)';
+  ctx.fillRect(0, height * (0.15 + hash01(seed + 1) * 0.55), width, Math.max(2, height * 0.02));
+  ctx.fillStyle = 'rgba(255, 0, 120, 0.22)';
+  ctx.fillRect(0, height * (0.1 + hash01(seed + 4) * 0.6), width, Math.max(2, height * 0.015));
+  ctx.restore();
+}
+
+function drawFilmBurnOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  const gradient = ctx.createRadialGradient(
+    width * 0.5, height * 0.55, Math.min(width, height) * 0.05,
+    width * 0.5, height * 0.55, Math.max(width, height) * 0.72,
+  );
+  gradient.addColorStop(0.15, `rgba(255, 186, 74, ${0.9 * strength})`);
+  gradient.addColorStop(0.5, `rgba(226, 92, 22, ${0.6 * strength})`);
+  gradient.addColorStop(1, `rgba(36, 6, 0, ${0.92 * strength})`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.globalAlpha = strength * 0.4;
+  ctx.drawImage(noiseTile(), 0, 0, width, height);
+  ctx.restore();
+}
+
+function drawVignetteOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  const gradient = ctx.createRadialGradient(
+    width / 2, height / 2, Math.min(width, height) * 0.26,
+    width / 2, height / 2, Math.hypot(width, height) * 0.62,
+  );
+  gradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  gradient.addColorStop(1, `rgba(0, 0, 0, ${0.92 * strength})`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawGrainOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const strength = 1 - easeOutCubic(anim.p);
+  if (strength <= 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = strength * 0.5;
+  ctx.drawImage(noiseTile(), 0, 0, width, height);
+  ctx.restore();
+}
+
+function drawSlamHitOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.45) return;
+  const alpha = (1 - anim.p / 0.45);
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.75;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  const radius = anim.p * Math.hypot(width, height) * 0.9;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.85})`;
+  ctx.lineWidth = Math.max(2, 14 * alpha);
+  ctx.beginPath();
+  ctx.arc(width / 2, height / 2, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFireBurstOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.85) return;
+  const intensity = Math.sin((p / 0.85) * Math.PI);
+  if (intensity <= 0.01) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxR = Math.hypot(width, height) * 0.65;
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+  grad.addColorStop(0, `rgba(255, 255, 240, ${intensity * 0.95})`);
+  grad.addColorStop(0.2, `rgba(255, 175, 10, ${intensity * 0.88})`);
+  grad.addColorStop(0.5, `rgba(255, 55, 0, ${intensity * 0.72})`);
+  grad.addColorStop(0.8, `rgba(160, 10, 0, ${intensity * 0.42})`);
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.globalAlpha = intensity * 0.7;
+  for (let i = 0; i < 16; i += 1) {
+    const ang = (i / 16) * Math.PI * 2 + p * 3;
+    const dist = (0.2 + (i % 4) * 0.18) * maxR * (0.4 + p * 0.8);
+    const fx = cx + Math.cos(ang) * dist;
+    const fy = cy + Math.sin(ang) * dist - (p * 50);
+    const sparkR = 12 + (i % 3) * 10;
+    const sparkGrad = ctx.createRadialGradient(fx, fy, 0, fx, fy, sparkR);
+    sparkGrad.addColorStop(0, 'rgba(255, 255, 220, 0.95)');
+    sparkGrad.addColorStop(0.5, 'rgba(255, 110, 0, 0.65)');
+    sparkGrad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    ctx.fillStyle = sparkGrad;
+    ctx.beginPath();
+    ctx.arc(fx, fy, sparkR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawLightningOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.6) return;
+  const flashPhase = Math.sin(p * 32);
+  if (flashPhase < 0.25) return;
+  ctx.save();
+  const alpha = (1 - p / 0.6) * 0.85;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = flashPhase > 0.7 ? '#ffffff' : '#b2e8ff';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.shadowColor = '#00c3ff';
+  ctx.shadowBlur = 18;
+  ctx.lineWidth = 3 + (1 - p) * 4;
+  ctx.beginPath();
+  let lx = width * (0.35 + hash01(Math.floor(p * 18)) * 0.3);
+  let ly = 0;
+  ctx.moveTo(lx, ly);
+  while (ly < height) {
+    ly += 25 + Math.random() * 30;
+    lx += (Math.random() - 0.5) * 50;
+    ctx.lineTo(lx, ly);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawSmokeCloudOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const intensity = Math.sin(p * Math.PI) * 0.75;
+  if (intensity < 0.02) return;
+  ctx.save();
+  ctx.globalAlpha = intensity;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxR = Math.hypot(width, height) * 0.55;
+  for (let i = 0; i < 9; i += 1) {
+    const ox = cx + Math.sin(i * 1.7 + p * 2) * maxR * 0.45;
+    const oy = cy + Math.cos(i * 2.3 + p * 2) * maxR * 0.35;
+    const rad = maxR * (0.35 + (i % 3) * 0.15);
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, rad);
+    g.addColorStop(0, 'rgba(235, 235, 240, 0.7)');
+    g.addColorStop(0.5, 'rgba(200, 205, 215, 0.35)');
+    g.addColorStop(1, 'rgba(200, 205, 215, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(ox, oy, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawGlitchRgbOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.8) return;
+  const intensity = (1 - p / 0.8);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const shift = intensity * 26 * (Math.sin(p * 45) > 0 ? 1 : -1);
+  ctx.fillStyle = `rgba(255, 0, 60, ${intensity * 0.35})`;
+  for (let y = 0; y < height; y += 18) {
+    if (hash01(y + p * 100) > 0.4) {
+      ctx.fillRect(shift, y, width, 12);
+    }
+  }
+  ctx.fillStyle = `rgba(0, 240, 255, ${intensity * 0.35})`;
+  for (let y = 0; y < height; y += 18) {
+    if (hash01(y + p * 100 + 7) > 0.4) {
+      ctx.fillRect(-shift, y, width, 12);
+    }
+  }
+  ctx.restore();
+}
+
+function drawRgbPulseOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const pulse = Math.sin(p * Math.PI) * 0.65;
+  if (pulse < 0.05) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.strokeStyle = `rgba(255, 0, 180, ${pulse * 0.65})`;
+  ctx.lineWidth = 22 * pulse;
+  ctx.strokeRect(0, 0, width, height);
+  ctx.strokeStyle = `rgba(0, 230, 255, ${pulse * 0.65})`;
+  ctx.lineWidth = 12 * pulse;
+  ctx.strokeRect(10, 10, width - 20, height - 20);
+  ctx.restore();
+}
+
+function drawLensFlareOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  const intensity = Math.sin(p * Math.PI);
+  if (intensity < 0.02) return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const flareX = p * width;
+  const flareY = height * 0.45;
+
+  const streak = ctx.createLinearGradient(0, flareY, width, flareY);
+  streak.addColorStop(Math.max(0, p - 0.35), 'rgba(0, 150, 255, 0)');
+  streak.addColorStop(Math.max(0, p - 0.1), `rgba(0, 200, 255, ${intensity * 0.7})`);
+  streak.addColorStop(p, `rgba(255, 255, 255, ${intensity * 0.95})`);
+  streak.addColorStop(Math.min(1, p + 0.1), `rgba(255, 200, 80, ${intensity * 0.7})`);
+  streak.addColorStop(Math.min(1, p + 0.35), 'rgba(255, 120, 0, 0)');
+  ctx.fillStyle = streak;
+  ctx.fillRect(0, flareY - 18, width, 36);
+
+  const coreGrad = ctx.createRadialGradient(flareX, flareY, 0, flareX, flareY, 120);
+  coreGrad.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.9})`);
+  coreGrad.addColorStop(0.3, `rgba(0, 220, 255, ${intensity * 0.6})`);
+  coreGrad.addColorStop(0.7, `rgba(255, 140, 0, ${intensity * 0.3})`);
+  coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = coreGrad;
+  ctx.beginPath();
+  ctx.arc(flareX, flareY, 120, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawStrobeOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.7) return;
+  const cycle = Math.floor(p * 24) % 3;
+  if (cycle === 0) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = (1 - p / 0.7) * 0.85;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  } else if (cycle === 1) {
+    ctx.save();
+    ctx.fillStyle = '#000000';
+    ctx.globalAlpha = (1 - p / 0.7) * 0.75;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+}
+
+function drawPixelateOverlay(ctx, anim, width, height) {
+  if (!anim) return;
+  const p = anim.p;
+  if (p > 0.65) return;
+  const intensity = 1 - (p / 0.65);
+  const blockSize = Math.max(8, Math.round(intensity * 48));
+  ctx.save();
+  ctx.globalAlpha = intensity * 0.45;
+  for (let x = 0; x < width; x += blockSize) {
+    for (let y = 0; y < height; y += blockSize) {
+      const h = hash01(x * 13 + y * 29 + Math.floor(p * 8));
+      ctx.fillStyle = h > 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+      ctx.fillRect(x, y, blockSize - 1, blockSize - 1);
+    }
+  }
+  ctx.restore();
+}
+
+function drawDriftVoronoiOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.7) return;
+  const intensity = (1 - anim.p / 0.7);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.75})`;
+  ctx.lineWidth = Math.max(1, 4 * intensity);
+  const cx = width / 2;
+  const cy = height / 2;
+  for (let i = 0; i < 14; i += 1) {
+    const angle = (i / 14) * Math.PI * 2;
+    const r = (anim.p * 1.2 + 0.1) * Math.hypot(cx, cy);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDriftPlasmaOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  const grad = ctx.createLinearGradient(0, 0, width, height);
+  grad.addColorStop(0, `rgba(255, 80, 8, ${intensity * 0.7})`);
+  grad.addColorStop(0.5, `rgba(255, 240, 160, ${intensity * 0.9})`);
+  grad.addColorStop(1, `rgba(200, 20, 100, ${intensity * 0.6})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
+function drawDriftMatrixOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.75) return;
+  const intensity = (1 - anim.p / 0.75);
+  ctx.save();
+  const cols = 24;
+  const colW = width / cols;
+  ctx.fillStyle = `rgba(0, 255, 100, ${intensity * 0.8})`;
+  for (let c = 0; c < cols; c += 1) {
+    const dropY = ((anim.p * 3.5 + hash01(c * 17)) % 1) * height;
+    ctx.fillRect(c * colW, dropY - 30, colW * 0.6, 30);
+  }
+  ctx.restore();
+}
+
+function drawDriftInkOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.fillStyle = `rgba(10, 7, 16, ${intensity * 0.88})`;
+  const cx = width / 2;
+  const cy = height / 2;
+  for (let i = 0; i < 7; i += 1) {
+    const ox = cx + (hash01(i * 13) - 0.5) * width * 0.7;
+    const oy = cy + (hash01(i * 29) - 0.5) * height * 0.7;
+    const r = anim.p * Math.hypot(width, height) * (0.15 + (i % 3) * 0.1);
+    ctx.beginPath();
+    ctx.arc(ox, oy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawDriftInterferenceOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.7) return;
+  const intensity = (1 - anim.p / 0.7);
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.4})`;
+  const barY = (anim.p * 4) % 1 * height;
+  ctx.fillRect(0, barY, width, height * 0.18);
+  ctx.fillStyle = `rgba(0, 255, 255, ${intensity * 0.3})`;
+  ctx.fillRect(0, barY - 12, width, 4);
+  ctx.fillStyle = `rgba(255, 0, 150, ${intensity * 0.3})`;
+  ctx.fillRect(0, barY + height * 0.18, width, 4);
+  ctx.restore();
+}
+
+function drawDriftBubblesOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.8) return;
+  const intensity = Math.sin((anim.p / 0.8) * Math.PI);
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${intensity * 0.8})`;
+  ctx.fillStyle = `rgba(255, 255, 255, ${intensity * 0.15})`;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 20; i += 1) {
+    const bx = hash01(i * 31) * width;
+    const by = height - ((anim.p * 1.6 + hash01(i * 17)) % 1) * height;
+    const br = 8 + (i % 5) * 6;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawDriftLiquidOverlay(ctx, anim, width, height) {
+  if (!anim || anim.p > 0.75) return;
+  const intensity = Math.sin((anim.p / 0.75) * Math.PI);
+  ctx.save();
+  ctx.fillStyle = `rgba(20, 10, 40, ${intensity * 0.55})`;
+  const drops = 12;
+  const dropW = width / drops;
+  for (let d = 0; d < drops; d += 1) {
+    const h = height * (anim.p * 1.2 + hash01(d * 23) * 0.3);
+    ctx.fillRect(d * dropW, 0, dropW - 2, h);
+  }
+  ctx.restore();
+}
+
+export function renderFrame(ctx, width, height, project, pool, time, { background = '#000000', animClock = 0, showCutoutChecker = false } = {}) {
+  ctx.save();
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+  const layers = activeLayers(project, time);
+  const animFor = (type) => {
+    const layer = layers.find((item) => transitionState(item.clip, item.local)?.type === type);
+    return layer ? transitionState(layer.clip, layer.local) : null;
+  };
+  let visual = 0;
+
+  const whiteFlash = layers.find((layer) => {
+    const anim = transitionState(layer.clip, layer.local);
+    return anim?.type === 'white';
+  });
+  if (whiteFlash) {
+    const anim = transitionState(whiteFlash.clip, whiteFlash.local);
+    ctx.save();
+    ctx.globalAlpha = 1 - anim.p;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  for (const layer of layers) {
+    if (layer.clip.kind === 'audio') continue;
+    const anim = transitionState(layer.clip, layer.local);
+    if (anim && !['black', 'white', 'fade'].includes(anim.type)) {
+      const previous = previousClipOnTrack(layer.track, layer.clip);
+      if (previous) {
+        const under = {
+          ...previous,
+          opacity: 1,
+          fadeIn: 0,
+          fadeOut: 0,
+          transition: null,
+          effect: previous.effect || 'none',
+        };
+        const push = transitionPreviousOffset(anim, width, height);
+        ctx.save();
+        if (push) ctx.translate(push.x, push.y);
+        drawVisualLayer(ctx, { clip: under, track: layer.track, local: Math.max(0, previous.duration - 0.001) }, width, height, pool, { ignoreFades: true, ignoreTransition: true });
+        ctx.restore();
+      }
+    }
+    const layerOptions = { ...(animClock ? { animClock } : {}), ...(showCutoutChecker ? { showCutoutChecker: true } : {}) };
+    drawVisualLayer(ctx, layer, width, height, pool, layerOptions);
+    visual += 1;
+  }
+
+  const blackFlash = layers.find((layer) => transitionState(layer.clip, layer.local)?.type === 'black');
+  if (blackFlash) {
+    const anim = transitionState(blackFlash.clip, blackFlash.local);
+    ctx.save();
+    ctx.globalAlpha = (1 - anim.p) * 0.55;
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+  const flash = layers.find((layer) => transitionState(layer.clip, layer.local)?.type === 'flash');
+  if (flash) {
+    const anim = transitionState(flash.clip, flash.local);
+    ctx.save();
+    ctx.globalAlpha = (1 - anim.p) * 0.7;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
+  }
+
+  const glitchAnim = animFor('glitch');
+  if (glitchAnim) drawGlitchOverlay(ctx, glitchAnim, width, height);
+  const burnAnim = animFor('film-burn');
+  if (burnAnim) drawFilmBurnOverlay(ctx, burnAnim, width, height);
+  const vignetteAnim = animFor('vignette');
+  if (vignetteAnim) drawVignetteOverlay(ctx, vignetteAnim, width, height);
+  const grainAnim = animFor('grain');
+  if (grainAnim) drawGrainOverlay(ctx, grainAnim, width, height);
+
+  const slamAnim = animFor('slam-hit');
+  if (slamAnim) drawSlamHitOverlay(ctx, slamAnim, width, height);
+  const fireAnim = animFor('fire-burst');
+  if (fireAnim) drawFireBurstOverlay(ctx, fireAnim, width, height);
+  const lightningAnim = animFor('lightning-flash');
+  if (lightningAnim) drawLightningOverlay(ctx, lightningAnim, width, height);
+  const smokeAnim = animFor('smoke-cloud');
+  if (smokeAnim) drawSmokeCloudOverlay(ctx, smokeAnim, width, height);
+  const glitchRgbAnim = animFor('glitch-rgb');
+  if (glitchRgbAnim) drawGlitchRgbOverlay(ctx, glitchRgbAnim, width, height);
+  const rgbPulseAnim = animFor('rgb-pulse');
+  if (rgbPulseAnim) drawRgbPulseOverlay(ctx, rgbPulseAnim, width, height);
+  const flareAnim = animFor('lens-flare');
+  if (flareAnim) drawLensFlareOverlay(ctx, flareAnim, width, height);
+  const strobeAnim = animFor('strobe');
+  if (strobeAnim) drawStrobeOverlay(ctx, strobeAnim, width, height);
+  const pixelateAnim = animFor('pixelate');
+  if (pixelateAnim) drawPixelateOverlay(ctx, pixelateAnim, width, height);
+
+  const voronoiAnim = animFor('drift-voronoi');
+  if (voronoiAnim) drawDriftVoronoiOverlay(ctx, voronoiAnim, width, height);
+  const plasmaAnim = animFor('drift-plasma');
+  if (plasmaAnim) drawDriftPlasmaOverlay(ctx, plasmaAnim, width, height);
+  const matrixAnim = animFor('drift-matrix');
+  if (matrixAnim) drawDriftMatrixOverlay(ctx, matrixAnim, width, height);
+  const inkAnim = animFor('drift-ink');
+  if (inkAnim) drawDriftInkOverlay(ctx, inkAnim, width, height);
+  const interferenceAnim = animFor('drift-interference');
+  if (interferenceAnim) drawDriftInterferenceOverlay(ctx, interferenceAnim, width, height);
+  const bubblesAnim = animFor('drift-bubbles');
+  if (bubblesAnim) drawDriftBubblesOverlay(ctx, bubblesAnim, width, height);
+  const liquidAnim = animFor('drift-liquid');
+  if (liquidAnim) drawDriftLiquidOverlay(ctx, liquidAnim, width, height);
+
+  ctx.restore();
+  return visual;
+}
+
+export async function renderStill(project, mediaMap, time, width, height) {
+  const pool = new MediaPool(mediaMap);
+  try {
+    await pool.prepare(project, time);
+    await pool.waitMatting?.(project, time);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, Math.round(width));
+    canvas.height = Math.max(2, Math.round(height));
+    const ctx = canvas.getContext('2d');
+    renderFrame(ctx, canvas.width, canvas.height, project, pool, time);
+    return canvas;
+  } finally {
+    pool.destroy();
+  }
+}

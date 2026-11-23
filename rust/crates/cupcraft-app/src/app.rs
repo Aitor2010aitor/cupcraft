@@ -230,7 +230,7 @@ impl CupApp {
     pub fn delete_project(&mut self, id: &str) {
         if let Some(store) = &mut self.store {
             let _ = store.delete_project(id);
-        }
+        }   
         self.toast("Proyecto eliminado");
     }
 

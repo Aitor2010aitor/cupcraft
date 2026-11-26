@@ -22,10 +22,6 @@
 
 </div>
 
-<img width="1024" height="768" alt="cupcraft" src="https://github.com/user-attachments/assets/703ab96c-4646-4207-ae87-d8cc019c4994" />
-
-<img width="1686" height="934" alt="cupcraft editor" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
-
 cupcraft は、CapCut のワークフローとダークなインターフェースにインスパイアされたデスクトップ動画エディタです。単一のネイティブ実行ファイルで、Electron も WebView も Node.js もサーバーも不要。すべてお使いのパソコン上で動作します。
 
 > [!NOTE]

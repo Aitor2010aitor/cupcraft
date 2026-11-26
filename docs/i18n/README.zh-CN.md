@@ -22,10 +22,6 @@
 
 </div>
 
-<img width="1024" height="768" alt="cupcraft" src="https://github.com/user-attachments/assets/703ab96c-4646-4207-ae87-d8cc019c4994" />
-
-<img width="1686" height="934" alt="cupcraft editor" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
-
 cupcraft 是一款桌面视频编辑器，灵感来自 CapCut 的工作流程和深色界面。它只是一个原生可执行文件：没有 Electron，没有 WebView，没有 Node.js，也没有服务器。所有操作都在你的电脑上运行。
 
 > [!NOTE]

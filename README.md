@@ -22,10 +22,6 @@
 
 </div>
 
-<img width="1024" height="768" alt="cupcraft home screen" src="https://github.com/user-attachments/assets/703ab96c-4646-4207-ae87-d8cc019c4994" />
-
-<img width="1686" height="934" alt="cupcraft editor" src="https://github.com/user-attachments/assets/9fbae1eb-ff95-453c-ada1-d43bfebb9624" />
-
 cupcraft is a desktop video editor inspired by the workflow and dark interface of CapCut. It is a single native executable: no Electron, no WebView, no Node.js, no server. Everything runs on your machine.
 
 > [!NOTE]

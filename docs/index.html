@@ -483,30 +483,41 @@
   </div>
 </footer>
 
-<!-- animaciones al bajar: cada bloque entra cuando llega a la pantalla -->
+<!-- animaciones de scroll: cada bloque entra al llegar a la pantalla, bajando (desde abajo) y subiendo (desde arriba) -->
 <style>
-html.rv-on .rv { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); transition-delay: var(--rv-d, 0ms); }
-html.rv-on .rv.rv--img { transform: translateY(40px) scale(.96); }
-html.rv-on .rv.is-in { opacity: 1; transform: none; }
-@media (prefers-reduced-motion: reduce) { html.rv-on .rv { opacity: 1; transform: none; transition: none; } }
+html.rv-on .rv { opacity: 0; transform: translateY(32px); filter: blur(6px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .85s cubic-bezier(.2,.7,.2,1), filter .7s cubic-bezier(.2,.7,.2,1); transition-delay: var(--rv-d, 0ms); }
+html.rv-on .rv.rv--up { transform: translateY(-32px); }
+html.rv-on .rv.rv--img { transform: translateY(48px) scale(.94); }
+html.rv-on .rv.rv--img.rv--up { transform: translateY(-48px) scale(.94); }
+html.rv-on .rv.is-in { opacity: 1; transform: none; filter: none; }
+@media (prefers-reduced-motion: reduce) { html.rv-on .rv { opacity: 1; transform: none; filter: none; transition: none; } }
 </style>
 <script>
 (function () {
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var sel = 'main > section:not(.hero) h2, main > section:not(.hero) .grid > div, .shot, .tools__group, .tools__group li, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
-  var els = Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function (el) { return !el.closest('.hero'); });
-  els = els.filter(function (el) { return !els.some(function (o) { return o !== el && o.contains(el) && !o.classList.contains('tools__group'); }); });
+  var sel = '.hero__text > *, .shot, main h2, main .grid > div, .tools__group, .tools__group li, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
+  var all = Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function (el) { return !el.matches('.hero__text'); });
+  var els = all.filter(function (el) {
+    return !all.some(function (o) { return o !== el && o.contains(el) && !o.classList.contains('tools__group'); });
+  });
   document.documentElement.classList.add('rv-on');
+  var hero = [];
   els.forEach(function (el) {
     el.classList.add('rv');
     if (el.matches('.shot')) el.classList.add('rv--img');
     var sib = Array.prototype.filter.call(el.parentNode.children, function (c) { return els.indexOf(c) > -1; });
     el.style.setProperty('--rv-d', Math.min(sib.indexOf(el), 8) * 70 + 'ms');
+    if (el.closest('.hero')) { el.classList.add('is-in'); hero.push(el); }
   });
   var io = new IntersectionObserver(function (es) {
-    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
-  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
-  els.forEach(function (el) { io.observe(el); });
+    es.forEach(function (e) {
+      var el = e.target;
+      if (e.isIntersecting) { el.classList.add('is-in'); }
+      else { el.classList.remove('is-in'); el.classList.toggle('rv--up', e.boundingClientRect.top < 0); }
+    });
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
+  els.forEach(function (el) { if (hero.indexOf(el) < 0) io.observe(el); });
+  setTimeout(function () { hero.forEach(function (el) { io.observe(el); }); }, 1400);
 })();
 </script>
 <script type="module" src="assets/system.js"></script>

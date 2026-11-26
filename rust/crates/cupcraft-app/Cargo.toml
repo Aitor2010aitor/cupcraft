@@ -36,3 +36,6 @@ tract-onnx = "0.23"
 ureq = "2.12"
 # Autoactualización: verificación SHA256 de la descarga.
 sha2 = "0.10"
+
+[build-dependencies]
+winresource = "0.1"

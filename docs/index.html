@@ -562,6 +562,22 @@ html .tools__group li, html.rv-on .tools__group li.rv {
   update();
 })();
 </script>
+<!-- raton encima de un titulo: un fondo de color lo recorre como un rotulador; raton encima de una foto: zoom suave -->
+<style>
+.hl { background-image: linear-gradient(color-mix(in oklab, var(--accent) 38%, transparent), color-mix(in oklab, var(--accent) 38%, transparent)); background-repeat: no-repeat; background-position: 0 88%; background-size: 0% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; border-radius: .18em; padding: 0 .08em; margin: 0 -.08em; transition: background-size .6s cubic-bezier(.65,0,.25,1); }
+.shot img { transition: transform .9s cubic-bezier(.2,.7,.2,1); }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  :is(h1, h2, h3):hover .hl { background-size: 100% 100%; }
+  .shot:hover img { transform: scale(1.04); }
+}
+</style>
+<script>
+document.querySelectorAll('main h1, main h2, main h3').forEach(function (h) {
+  var s = document.createElement('span'); s.className = 'hl';
+  while (h.firstChild) s.appendChild(h.firstChild);
+  h.appendChild(s);
+});
+</script>
 <script type="module" src="assets/system.js"></script>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>

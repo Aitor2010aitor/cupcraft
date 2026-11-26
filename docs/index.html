@@ -483,6 +483,32 @@
   </div>
 </footer>
 
+<!-- animaciones al bajar: cada bloque entra cuando llega a la pantalla -->
+<style>
+html.rv-on .rv { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .8s cubic-bezier(.2,.7,.2,1); transition-delay: var(--rv-d, 0ms); }
+html.rv-on .rv.rv--img { transform: translateY(40px) scale(.96); }
+html.rv-on .rv.is-in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { html.rv-on .rv { opacity: 1; transform: none; transition: none; } }
+</style>
+<script>
+(function () {
+  if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var sel = 'main > section:not(.hero) h2, main > section:not(.hero) .grid > div, .shot, .tools__group, .tools__group li, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
+  var els = Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function (el) { return !el.closest('.hero'); });
+  els = els.filter(function (el) { return !els.some(function (o) { return o !== el && o.contains(el) && !o.classList.contains('tools__group'); }); });
+  document.documentElement.classList.add('rv-on');
+  els.forEach(function (el) {
+    el.classList.add('rv');
+    if (el.matches('.shot')) el.classList.add('rv--img');
+    var sib = Array.prototype.filter.call(el.parentNode.children, function (c) { return els.indexOf(c) > -1; });
+    el.style.setProperty('--rv-d', Math.min(sib.indexOf(el), 8) * 70 + 'ms');
+  });
+  var io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+  els.forEach(function (el) { io.observe(el); });
+})();
+</script>
 <script type="module" src="assets/system.js"></script>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>

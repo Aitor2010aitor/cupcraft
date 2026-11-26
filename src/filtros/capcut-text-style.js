@@ -119,13 +119,10 @@ function paletteFill(hex) {
  */
 export async function capcutTextStyle(item) {
   if (!item) return null;
-  const original = item.asset || item.url || null;
-  const key = item.id || original || item.img;
+  const key = item.id || item.url || item.img;
   if (cache.has(key)) return cache.get(key);
 
-  // Sin red: derivamos el estilo de la miniatura local, que siempre existe.
-  // Las URLs firmadas de CapCut caducan y sólo generan errores HTTP.
-  const sources = [item.img].filter(Boolean);
+  const sources = [proxied(item.url), item.img].filter(Boolean);
   let palette = null;
   for (const source of sources) {
     try {

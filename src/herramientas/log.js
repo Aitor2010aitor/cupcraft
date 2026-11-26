@@ -12,8 +12,6 @@ export function logImportError(what, error) {
   logEvent('import', `No se pudo importar ${what}: ${detail}`);
 }
 
-const IMG_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
-
 function urlOf(input) {
   if (typeof input === 'string') return input;
   if (input instanceof Request) return input.url;
@@ -28,8 +26,6 @@ export function installLogCapture() {
     if (target && target !== window && typeof target.tagName === 'string') {
       const src = target.src || target.href || target.currentSrc || '(sin ruta)';
       logEvent('import', `No se pudo importar ${target.tagName.toLowerCase()}: ${src}`);
-      // Evitamos que el navegador siga reintentando la misma imagen rota.
-      if (target.tagName.toLowerCase() === 'img') target.src = IMG_BLANK;
       return;
     }
     const stack = event.error?.stack ? `\n${event.error.stack}` : '';
@@ -49,14 +45,7 @@ export function installLogCapture() {
   };
   const originalWarn = console.warn.bind(console);
   console.warn = (...args) => {
-    const text = args.map((a) => (a && a.message) ? a.message : String(a)).join(' ');
-    // Los avisos de ONNX/decodificadores se silencian en la consola y se
-    // guardan como info: no son errores de la app y llenaban el registro.
-    if (/onnxruntime|removing initializer|unable to determine content-length/i.test(text)) {
-      logEvent('info', text);
-      return;
-    }
-    logEvent('warn', text);
+    logEvent('warn', args.map((a) => (a && a.message) ? a.message : String(a)).join(' '));
     originalWarn(...args);
   };
 
@@ -93,13 +82,10 @@ export function openLogDialog() {
       && (!term || `${entry.kind} ${entry.text}`.toLowerCase().includes(term))
     ));
     if (!list.length) return '<div class="panel-empty">No hay eventos que coincidan.</div>';
-    return list.map((entry) => {
-      const times = entry.count > 1 ? `<span class="log-times">×${entry.count}</span>` : '';
-      return `<div class="log-row log-${entry.kind}"><span class="log-time">${fmt(entry.at)}</span><span class="log-kind">${entry.kind}</span><span class="log-text">${escape(entry.text)}</span>${times}</div>`;
-    }).join('');
+    return list.map((entry) => `<div class="log-row log-${entry.kind}"><span class="log-time">${fmt(entry.at)}</span><span class="log-kind">${entry.kind}</span><span class="log-text">${escape(entry.text)}</span></div>`).join('');
   };
 
-  const textOf = () => getLog().map((e) => `${new Date(e.at).toLocaleString('es-ES')} [${e.kind}]${e.count > 1 ? ` ×${e.count}` : ''} ${e.text}`).join('\n');
+  const textOf = () => getLog().map((e) => `${new Date(e.at).toLocaleString('es-ES')} [${e.kind}] ${e.text}`).join('\n');
 
   const modal = openModal({
     title: `Registro (${entries.length})`,

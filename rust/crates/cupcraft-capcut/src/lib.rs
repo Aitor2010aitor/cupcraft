@@ -547,6 +547,24 @@ fn material_path(material: &Value) -> String {
     String::new()
 }
 
+/// Busca el archivo de medios principal dentro de una carpeta de recurso.
+fn find_media_in_dir(dir: &Path) -> Option<PathBuf> {
+    for name in ["final.gif", "final.png", "final.webp", "final.apng"] {
+        let candidate = dir.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.is_file() && is_media_extension(&extension(p)))
+        .collect();
+    found.sort();
+    found.into_iter().next()
+}
+
 fn material_to_media(
     material: &Value,
     kind: &str,
@@ -580,7 +598,14 @@ fn material_to_media(
         }
         return None;
     }
-    let path = normalize_path(&raw_path, draft_dir)?;
+    let mut path = normalize_path(&raw_path, draft_dir)?;
+    // Los stickers animados de CapCut (`Cache/artistEffect/<id>/<hash>`) son
+    // carpetas: el GIF real está dentro (`final.gif`).
+    if path.is_dir() {
+        if let Some(inner) = find_media_in_dir(&path) {
+            path = inner;
+        }
+    }
     let ext = extension(&path);
     if !is_media_extension(&ext) {
         warnings.push(format!(
@@ -1060,10 +1085,27 @@ pub fn read_draft(id: &str, allowed: &AllowedMedia) -> Result<Value, String> {
     let mut used_track_names: HashMap<String, usize> = HashMap::new();
     let mut tracks: Vec<Value> = Vec::new();
     let empty_tracks = Vec::new();
-    let source_tracks = content
+    let mut source_tracks: Vec<&Value> = content
         .get("tracks")
         .and_then(|v| v.as_array())
-        .unwrap_or(&empty_tracks);
+        .unwrap_or(&empty_tracks)
+        .iter()
+        .collect();
+    // CapCut apila las capas por `render_index` (stickers y textos suelen tener
+    // valores altos); cupcraft dibuja la primera pista debajo de las demás.
+    let layer_of = |track: &Value| -> f64 {
+        track
+            .get("segments")
+            .and_then(|v| v.as_array())
+            .map(|segs| {
+                segs.iter()
+                    .map(|s| get_num(s, "render_index", 0.0))
+                    .fold(f64::MIN, f64::max)
+            })
+            .filter(|v| v.is_finite() && *v > f64::MIN)
+            .unwrap_or(0.0)
+    };
+    source_tracks.sort_by(|a, b| layer_of(a).total_cmp(&layer_of(b)));
     for track in source_tracks {
         let segments = track
             .get("segments")
@@ -1229,4 +1271,24 @@ pub fn read_draft(id: &str, allowed: &AllowedMedia) -> Result<Value, String> {
             "appVersion": app_version,
         },
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sticker_en_carpeta_resuelve_gif() {
+        let dir = std::env::temp_dir().join("cupcraft_sticker_test").join("71a4");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("final.gif"), b"GIF89a").unwrap();
+        std::fs::write(dir.join("config.json"), b"{}").unwrap();
+        let material = json!({ "id": "S1", "name": "Emoji", "type": "sticker", "path": dir.to_string_lossy() });
+        let mut warnings = Vec::new();
+        let media = material_to_media(&material, "sticker", Path::new("."), &mut warnings)
+            .expect("el sticker debe importarse");
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(media["path"].as_str().unwrap().ends_with("final.gif"));
+        assert_eq!(media["kind"], "image");
+    }
 }

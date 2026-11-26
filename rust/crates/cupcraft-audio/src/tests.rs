@@ -69,6 +69,7 @@ mod tests {
             name: "Audio 1".into(),
             muted: false,
             hidden: false,
+            locked: false,
             clips: vec![c1],
         };
 
@@ -81,6 +82,7 @@ mod tests {
             name: "Audio 2".into(),
             muted: false,
             hidden: false,
+            locked: false,
             clips: vec![c2],
         };
 

@@ -118,12 +118,17 @@ function capcutTransitionToLocal(name) {
   return hit ? hit[1] : 'fade';
 }
 
-/* Portada de un elemento CapCut: usamos siempre una miniatura local propia.
-   Evitamos pedir miles de portadas ausentes (404) ni URLs firmadas caducadas. */
+/* Portada de un elemento CapCut: intenta la carátula local y, si no está (los packs
+   grandes no se empaquetan), cae a la URL remota; sin red queda el fondo de respaldo
+   en vez de una imagen rota. */
 const IMG_BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 function capcutCard(item, attr) {
+  const remote = item.url ? String(item.url).replace(/'/g, '%27') : '';
+  const onerror = remote
+    ? `if(!this.dataset.fb){this.dataset.fb='1';this.src='${remote}'}else{this.onerror=null;this.src='${IMG_BLANK}'}`
+    : `this.onerror=null;this.src='${IMG_BLANK}'`;
   return `<button class="effect-card" ${attr}="${item.id}" data-capcut-name="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}">
-              <img class="effect-thumb capcut" src="${item.img}" onerror="this.onerror=null;this.src='${IMG_BLANK}'" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async" />
+              <img class="effect-thumb capcut" src="${item.img}" onerror="${onerror}" alt="${escapeHtml(item.name)}" draggable="false" loading="lazy" decoding="async" />
               <div class="filter-name"><span>${escapeHtml(item.name)}</span></div>
             </button>`;
 }
@@ -2286,18 +2291,16 @@ export function mountLeftPanel(host) {
     if (capcutStickerButton) {
       const item = CAPCUT_STICKER_ITEMS.find((entry) => entry.id === capcutStickerButton.dataset.capcutSticker);
       if (item) {
-        // `img` es ahora una miniatura local; el contenido real está en `asset`.
-        const stickerSrc = item.asset || item.url || item.img;
         const clip = addStickerClip(item.name, {
           start: state.playhead,
           duration: 4,
-          preset: { src: stickerSrc, srcFallback: item.img, size: 460 },
+          preset: { src: item.img, srcFallback: item.url || null, size: 460 },
         });
         if (clip) {
-          toast(`Sticker "${item.name}" añadido`, 'success', 1600);
-          prepareStickerSrc(stickerSrc, item.img)
+          toast(`Sticker “${item.name}” añadido`, 'success', 1600);
+          prepareStickerSrc(item.img, item.url || null)
             .then((clean) => {
-              if (clean && clean !== stickerSrc) updateClip(clip.id, { sticker: { ...clip.sticker, src: clean, srcFallback: null } });
+              if (clean && clean !== item.img) updateClip(clip.id, { sticker: { ...clip.sticker, src: clean, srcFallback: null } });
             })
             .catch(() => { /* se queda la imagen original */ });
         }

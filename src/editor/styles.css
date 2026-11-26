@@ -975,27 +975,6 @@ body.resizing-panels * { cursor: col-resize !important; }
 .progress > div { height: 100%; width: 0%; background: var(--accent-2); transition: width 0.2s; }
 .export-progress { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .export-progress .row { display: flex; justify-content: space-between; font-size: 10.5px; color: #9a9a9a; }
-
-/* Exportación: pestañas Vídeo / Audio / GIF y sección Avanzado. */
-.export-tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid #3a3a3a; margin: -2px 0 12px; }
-.export-tab { display: inline-flex; align-items: center; gap: 6px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #9a9a9a; font: inherit; font-size: 11.5px; font-weight: 600; padding: 7px 14px 9px; cursor: pointer; }
-.export-tab:hover:not(:disabled) { color: #d8d8d8; }
-.export-tab.active { color: var(--accent-2); border-bottom-color: var(--accent-2); }
-.export-tab:disabled { opacity: .38; cursor: not-allowed; }
-.export-intro, .export-lead { margin: 0 0 12px; font-size: 10.5px; line-height: 1.5; color: #9a9a9a; }
-.export-lead { display: flex; align-items: center; gap: 7px; color: #bfbfbf; }
-.export-lead .icon { color: var(--accent-2); flex: 0 0 auto; }
-.export-panel { display: flex; flex-direction: column; gap: 10px; }
-.export-panel[hidden] { display: none; }
-.export-advanced { border: 1px solid #3a3a3a; border-radius: 4px; background: #282828; }
-.export-advanced summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 8px 11px; font-size: 10.5px; font-weight: 600; color: #c8c8c8; }
-.export-advanced summary::-webkit-details-marker { display: none; }
-.export-advanced[open] summary { border-bottom: 1px solid #3a3a3a; }
-.export-advanced > div:not(.field-row), .export-advanced > .field-row, .export-advanced > .export-tags, .export-advanced > .export-warning { margin: 11px; }
-.export-advanced > div.field-row { margin-top: 11px; }
-.export-warning { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: 10px; line-height: 1.5; color: #d8b36a; background: #332b1c; border: 1px solid #5a4725; border-radius: 4px; padding: 8px 10px; }
-.export-warning .icon { flex: 0 0 auto; margin-top: 1px; }
-.export-tags { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .kbd-list { display: flex; flex-direction: column; gap: 8px; }
 .kbd-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #b7b7b7; }
 kbd { background: #333; border: 1px solid #464646; border-bottom-width: 2px; border-radius: 3px; padding: 1px 5px; font-size: 9.5px; color: #e0e0e0; font-family: inherit; }
@@ -1989,16 +1968,14 @@ button.ai-card:hover { background: #122326; border-color: #243638; }
 .log-import .log-kind, .log-import .log-text { color: #ffb26b; }
 .log-http .log-kind, .log-http .log-text { color: #ff9d6b; }
 .log-list { max-height: 52vh; overflow: auto; display: flex; flex-direction: column; gap: 2px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
-.log-row { display: grid; grid-template-columns: 62px 62px 1fr auto; gap: 8px; padding: 4px 6px; border-radius: 4px; background: #232323; align-items: baseline; }
+.log-row { display: grid; grid-template-columns: 62px 62px 1fr; gap: 8px; padding: 4px 6px; border-radius: 4px; background: #232323; align-items: baseline; }
 .log-time { color: #7d8a8c; font-variant-numeric: tabular-nums; }
 .log-kind { text-transform: uppercase; font-size: 9px; letter-spacing: .5px; color: #9aa3a5; }
 .log-text { color: #d7dcdd; white-space: pre-wrap; word-break: break-word; }
-.log-times { color: #9aa3a5; font-size: 10px; min-width: 26px; text-align: right; }
 .log-error .log-kind, .log-error .log-text { color: #ff8b8b; }
 .log-promise .log-kind, .log-promise .log-text { color: #ffb26b; }
 .log-warn .log-kind, .log-warn .log-text { color: #f5d67b; }
 .log-console .log-kind, .log-console .log-text { color: #c9a9ff; }
-.log-info .log-kind, .log-info .log-text { color: #809196; }
 
 
 /* ================= Detalles estilo CapCut: pestañas y controles ================= */

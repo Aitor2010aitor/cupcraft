@@ -27,3 +27,6 @@ rust/target/
 # Voces Piper: binarios descargables, no van al repositorio
 tools/piper/
 tools/piper_windows.zip
+
+# Binarios de Whisper descargados localmente (no son codigo fuente)
+rust/tools/

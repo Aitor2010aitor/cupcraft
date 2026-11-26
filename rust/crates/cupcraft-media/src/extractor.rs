@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use crate::ffmpeg::FfmpegLocation;
 use crate::probe::ProbeError;
 
@@ -15,7 +15,7 @@ pub fn extract_frame<P: AsRef<Path>>(
     let scale_arg = format!("scale={}:{}", width, height);
     let time_str = format!("{:.3}", time_sec.max(0.0));
 
-    let output = Command::new(&loc.ffmpeg_path)
+    let output = crate::ffmpeg::command(&loc.ffmpeg_path)
         .args([
             "-ss", &time_str,
             "-i",

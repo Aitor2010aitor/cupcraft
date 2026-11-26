@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::process::Command;
 use serde::{Deserialize, Serialize};
 use crate::ffmpeg::FfmpegLocation;
 
@@ -30,7 +29,7 @@ pub fn probe_media<P: AsRef<Path>>(path: P) -> Result<MediaInfo, ProbeError> {
     let p = path.as_ref();
 
     if let Some(ffprobe) = &loc.ffprobe_path {
-        let output = Command::new(ffprobe)
+        let output = crate::ffmpeg::command(ffprobe)
             .args([
                 "-v", "quiet",
                 "-print_format", "json",
@@ -112,7 +111,7 @@ pub fn probe_media<P: AsRef<Path>>(path: P) -> Result<MediaInfo, ProbeError> {
     }
 
     // Fallback: parse standard ffmpeg -i output
-    let output = Command::new(&loc.ffmpeg_path)
+    let output = crate::ffmpeg::command(&loc.ffmpeg_path)
         .arg("-i")
         .arg(p)
         .output()?;

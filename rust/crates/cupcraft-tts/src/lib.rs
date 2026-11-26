@@ -118,7 +118,13 @@ pub fn generate(root: &Path, text: &str, voice_id: &str, speed: f32) -> Result<V
         .unwrap_or(0);
     let temp_wav = std::env::temp_dir().join(format!("cupcraft_tts_{}.wav", temp_id));
 
-    let mut child = Command::new(&piper_exe)
+    let mut piper_cmd = Command::new(&piper_exe);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        piper_cmd.creation_flags(0x0800_0000);
+    }
+    let mut child = piper_cmd
         .current_dir(&piper_dir)
         .arg("--model")
         .arg(&model_path)

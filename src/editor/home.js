@@ -517,7 +517,6 @@ export function mountHome(root) {
           <div class="avatar">${logo}</div>
           <div class="user-meta"><strong>Iniciar sesión</strong></div>
         </div>
-        <button class="btn-gradient" data-home-action="pro">Unirse a Pro</button>
       </div>
       <nav class="side-nav">
         <button class="side-item active" data-home-action="top">${icon('home', 16)}<span>Inicio</span></button>

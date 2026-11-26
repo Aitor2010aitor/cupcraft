@@ -1,14 +1,16 @@
-//! Pantalla de inicio nativa de cupcraft: diseño 1:1 estilo CapCut.
-//!
-//! Barra lateral de navegación, banner hero cian "+ Crear proyecto",
-//! tarjetas de creación con IA (EditPilot), catálogo y cuadrícula de proyectos.
+//! Pantalla de inicio nativa (equivalente 1:1 de `src/editor/home.js`):
+//! barra lateral, barra de herramientas con controles de ventana, botón
+//! «Crear proyecto», tarjetas de IA con EditPilot y cuadrícula de proyectos.
 
-use crate::app::CupApp;
-use crate::format::time_ago;
+use crate::app::{CupApp, HomeSort, Modal, PanelTab};
+use crate::format::{format_time, time_ago};
+use crate::icons;
+use crate::paint;
 use crate::theme;
-use eframe::egui;
+use eframe::egui::{self, Color32, CornerRadius, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
+use serde_json::json;
 
-/// Paleta específica de la pantalla de inicio estilo CapCut
+/// Paleta específica de la pantalla de inicio (de `styles.css`).
 mod colors {
     use eframe::egui::Color32;
     pub const SIDEBAR_BG: Color32 = Color32::from_rgb(0x04, 0x11, 0x13);
@@ -25,465 +27,547 @@ mod colors {
     pub const EDITPILOT_2: Color32 = Color32::from_rgb(0x03, 0x3c, 0x47);
     pub const PROMO_BLUE_1: Color32 = Color32::from_rgb(0x0a, 0x6a, 0xa8);
     pub const PROMO_BLUE_2: Color32 = Color32::from_rgb(0x07, 0x1e, 0x3d);
+    pub const SIDE_TEXT: Color32 = Color32::from_rgb(0xc8, 0xd5, 0xd6);
+}
+
+const AI_MSG: &str = "La generación y el procesamiento con IA necesitan un servicio en la nube. Esta versión local incluye EditPilot como borrador de texto y todas las herramientas de edición manual.";
+const GITHUB_URL: &str = "https://github.com/Aitor2010aitor/cupcraft";
+const DISCORD_URL: &str = "https://discord.gg/N2kfVGjeZ7";
+
+fn new_project_modal() -> Modal {
+    Modal::NewProject { cat: 0, tpl: 0, quality: 2, fps: 1, name: "Proyecto sin título".into() }
 }
 
 pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
     let ctx = ui.ctx().clone();
+    let screen = ui.max_rect();
+    let mut scroll_to: Option<f32> = None; // 0 = arriba, 1 = proyectos
+    let wr = crate::editor::window_radius(&ctx);
 
-    // ──────────────── Barra lateral izquierda (210 px) ──────────────────────
-    egui::Panel::left("home_sidebar")
-        .exact_size(210.0)
-        .frame(egui::Frame::NONE.fill(colors::SIDEBAR_BG))
-        .show(ui, |ui| {
-            ui.add_space(14.0);
-            // Logotipo + Marca
-            ui.horizontal(|ui| {
-                ui.add_space(14.0);
-                ui.label(egui::RichText::new("✦").color(theme::ACCENT).size(18.0).strong());
-                ui.label(egui::RichText::new("cupcraft").color(theme::TEXT).size(15.0).strong());
-            });
-            ui.add_space(14.0);
+    egui::Panel::left("home-sidebar")
+        .exact_size(216.0)
+        .resizable(false)
+        .frame(egui::Frame::NONE.fill(colors::SIDEBAR_BG).stroke(Stroke::new(1.0, colors::SIDEBAR_BORDER)).corner_radius(CornerRadius { nw: wr, sw: wr, ne: 0, se: 0 }).inner_margin(egui::Margin::symmetric(12, 12)))
+        .show(ui, |ui| sidebar(ui, app, &mut scroll_to));
 
-            // Tarjeta de usuario / Iniciar sesión
-            egui::Frame::NONE
-                .fill(colors::SIDEBAR_USER)
-                .stroke(egui::Stroke::new(1.0, colors::SIDEBAR_BORDER))
-                .corner_radius(egui::CornerRadius::from(8))
-                .inner_margin(egui::Margin::symmetric(10, 8))
-                .show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        // Avatar placeholder
-                        let (avatar_rect, _) = ui.allocate_exact_size(egui::vec2(28.0, 28.0), egui::Sense::hover());
-                        ui.painter().rect_filled(avatar_rect, egui::CornerRadius::from(6), egui::Color32::from_rgb(0x22, 0x2f, 0x32));
-                        ui.painter().text(avatar_rect.center(), egui::Align2::CENTER_CENTER, "👤", egui::FontId::proportional(13.0), theme::MUTED);
+    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(colors::MAIN_BG).corner_radius(CornerRadius { nw: 0, sw: 0, ne: wr, se: wr })).show(ui, |ui| {
+        // Barra de herramientas superior (arrastre de ventana + iconos).
+        let bar = Rect::from_min_size(ui.max_rect().min, Vec2::new(ui.max_rect().width(), 44.0));
+        crate::editor::drag_region(ui, bar);
+        let mut bar_ui = ui.new_child(egui::UiBuilder::new().max_rect(bar).layout(egui::Layout::right_to_left(egui::Align::Center)));
+        toolbar(&mut bar_ui, app);
+        ui.add_space(44.0);
 
-                        ui.vertical(|ui| {
-                            ui.label(egui::RichText::new("Iniciar sesión").color(theme::TEXT).size(11.5).strong());
-                            ui.label(egui::RichText::new("Local · sin cuenta").color(theme::MUTED).size(9.0));
-                        });
-                    });
-                    ui.add_space(6.0);
-                    // Botón gradiente Unirse a Pro
-                    let (btn_rect, btn_resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 24.0), egui::Sense::click());
-                    paint_horizontal_gradient(ui.painter(), btn_rect, 4.0, egui::Color32::from_rgb(0xfb, 0xd3, 0xf2), egui::Color32::from_rgb(0x9d, 0xf6, 0xdd));
-                    ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Unirse a Pro", egui::FontId::proportional(11.0), egui::Color32::from_rgb(0x14, 0x20, 0x1f));
-                    if btn_resp.clicked() {
-                        app.toast("cupcraft Pro: Todas las funciones están desbloqueadas en esta versión");
-                    }
-                });
-
-            ui.add_space(10.0);
-
-            // Elementos de navegación
-            nav_button(ui, "🏠 Inicio", true, || {});
-            nav_button(ui, "📑 Plantillas", false, || {});
-
-            ui.add_space(6.0);
-            ui.label(egui::RichText::new("Crear con IA").color(theme::MUTED2).size(10.0));
-            ui.add_space(2.0);
-            nav_button(ui, "🎬 Estudio de video", false, || {});
-            nav_button(ui, "🎨 Estudio de diseño", false, || {});
-
-            ui.add_space(6.0);
-            ui.label(egui::RichText::new("Administración").color(theme::MUTED2).size(10.0));
-            ui.add_space(2.0);
-            nav_button(ui, "📁 Proyectos de CapCut", false, || {});
-            nav_button_with_badge(ui, "🔗 Puente IA", "ACTIVO", egui::Color32::from_rgb(0x25, 0xd4, 0x90));
-            nav_button(ui, "📦 Biblioteca", false, || {});
-
-            // Pie de barra lateral
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+        let mut area = egui::ScrollArea::vertical().auto_shrink([false, false]).id_salt("home-scroll");
+        if scroll_to == Some(0.0) {
+            area = area.vertical_scroll_offset(0.0);
+        }
+        area.show(ui, |ui| {
+            let side = ((ui.available_width() - 1100.0) / 2.0).max(28.0);
+            egui::Frame::NONE.inner_margin(egui::Margin { left: side as i8, right: side.min(120.0) as i8, top: 6, bottom: 40 }).show(ui, |ui| {
+                ui.set_max_width(1100.0);
+                hero(ui, app);
+                ui.add_space(18.0);
+                ai_grid(ui, app);
+                ui.add_space(30.0);
+                let head = projects_head(ui, app);
+                if scroll_to == Some(1.0) {
+                    head.scroll_to_me(Some(egui::Align::TOP));
+                }
                 ui.add_space(12.0);
-
-                // Tarjeta promo ¿Quieres alargarlo?
-                let (promo_rect, _) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 70.0), egui::Sense::click());
-                paint_horizontal_gradient(ui.painter(), promo_rect, 6.0, colors::PROMO_BLUE_1, colors::PROMO_BLUE_2);
-                let p_p = ui.painter().with_clip_rect(promo_rect);
-                p_p.text(egui::pos2(promo_rect.min.x + 10.0, promo_rect.min.y + 16.0), egui::Align2::LEFT_TOP, "¿Quieres alargarlo?", egui::FontId::proportional(11.5), egui::Color32::from_rgb(0x5a, 0xdc, 0xf2));
-                p_p.text(egui::pos2(promo_rect.min.x + 10.0, promo_rect.min.y + 36.0), egui::Align2::LEFT_TOP, "Amplía tu video con IA", egui::FontId::proportional(9.5), egui::Color32::from_rgb(0xc8, 0xe8, 0xf8));
-
-                ui.add_space(8.0);
-
-                // Invitar a amigos
-                egui::Frame::NONE
-                    .fill(egui::Color32::from_rgba_premultiplied(8, 23, 25, 128))
-                    .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(0x1d, 0x3a, 0x3d)))
-                    .corner_radius(egui::CornerRadius::from(6))
-                    .inner_margin(egui::Margin::symmetric(10, 7))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("👥 Invitar a amigos").color(theme::TEXT).size(10.5));
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                let badge_text = egui::RichText::new("NUEVO").color(egui::Color32::from_rgb(0x22, 0x1b, 0x00)).size(8.0).strong();
-                                ui.label(badge_text);
-                            });
-                        });
-                    });
+                projects_grid(ui, app);
             });
         });
+    });
 
-    // ──────────────── Contenido Principal ────────────────────────────────────
-    egui::CentralPanel::default()
-        .frame(egui::Frame::NONE.fill(colors::MAIN_BG))
-        .show(ui, |ui| {
-            // Barra superior de utilidades (derecha)
-            ui.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(16.0);
-                    if ui.small_button("⚙ Ajustes").clicked() {
-                        app.toast("cupcraft 0.4.5 (Nativo Rust)");
-                    }
-                    if ui.small_button("🔗 Puente IA").clicked() {
-                        app.toast("Puente IA en 127.0.0.1:3010 con token activo");
-                    }
-                    if ui.small_button("📁 CapCut").clicked() {
-                        app.toast("Importador de CapCut listo");
-                    }
-                    if ui.small_button("ℹ Ayuda").clicked() {
-                        app.toast("cupcraft: Editor de vídeo nativo en Rust + wgpu");
-                    }
-                });
-            });
-
-            ui.add_space(10.0);
-
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                ui.add_space(6.0);
-
-                // ═════════════════════════════════════════════════════════════
-                // BANNER HERO GIGANTE CIAN: "+ Crear proyecto" (Estilo CapCut)
-                // ═════════════════════════════════════════════════════════════
-                let avail_w = (ui.available_width() - 32.0).max(400.0);
-                let (hero_rect, hero_resp) = ui.allocate_exact_size(egui::vec2(avail_w, 136.0), egui::Sense::click());
-
-                // Dibujar gradiente cian vibrante
-                paint_horizontal_gradient(
-                    ui.painter(),
-                    hero_rect,
-                    10.0,
-                    if hero_resp.hovered() { egui::Color32::from_rgb(0x8a, 0xee, 0xf7) } else { colors::HERO_CYAN_1 },
-                    if hero_resp.hovered() { egui::Color32::from_rgb(0x26, 0xbe, 0xdb) } else { colors::HERO_CYAN_2 },
-                );
-
-                // Botón oscuro interior con el signo '+'
-                let plus_rect = egui::Rect::from_center_size(
-                    egui::pos2(hero_rect.center().x - 84.0, hero_rect.center().y),
-                    egui::vec2(30.0, 30.0),
-                );
-                ui.painter().rect_filled(plus_rect, egui::CornerRadius::from(6), egui::Color32::from_rgb(0x0c, 0x24, 0x27));
-                ui.painter().text(plus_rect.center(), egui::Align2::CENTER_CENTER, "＋", egui::FontId::proportional(17.0), egui::Color32::WHITE);
-
-                // Texto "+ Crear proyecto"
-                ui.painter().text(
-                    egui::pos2(hero_rect.center().x - 56.0, hero_rect.center().y),
-                    egui::Align2::LEFT_CENTER,
-                    "Crear proyecto",
-                    egui::FontId::proportional(22.0),
-                    egui::Color32::from_rgb(0x0b, 0x24, 0x27),
-                );
-
-                if hero_resp.clicked() {
-                    app.new_project();
-                }
-
-                ui.add_space(20.0);
-
-                // ═════════════════════════════════════════════════════════════
-                // FILA DE 4 TARJETAS CON IA (home-grid)
-                // ═════════════════════════════════════════════════════════════
-                ui.horizontal(|ui| {
-                    let total_w = hero_rect.width();
-                    let card_gap = 14.0;
-                    // Proporción: la primera es más ancha (1.6x), las otras 3 iguales
-                    let c1_w = (total_w - (card_gap * 3.0)) * 0.36;
-                    let c_other_w = (total_w - (card_gap * 3.0) - c1_w) / 3.0;
-
-                    // ── Tarjeta 1: EditPilot ──────────────────────────────────
-                    let (card1_rect, _) = ui.allocate_exact_size(egui::vec2(c1_w, 136.0), egui::Sense::hover());
-                    paint_horizontal_gradient(ui.painter(), card1_rect, 8.0, colors::EDITPILOT_1, colors::EDITPILOT_2);
-                    ui.painter().rect_stroke(card1_rect, egui::CornerRadius::from(8), egui::Stroke::new(1.0, egui::Color32::from_rgb(0x0a, 0x4b, 0x56)), egui::StrokeKind::Inside);
-
-                    let p1 = ui.painter().with_clip_rect(card1_rect);
-                    p1.text(egui::pos2(card1_rect.min.x + 14.0, card1_rect.min.y + 14.0), egui::Align2::LEFT_TOP, "✨ EditPilot", egui::FontId::proportional(11.0), egui::Color32::from_rgb(0x49, 0xe1, 0xea));
-                    p1.text(egui::pos2(card1_rect.min.x + 14.0, card1_rect.min.y + 34.0), egui::Align2::LEFT_TOP, "¿Qué puedo ayudarte a editar hoy?", egui::FontId::proportional(15.0), egui::Color32::WHITE);
-
-                    // Input simulado dentro de la tarjeta
-                    let input_rect = egui::Rect::from_min_size(
-                        egui::pos2(card1_rect.min.x + 14.0, card1_rect.min.y + 86.0),
-                        egui::vec2(c1_w - 28.0, 32.0),
-                    );
-                    p1.rect_filled(input_rect, egui::CornerRadius::from(6), egui::Color32::from_rgb(0x15, 0x5e, 0x6a));
-                    p1.rect_stroke(input_rect, egui::CornerRadius::from(6), egui::Stroke::new(1.0, egui::Color32::from_rgb(0x1d, 0x6c, 0x77)), egui::StrokeKind::Inside);
-                    p1.text(egui::pos2(input_rect.min.x + 10.0, input_rect.center().y), egui::Align2::LEFT_CENTER, "Describe lo que quieres editar…", egui::FontId::proportional(11.0), egui::Color32::from_rgb(0xa4, 0xc8, 0xcb));
-                    let send_rect = egui::Rect::from_center_size(egui::pos2(input_rect.max.x - 16.0, input_rect.center().y), egui::vec2(22.0, 22.0));
-                    p1.rect_filled(send_rect, egui::CornerRadius::from(11), egui::Color32::from_rgba_premultiplied(255, 255, 255, 45));
-                    p1.text(send_rect.center(), egui::Align2::CENTER_CENTER, "➔", egui::FontId::proportional(11.0), egui::Color32::WHITE);
-
-                    ui.add_space(card_gap);
-
-                    // ── Tarjeta 2: Imagen de IA ──────────────────────────────
-                    ai_card(ui, c_other_w, "🖼", "Imagen de IA", "Convierte ideas en imágenes");
-
-                    ui.add_space(card_gap);
-
-                    // ── Tarjeta 3: Ampliar video ─────────────────────────────
-                    ai_card(ui, c_other_w, "⛶", "Ampliar video", "Amplía cualquier clip");
-
-                    ui.add_space(card_gap);
-
-                    // ── Tarjeta 4: Editar con IA ─────────────────────────────
-                    ai_card(ui, c_other_w, "✂", "Editar con IA", "Edita clips por texto");
-                });
-
-                ui.add_space(32.0);
-
-                // ═════════════════════════════════════════════════════════════
-                // SECCIÓN: PROYECTOS (Encabezado + Toolbar)
-                // ═════════════════════════════════════════════════════════════
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Proyectos").color(theme::TEXT).size(16.0).strong());
-
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.add_space(16.0);
-                        if ui.button("📁 CapCut").clicked() {
-                            app.toast("Explorando borradores de CapCut…");
-                        }
-                        if ui.button("📥 Abrir archivo").clicked() {
-                            if let Some(path) = rfd::FileDialog::new()
-                                .add_filter("openCUP", &["json"])
-                                .pick_file()
-                            {
-                                if let Ok(text) = std::fs::read_to_string(&path) {
-                                    if let Some(store) = app.store.as_mut() {
-                                        match store.import_project_file(&text) {
-                                            Ok(rep) => app.toast(format!("Importado: {}", rep.id)),
-                                            Err(e) => app.toast(format!("Error: {e}")),
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                });
-
-                ui.add_space(14.0);
-
-                // ═════════════════════════════════════════════════════════════
-                // CUADRÍCULA DE PROYECTOS REALES
-                // ═════════════════════════════════════════════════════════════
-                let projects = app.store.as_ref().map(|s| s.list_projects().unwrap_or_default()).unwrap_or_default();
-
-                ui.horizontal_wrapped(|ui| {
-                    for p in &projects {
-                        project_card(ui, app, p);
-                    }
-                    if projects.is_empty() {
-                        egui::Frame::NONE
-                            .fill(colors::CARD_BG)
-                            .stroke(egui::Stroke::new(1.0, colors::CARD_BORDER))
-                            .corner_radius(egui::CornerRadius::from(8))
-                            .inner_margin(egui::Margin::symmetric(24, 20))
-                            .show(ui, |ui| {
-                                ui.vertical_centered(|ui| {
-                                    ui.label(egui::RichText::new("Aún no hay proyectos").color(theme::TEXT).strong());
-                                    ui.label(egui::RichText::new("Haz clic en \"Crear proyecto\" arriba para empezar.").color(theme::MUTED).size(11.0));
-                                });
-                            });
-                    }
-                });
-
-                ui.add_space(40.0);
-            });
-        });
-
-    crate::app::show_toast(&ctx, app);
+    crate::editor::resize_edges(&ctx, screen);
 }
 
-// ────────────────────── Componentes auxiliares ───────────────────────────────
+// ----------------------------------------------------------------------
+// Barra lateral
+// ----------------------------------------------------------------------
 
-fn nav_button(ui: &mut egui::Ui, text: &str, active: bool, _on_click: impl FnOnce()) {
-    let (bg, fg) = if active {
-        (colors::SIDEBAR_ACTIVE, egui::Color32::WHITE)
-    } else {
-        (egui::Color32::TRANSPARENT, egui::Color32::from_rgb(0xc8, 0xd5, 0xd6))
-    };
-
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 32.0), egui::Sense::click());
-    if active || resp.hovered() {
-        ui.painter().rect_filled(rect, egui::CornerRadius::from(6), bg);
+fn side_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::Response {
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.0), Sense::click());
+    if active {
+        ui.painter().rect_filled(r, 7.0, colors::SIDEBAR_ACTIVE);
+    } else if resp.hovered() {
+        ui.painter().rect_filled(r, 7.0, Color32::from_white_alpha(10));
     }
-    ui.painter().text(
-        egui::pos2(rect.min.x + 10.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        text,
-        egui::FontId::proportional(12.0),
-        if resp.hovered() { egui::Color32::WHITE } else { fg },
-    );
+    let c = if active || resp.hovered() { Color32::WHITE } else { colors::SIDE_TEXT };
+    icons::paint(ui.painter(), icon, r.left_center() + Vec2::new(18.0, 0.0), 16.0, c);
+    ui.painter().text(r.left_center() + Vec2::new(36.0, 0.0), egui::Align2::LEFT_CENTER, label, egui::FontId::proportional(12.5), c);
+    resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
-fn nav_button_with_badge(ui: &mut egui::Ui, text: &str, badge: &str, badge_color: egui::Color32) {
-    let (rect, resp) = ui.allocate_exact_size(egui::vec2(ui.available_width(), 32.0), egui::Sense::click());
-    if resp.hovered() {
-        ui.painter().rect_filled(rect, egui::CornerRadius::from(6), egui::Color32::from_rgba_premultiplied(255, 255, 255, 12));
+fn side_label(ui: &mut egui::Ui, text: &str) {
+    ui.add_space(4.0);
+    ui.label(RichText::new(text).size(10.5).color(theme::MUTED2));
+    ui.add_space(2.0);
+}
+
+fn side_sep(ui: &mut egui::Ui) {
+    ui.add_space(6.0);
+    let y = ui.cursor().top();
+    ui.painter().hline(ui.max_rect().x_range(), y, Stroke::new(1.0, colors::SIDEBAR_BORDER));
+    ui.add_space(7.0);
+}
+
+/// Copia un enlace externo al portapapeles (la app no abre navegadores).
+fn copy_link(ui: &egui::Ui, app: &mut CupApp, what: &str, url: &str) {
+    ui.ctx().copy_text(url.to_string());
+    app.toast(format!("Enlace de {what} copiado al portapapeles: {url}"));
+}
+
+fn sidebar(ui: &mut egui::Ui, app: &mut CupApp, scroll_to: &mut Option<f32>) {
+    ui.spacing_mut().item_spacing.y = 2.0;
+    // Marca
+    let (br, bresp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.0), Sense::click());
+    icons::paint_logo(ui.painter(), Rect::from_center_size(br.left_center() + Vec2::new(14.0, 0.0), Vec2::splat(24.0)), Color32::WHITE);
+    ui.painter().text(br.left_center() + Vec2::new(34.0, 0.0), egui::Align2::LEFT_CENTER, "cupcraft", egui::FontId::proportional(15.5), theme::TEXT);
+    if bresp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+        *scroll_to = Some(0.0);
     }
-    ui.painter().text(
-        egui::pos2(rect.min.x + 10.0, rect.center().y),
-        egui::Align2::LEFT_CENTER,
-        text,
-        egui::FontId::proportional(12.0),
-        egui::Color32::from_rgb(0xc8, 0xd5, 0xd6),
-    );
+    ui.add_space(10.0);
 
-    // Glowing dot / badge on the right
-    let badge_rect = egui::Rect::from_center_size(egui::pos2(rect.max.x - 28.0, rect.center().y), egui::vec2(36.0, 16.0));
-    ui.painter().rect_filled(badge_rect, egui::CornerRadius::from(8), egui::Color32::from_rgba_premultiplied(37, 212, 144, 40));
-    ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, badge, egui::FontId::proportional(8.5), badge_color);
-}
-
-fn ai_card(ui: &mut egui::Ui, width: f32, icon: &str, title: &str, subtitle: &str) {
-    let (card_rect, resp) = ui.allocate_exact_size(egui::vec2(width, 136.0), egui::Sense::click());
-    let bg = if resp.hovered() { colors::CARD_HOVER } else { colors::CARD_BG };
-    ui.painter().rect_filled(card_rect, egui::CornerRadius::from(8), bg);
-    ui.painter().rect_stroke(card_rect, egui::CornerRadius::from(8), egui::Stroke::new(1.0, colors::CARD_BORDER), egui::StrokeKind::Inside);
-
-    let p = ui.painter().with_clip_rect(card_rect);
-
-    // Icon container
-    let icon_rect = egui::Rect::from_min_size(egui::pos2(card_rect.min.x + 14.0, card_rect.min.y + 14.0), egui::vec2(30.0, 30.0));
-    p.rect_filled(icon_rect, egui::CornerRadius::from(6), egui::Color32::from_rgb(0x12, 0x20, 0x23));
-    p.rect_stroke(icon_rect, egui::CornerRadius::from(6), egui::Stroke::new(1.0, egui::Color32::from_rgb(0x33, 0x43, 0x45)), egui::StrokeKind::Inside);
-    p.text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, egui::FontId::proportional(15.0), egui::Color32::WHITE);
-
-    // Title
-    p.text(egui::pos2(card_rect.min.x + 14.0, card_rect.min.y + 60.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(13.0), theme::TEXT);
-
-    // Subtitle
-    p.text(egui::pos2(card_rect.min.x + 14.0, card_rect.min.y + 82.0), egui::Align2::LEFT_TOP, subtitle, egui::FontId::proportional(10.5), theme::MUTED);
-}
-
-fn project_card(ui: &mut egui::Ui, app: &mut CupApp, p: &cupcraft_core::Project) {
-    let id = p.id.clone();
-    let renaming = app.rename_id.as_deref() == Some(id.as_str());
-
+    // Tarjeta de usuario
     egui::Frame::NONE
-        .fill(colors::CARD_BG)
-        .stroke(egui::Stroke::new(1.0, colors::CARD_BORDER))
-        .corner_radius(egui::CornerRadius::from(8))
-        .inner_margin(egui::Margin::same(10))
+        .fill(colors::SIDEBAR_USER)
+        .stroke(Stroke::new(1.0, colors::SIDEBAR_BORDER))
+        .corner_radius(CornerRadius::from(9))
+        .inner_margin(egui::Margin::symmetric(10, 9))
         .show(ui, |ui| {
-            ui.set_min_width(220.0);
-            ui.set_max_width(220.0);
-
-            // Thumbnail estilizada de vídeo (16:9)
-            let (thumb_rect, thumb_resp) = ui.allocate_exact_size(egui::vec2(200.0, 114.0), egui::Sense::click());
-            paint_horizontal_gradient(
-                ui.painter(),
-                thumb_rect,
-                6.0,
-                egui::Color32::from_rgb(0x17, 0x26, 0x28),
-                egui::Color32::from_rgb(0x0e, 0x18, 0x1a),
-            );
-
-            // Icono de play / película centrado
-            ui.painter().text(thumb_rect.center(), egui::Align2::CENTER_CENTER, "▶", egui::FontId::proportional(22.0), egui::Color32::from_rgba_premultiplied(255, 255, 255, 50));
-
-            // Badge de duración en la esquina inferior derecha
-            let dur_str = format_duration(p.timeline_length());
-            let badge_w = 42.0;
-            let badge_rect = egui::Rect::from_min_size(
-                egui::pos2(thumb_rect.max.x - badge_w - 6.0, thumb_rect.max.y - 20.0),
-                egui::vec2(badge_w, 16.0),
-            );
-            ui.painter().rect_filled(badge_rect, egui::CornerRadius::from(3), egui::Color32::from_rgba_premultiplied(0, 0, 0, 180));
-            ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, &dur_str, egui::FontId::proportional(9.0), egui::Color32::WHITE);
-
-            if thumb_resp.clicked() {
-                app.open_project(&id);
-            }
-
-            ui.add_space(8.0);
-
-            // Título del proyecto
-            if renaming {
-                let resp = ui.text_edit_singleline(&mut app.rename_buf);
-                if resp.lost_focus() {
-                    let name = app.rename_buf.clone();
-                    app.rename_project(&id, &name);
-                    app.rename_id = None;
-                    app.toast("Renombrado");
-                }
-            } else {
-                ui.label(egui::RichText::new(&p.name).color(theme::TEXT).size(13.0).strong());
-            }
-
-            // Metadatos: Ratio, FPS, fecha
+            ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(&p.ratio).color(theme::MUTED2).size(10.0));
-                ui.label(egui::RichText::new("·").color(theme::MUTED2).size(10.0));
-                ui.label(egui::RichText::new(time_ago(p.updated_at)).color(theme::MUTED).size(10.5));
-            });
-
-            ui.add_space(6.0);
-
-            // Botones de acción
-            ui.horizontal(|ui| {
-                if ui.button(egui::RichText::new("Abrir").color(theme::ACCENT).size(11.0)).clicked() {
-                    app.open_project(&id);
-                }
-                if ui.small_button("✏").clicked() {
-                    app.rename_id = Some(id.clone());
-                    app.rename_buf = p.name.clone();
-                }
-                let deleting = app.pending_delete.as_ref().map(|(x, _)| x == &id).unwrap_or(false);
-                let del_label = if deleting { "Confirmar" } else { "🗑" };
-                if ui.small_button(del_label).clicked() {
-                    if deleting {
-                        app.delete_project(&id);
-                        app.pending_delete = None;
-                    } else {
-                        app.pending_delete = Some((id.clone(), now_secs() + 4.0));
-                    }
-                }
+                let (ar, _) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::hover());
+                ui.painter().rect_filled(ar, 14.0, Color32::from_rgb(0x22, 0x2f, 0x32));
+                icons::paint_logo(ui.painter(), ar.shrink(5.0), Color32::WHITE);
+                ui.label(RichText::new("Iniciar sesión").size(12.0).strong().color(theme::TEXT));
             });
         });
-}
+    ui.add_space(10.0);
 
-fn format_duration(seconds: f64) -> String {
-    let s = seconds.max(0.0) as u64;
-    let m = s / 60;
-    let rem = s % 60;
-    format!("{:02}:{:02}", m, rem)
-}
-
-fn now_secs() -> f64 {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs_f64()).unwrap_or(0.0)
-}
-
-/// Pinta un rectángulo con gradiente horizontal de color_a a color_b usando egui::Mesh.
-fn paint_horizontal_gradient(
-    painter: &egui::Painter,
-    rect: egui::Rect,
-    corner_radius: f32,
-    color_a: egui::Color32,
-    color_b: egui::Color32,
-) {
-    let p = painter.with_clip_rect(rect);
-    let mut mesh = egui::Mesh::default();
-
-    // 4 vértices
-    mesh.vertices.push(egui::epaint::Vertex { pos: rect.left_top(), uv: egui::epaint::WHITE_UV, color: color_a });
-    mesh.vertices.push(egui::epaint::Vertex { pos: rect.left_bottom(), uv: egui::epaint::WHITE_UV, color: color_a });
-    mesh.vertices.push(egui::epaint::Vertex { pos: rect.right_bottom(), uv: egui::epaint::WHITE_UV, color: color_b });
-    mesh.vertices.push(egui::epaint::Vertex { pos: rect.right_top(), uv: egui::epaint::WHITE_UV, color: color_b });
-
-    // 2 triángulos
-    mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
-
-    p.add(mesh);
-
-    if corner_radius > 0.0 {
-        // Redondear esquinas con stroke sutil
-        p.rect_stroke(rect, egui::CornerRadius::from(corner_radius as u8), egui::Stroke::new(1.0, egui::Color32::from_rgba_premultiplied(0, 0, 0, 60)), egui::StrokeKind::Inside);
+    if side_item(ui, "home", "Inicio", true).clicked() {
+        *scroll_to = Some(0.0);
     }
+    if side_item(ui, "templates", "Plantillas", false).clicked() {
+        app.modal = Some(Modal::Templates);
+    }
+    side_sep(ui);
+    side_label(ui, "Crear con IA");
+    if side_item(ui, "studio", "Estudio de video", false).clicked() {
+        app.modal = Some(new_project_modal());
+    }
+    if side_item(ui, "design", "Estudio de diseño", false).clicked() {
+        app.modal = Some(Modal::Templates);
+    }
+    let more = side_item(ui, "grid", "Más herramientas", false);
+    icons::paint(ui.painter(), if app.more_tools_open { "chevronUp" } else { "chevronDown" }, more.rect.right_center() - Vec2::new(14.0, 0.0), 12.0, theme::MUTED);
+    if more.clicked() {
+        app.more_tools_open = !app.more_tools_open;
+    }
+    if app.more_tools_open {
+        ui.indent("more-tools", |ui| {
+            if side_item(ui, "sparkles", "Crear con IA", false).clicked() {
+                *scroll_to = Some(0.0);
+                app.editpilot_focus = true;
+            }
+            if side_item(ui, "wand", "Herramientas de edición", false).clicked() {
+                app.unavailable("Funciones de IA", AI_MSG);
+            }
+        });
+    }
+    side_sep(ui);
+    side_label(ui, "Administración");
+    if side_item(ui, "library", "Biblioteca", false).clicked() {
+        app.unavailable("Biblioteca", "Abre un proyecto para ver su biblioteca de medios local. No hay contenido en la nube.");
+    }
+    if side_item(ui, "folderOpen", "Proyectos de CapCut", false).clicked() {
+        app.open_capcut();
+    }
+    let bridge = side_item(ui, "link", "Puente IA", false).on_hover_text("Puerto local para IA");
+    ui.painter().circle_filled(bridge.rect.right_center() - Vec2::new(14.0, 0.0), 3.5, Color32::from_rgb(0x25, 0xd4, 0x90));
+    if bridge.clicked() {
+        app.modal = Some(Modal::Bridge);
+    }
+    if side_item(ui, "github", "GitHub", false).on_hover_text("Repositorio en GitHub (copia el enlace)").clicked() {
+        copy_link(ui, app, "GitHub", GITHUB_URL);
+    }
+    if side_item(ui, "discord", "Discord", false).on_hover_text("Servidor de Discord de cupcraft (copia el enlace)").clicked() {
+        copy_link(ui, app, "Discord", DISCORD_URL);
+    }
+
+    // Pie
+    ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+        ui.spacing_mut().item_spacing.y = 8.0;
+        let (pr, presp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 66.0), Sense::click());
+        gradient_h(ui.painter(), pr, 9, colors::PROMO_BLUE_1, colors::PROMO_BLUE_2);
+        ui.painter().text(pr.left_top() + Vec2::new(12.0, 15.0), egui::Align2::LEFT_TOP, "¿Quieres alargarlo?", egui::FontId::proportional(12.5), Color32::from_rgb(0x5a, 0xdc, 0xf2));
+        ui.painter().text(pr.left_top() + Vec2::new(12.0, 36.0), egui::Align2::LEFT_TOP, "Amplía tu video con IA", egui::FontId::proportional(11.0), Color32::from_rgb(0xc8, 0xe8, 0xf8));
+        if presp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            app.modal = Some(Modal::Pro);
+        }
+        let (ir, iresp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 34.0), Sense::click());
+        ui.painter().rect(
+            ir,
+            7.0,
+            if iresp.hovered() { Color32::from_rgb(0x0c, 0x23, 0x26) } else { Color32::from_rgb(0x08, 0x17, 0x19) },
+            Stroke::new(1.0, Color32::from_rgb(0x1d, 0x3a, 0x3d)),
+            StrokeKind::Inside,
+        );
+        icons::paint(ui.painter(), "user", ir.left_center() + Vec2::new(16.0, 0.0), 15.0, theme::TEXT);
+        ui.painter().text(ir.left_center() + Vec2::new(32.0, 0.0), egui::Align2::LEFT_CENTER, "Invitar a amigos", egui::FontId::proportional(12.0), theme::TEXT);
+        let badge = Rect::from_center_size(ir.right_center() - Vec2::new(26.0, 0.0), Vec2::new(38.0, 16.0));
+        ui.painter().rect_filled(badge, 8.0, Color32::from_rgb(0xff, 0xd7, 0x4a));
+        ui.painter().text(badge.center(), egui::Align2::CENTER_CENTER, "NUEVO", egui::FontId::proportional(8.5), Color32::from_rgb(0x22, 0x1b, 0x00));
+        if iresp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            app.unavailable("Invitar a amigos", "cupcraft funciona sin cuentas. Comparte el proyecto exportado como archivo de video para colaborar.");
+        }
+    });
+}
+
+// ----------------------------------------------------------------------
+// Barra de herramientas
+// ----------------------------------------------------------------------
+
+fn toolbar(ui: &mut egui::Ui, app: &mut CupApp) {
+    crate::editor::window_controls(ui);
+    ui.add_space(4.0);
+    let (sr, _) = ui.allocate_exact_size(Vec2::new(10.0, 14.0), Sense::hover());
+    ui.painter().vline(sr.center().x, sr.y_range(), Stroke::new(1.0, Color32::from_rgb(0x33, 0x33, 0x33)));
+    ui.spacing_mut().item_spacing.x = 2.0;
+    if icons::icon_button(ui, "settings", 16.0, theme::MUTED, "Ajustes").clicked() {
+        app.modal = Some(Modal::Settings);
+    }
+    if icons::icon_button(ui, "bell", 16.0, theme::MUTED, "Novedades").clicked() {
+        app.modal = Some(Modal::Notifications);
+    }
+    if icons::icon_button(ui, "folderOpen", 16.0, theme::MUTED, "Abrir proyecto de CapCut").clicked() {
+        app.open_capcut();
+    }
+    if icons::icon_button(ui, "link", 16.0, theme::MUTED, "Puente IA").clicked() {
+        app.modal = Some(Modal::Bridge);
+    }
+    if icons::icon_button(ui, "info", 16.0, theme::MUTED, "Ayuda y atajos").clicked() {
+        app.modal = Some(Modal::Shortcuts);
+    }
+}
+
+// ----------------------------------------------------------------------
+// Hero y tarjetas de IA
+// ----------------------------------------------------------------------
+
+fn gradient_h(p: &egui::Painter, rect: Rect, radius: u8, a: Color32, b: Color32) {
+    // Degradado horizontal con esquinas redondeadas: malla en franjas
+    // recortada por un rectángulo redondeado (se pinta por columnas).
+    let r = (radius as f32).min(rect.height() / 2.0).min(rect.width() / 2.0);
+    // Muestras densas dentro del radio de cada esquina y unas pocas en el centro.
+    let corner = 10;
+    let mut xs: Vec<f32> = Vec::new();
+    for i in 0..=corner {
+        xs.push(rect.left() + r * (i as f32 / corner as f32));
+    }
+    for i in 1..8 {
+        xs.push(rect.left() + r + (rect.width() - 2.0 * r) * (i as f32 / 8.0));
+    }
+    for i in 0..=corner {
+        xs.push(rect.right() - r + r * (i as f32 / corner as f32));
+    }
+    let mut mesh = egui::Mesh::default();
+    for (i, &x) in xs.iter().enumerate() {
+        let t = ((x - rect.left()) / rect.width()).clamp(0.0, 1.0);
+        // Inset vertical en las esquinas redondeadas.
+        let dx = (x - rect.left()).min(rect.right() - x);
+        let inset = if dx < r { r - (r * r - (r - dx) * (r - dx)).max(0.0).sqrt() } else { 0.0 };
+        let c = paint::lerp(a, b, t);
+        mesh.colored_vertex(Pos2::new(x, rect.top() + inset), c);
+        mesh.colored_vertex(Pos2::new(x, rect.bottom() - inset), c);
+        if i > 0 {
+            let k = (i as u32) * 2;
+            mesh.add_triangle(k - 2, k - 1, k);
+            mesh.add_triangle(k - 1, k + 1, k);
+        }
+    }
+    p.add(egui::Shape::mesh(mesh));
+}
+
+fn hero(ui: &mut egui::Ui, app: &mut CupApp) {
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 128.0), Sense::click());
+    let hov = resp.hovered();
+    gradient_h(
+        ui.painter(),
+        r,
+        12,
+        if hov { Color32::from_rgb(0x8a, 0xee, 0xf7) } else { colors::HERO_CYAN_1 },
+        if hov { Color32::from_rgb(0x26, 0xbe, 0xdb) } else { colors::HERO_CYAN_2 },
+    );
+    let font = egui::FontId::proportional(22.0);
+    let g = ui.painter().layout_no_wrap("Crear proyecto".into(), font, Color32::from_rgb(0x0b, 0x24, 0x27));
+    let total = 34.0 + 12.0 + g.size().x;
+    let start = r.center().x - total / 2.0;
+    let plus = Rect::from_min_size(Pos2::new(start, r.center().y - 17.0), Vec2::splat(34.0));
+    ui.painter().rect_filled(plus, 8.0, Color32::from_rgb(0x0c, 0x24, 0x27));
+    icons::paint(ui.painter(), "plus", plus.center(), 18.0, Color32::WHITE);
+    ui.painter().galley(Pos2::new(plus.right() + 12.0, r.center().y - g.size().y / 2.0), g, Color32::BLACK);
+    if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+        app.modal = Some(new_project_modal());
+    }
+}
+
+fn ai_card(ui: &mut egui::Ui, w: f32, icon: &str, title: &str, sub: &str) -> bool {
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(w, 140.0), Sense::click());
+    let p = ui.painter();
+    p.rect(r, 10.0, if resp.hovered() { colors::CARD_HOVER } else { colors::CARD_BG }, Stroke::new(1.0, colors::CARD_BORDER), StrokeKind::Inside);
+    let ir = Rect::from_min_size(r.min + Vec2::new(16.0, 16.0), Vec2::splat(34.0));
+    p.rect(ir, 8.0, Color32::from_rgb(0x12, 0x20, 0x23), Stroke::new(1.0, Color32::from_rgb(0x33, 0x43, 0x45)), StrokeKind::Inside);
+    icons::paint(p, icon, ir.center(), 17.0, Color32::WHITE);
+    p.text(r.min + Vec2::new(16.0, 70.0), egui::Align2::LEFT_TOP, title, egui::FontId::proportional(14.0), theme::TEXT);
+    p.text(r.min + Vec2::new(16.0, 93.0), egui::Align2::LEFT_TOP, sub, egui::FontId::proportional(11.5), theme::MUTED);
+    resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked()
+}
+
+fn submit_editpilot(app: &mut CupApp) {
+    let prompt = app.editpilot.trim().to_string();
+    if prompt.is_empty() {
+        app.editpilot_focus = true;
+        return;
+    }
+    let name: String = prompt.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(42).collect();
+    app.editpilot.clear();
+    app.new_project_named(&name);
+    app.panel_tab = PanelTab::Text;
+    let preset = json!({ "size": 84, "weight": 800, "color": "#ffffff" });
+    app.mutate_project(|p| p.add_text_clip(&prompt, Some(0.4), 5.0, Some(&preset)));
+    app.save_current();
+    app.toast("Borrador creado con EditPilot");
+}
+
+fn ai_grid(ui: &mut egui::Ui, app: &mut CupApp) {
+    let gap = 14.0;
+    let total = ui.available_width();
+    let w1 = (total - gap * 3.0) * 0.36;
+    let wo = (total - gap * 3.0 - w1) / 3.0;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = gap;
+        // EditPilot
+        let (r, _) = ui.allocate_exact_size(Vec2::new(w1, 140.0), Sense::hover());
+        gradient_h(ui.painter(), r, 10, colors::EDITPILOT_1, colors::EDITPILOT_2);
+        ui.painter().rect_stroke(r, 10.0, Stroke::new(1.0, Color32::from_rgb(0x0a, 0x4b, 0x56)), StrokeKind::Inside);
+        icons::paint(ui.painter(), "sparkles", r.min + Vec2::new(23.0, 23.0), 14.0, Color32::from_rgb(0x49, 0xe1, 0xea));
+        ui.painter().text(r.min + Vec2::new(36.0, 23.0), egui::Align2::LEFT_CENTER, "EditPilot", egui::FontId::proportional(12.0), Color32::from_rgb(0x49, 0xe1, 0xea));
+        ui.painter().text(r.min + Vec2::new(16.0, 40.0), egui::Align2::LEFT_TOP, "¿Qué puedo ayudarte a editar hoy?", egui::FontId::proportional(16.0), Color32::WHITE);
+        let input = Rect::from_min_size(r.min + Vec2::new(16.0, 88.0), Vec2::new(w1 - 32.0, 36.0));
+        ui.painter().rect(input, 8.0, Color32::from_rgb(0x15, 0x5e, 0x6a), Stroke::new(1.0, Color32::from_rgb(0x1d, 0x6c, 0x77)), StrokeKind::Inside);
+        let field = Rect::from_min_max(input.min + Vec2::new(10.0, 4.0), input.max - Vec2::new(40.0, 4.0));
+        let mut child = ui.new_child(egui::UiBuilder::new().max_rect(field).layout(egui::Layout::left_to_right(egui::Align::Center)));
+        let te = child.add(
+            egui::TextEdit::singleline(&mut app.editpilot)
+                .id(egui::Id::new("editpilot-input"))
+                .frame(egui::Frame::NONE)
+                .char_limit(180)
+                .hint_text(RichText::new("Describe lo que quieres editar").color(Color32::from_rgb(0xa4, 0xc8, 0xcb)))
+                .text_color(Color32::WHITE)
+                .desired_width(field.width()),
+        );
+        if app.editpilot_focus {
+            te.request_focus();
+            app.editpilot_focus = false;
+        }
+        let enter = te.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+        let send = Rect::from_center_size(Pos2::new(input.right() - 20.0, input.center().y), Vec2::splat(26.0));
+        let sresp = ui.interact(send, ui.scope_id().with("editpilot-send"), Sense::click());
+        ui.painter().circle_filled(send.center(), 13.0, Color32::from_white_alpha(if sresp.hovered() { 70 } else { 45 }));
+        icons::paint(ui.painter(), "chevronRight", send.center(), 14.0, Color32::WHITE);
+        if sresp.on_hover_text("Crear borrador").clicked() || enter {
+            submit_editpilot(app);
+        }
+
+        if ai_card(ui, wo, "image", "Imagen de IA", "Convierte ideas en imágenes") {
+            app.unavailable("Funciones de IA", AI_MSG);
+        }
+        if ai_card(ui, wo, "fullscreen", "Ampliar video", "Amplía fácilmente cualquier clip") {
+            app.unavailable("Funciones de IA", AI_MSG);
+        }
+        if ai_card(ui, wo, "scissors", "Editar con IA", "Edita clips describiéndolos") {
+            app.editpilot_focus = true;
+        }
+    });
+}
+
+// ----------------------------------------------------------------------
+// Proyectos
+// ----------------------------------------------------------------------
+
+fn pill(ui: &mut egui::Ui, icon: &str, label: &str, tip: &str) -> bool {
+    let font = egui::FontId::proportional(12.0);
+    let tw = ui.painter().layout_no_wrap(label.to_string(), font.clone(), theme::TEXT).size().x;
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(tw + 42.0, 30.0), Sense::click());
+    ui.painter().rect(r, 15.0, if resp.hovered() { colors::CARD_HOVER } else { colors::CARD_BG }, Stroke::new(1.0, colors::CARD_BORDER), StrokeKind::Inside);
+    icons::paint(ui.painter(), icon, r.left_center() + Vec2::new(18.0, 0.0), 14.0, theme::TEXT);
+    ui.painter().text(r.left_center() + Vec2::new(30.0, 0.0), egui::Align2::LEFT_CENTER, label, font, theme::TEXT);
+    resp.on_hover_text(tip).on_hover_cursor(egui::CursorIcon::PointingHand).clicked()
+}
+
+fn projects_head(ui: &mut egui::Ui, app: &mut CupApp) -> egui::Response {
+    ui.horizontal(|ui| {
+        ui.label(RichText::new("Proyectos").size(18.0).strong().color(theme::TEXT));
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            if icons::icon_button(ui, "filter", 15.0, theme::MUTED, "Ordenar proyectos").clicked() {
+                app.home_sort = match app.home_sort {
+                    HomeSort::Recent => HomeSort::Name,
+                    HomeSort::Name => HomeSort::Oldest,
+                    HomeSort::Oldest => HomeSort::Recent,
+                };
+                let label = match app.home_sort {
+                    HomeSort::Name => "Nombre",
+                    HomeSort::Oldest => "Más antiguos",
+                    HomeSort::Recent => "Más recientes",
+                };
+                app.toast(format!("Proyectos ordenados por: {label}"));
+            }
+            if icons::icon_button(ui, "trash", 15.0, theme::MUTED, "Papelera").clicked() {
+                app.unavailable("Papelera", "La papelera está vacía. Los proyectos que elimines se borran definitivamente de este equipo.");
+            }
+            if icons::icon_button(ui, "grid", 15.0, theme::MUTED, "Ver todos los proyectos").clicked() {
+                ui.scroll_to_cursor(Some(egui::Align::TOP));
+            }
+            if icons::icon_button_sized(ui, "search", 15.0, Vec2::splat(28.0), theme::MUTED, "Buscar", app.home_search_open).clicked() {
+                app.home_search_open = !app.home_search_open;
+                if !app.home_search_open {
+                    app.home_search.clear();
+                }
+            }
+            if pill(ui, "download", "Abrir archivo", "Abrir un proyecto guardado como archivo") {
+                app.open_project_file();
+            }
+            if pill(ui, "folderOpen", "CapCut", "Importar un proyecto de CapCut") {
+                app.open_capcut();
+            }
+            if app.home_search_open {
+                let resp = ui.add(
+                    egui::TextEdit::singleline(&mut app.home_search)
+                        .id(egui::Id::new("home-search"))
+                        .hint_text("Buscar proyectos")
+                        .desired_width(200.0),
+                );
+                if resp.gained_focus() || app.home_search.is_empty() && !resp.has_focus() && !resp.lost_focus() {
+                    // Enfoca la búsqueda nada más abrirla.
+                    if ui.memory(|m| m.focused().is_none()) {
+                        resp.request_focus();
+                    }
+                }
+            }
+        });
+    })
+    .response
+}
+
+fn projects_grid(ui: &mut egui::Ui, app: &mut CupApp) {
+    let q = app.home_search.trim().to_lowercase();
+    let mut list: Vec<_> = app.list_projects().into_iter().filter(|p| q.is_empty() || p.name.to_lowercase().contains(&q)).collect();
+    match app.home_sort {
+        HomeSort::Recent => list.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
+        HomeSort::Oldest => list.sort_by(|a, b| a.updated_at.cmp(&b.updated_at)),
+        HomeSort::Name => list.sort_by_key(|p| p.name.to_lowercase()),
+    }
+    if list.is_empty() {
+        ui.add_space(10.0);
+        egui::Frame::NONE
+            .fill(colors::CARD_BG)
+            .stroke(Stroke::new(1.0, colors::CARD_BORDER))
+            .corner_radius(CornerRadius::from(10))
+            .inner_margin(egui::Margin::symmetric(24, 26))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.vertical_centered(|ui| {
+                    ui.label(RichText::new("Aún no hay proyectos").size(14.0).strong().color(theme::TEXT));
+                    ui.label(RichText::new("Crea tu primer video o importa un archivo para empezar.").size(12.0).color(theme::MUTED));
+                    ui.add_space(10.0);
+                    if ui
+                        .add(egui::Button::new(RichText::new("+  Crear proyecto").color(theme::ACCENT_INK).strong()).fill(theme::ACCENT).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(150.0, 32.0)))
+                        .clicked()
+                    {
+                        app.modal = Some(new_project_modal());
+                    }
+                });
+            });
+        return;
+    }
+    let gap = 16.0;
+    let avail = ui.available_width();
+    let cols = ((avail + gap) / (220.0 + gap)).floor().max(1.0) as usize;
+    let w = (avail - gap * (cols as f32 - 1.0)) / cols as f32;
+    let mut action: Option<(u8, String, String)> = None;
+    for (row, chunk) in list.chunks(cols).enumerate() {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
+            for (i, p) in chunk.iter().enumerate() {
+                if let Some(a) = project_card(ui, p, row * cols + i, w) {
+                    action = Some((a, p.id.clone(), p.name.clone()));
+                }
+            }
+        });
+        ui.add_space(gap);
+    }
+    match action {
+        Some((0, id, _)) => app.open_project(&id),
+        Some((1, id, name)) => app.modal = Some(Modal::Rename { id, name }),
+        Some((2, id, _)) => app.save_project_file(&id),
+        Some((3, id, name)) => app.modal = Some(Modal::ConfirmDelete { id, name }),
+        _ => {}
+    }
+}
+
+const THUMB_GRADIENTS: [(Color32, Color32); 4] = [
+    (Color32::from_rgb(0x1a, 0x1a, 0x1a), Color32::from_rgb(0x11, 0x11, 0x11)),
+    (Color32::from_rgb(0x1b, 0x1d, 0x22), Color32::from_rgb(0x11, 0x12, 0x14)),
+    (Color32::from_rgb(0x1f, 0x1b, 0x18), Color32::from_rgb(0x12, 0x11, 0x10)),
+    (Color32::from_rgb(0x17, 0x1d, 0x24), Color32::from_rgb(0x0f, 0x12, 0x16)),
+];
+
+/// Devuelve 0 = abrir, 1 = renombrar, 2 = guardar como archivo, 3 = eliminar.
+fn project_card(ui: &mut egui::Ui, p: &cupcraft_core::Project, index: usize, w: f32) -> Option<u8> {
+    let th = w * 9.0 / 16.0;
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(w, th + 54.0), Sense::click());
+    let thumb = Rect::from_min_size(r.min, Vec2::new(w, th));
+    let (a, b) = THUMB_GRADIENTS[index % THUMB_GRADIENTS.len()];
+    paint::rounded_gradient(ui.painter(), thumb, 8, a, b);
+    if resp.hovered() {
+        ui.painter().rect_stroke(thumb, 8.0, Stroke::new(1.5, theme::ACCENT), StrokeKind::Inside);
+    }
+    icons::paint(ui.painter(), "film", thumb.center(), 26.0, Color32::from_rgb(0x3a, 0x3a, 0x3a));
+    let dur = p.duration();
+    if dur > 0.0 {
+        let t = format_time(dur);
+        let br = Rect::from_min_size(thumb.right_bottom() - Vec2::new(52.0, 24.0), Vec2::new(46.0, 18.0));
+        ui.painter().rect_filled(br, 4.0, Color32::from_black_alpha(180));
+        ui.painter().text(br.center(), egui::Align2::CENTER_CENTER, &t, egui::FontId::proportional(10.0), Color32::WHITE);
+    }
+    let font = egui::FontId::proportional(13.0);
+    let name = paint::ellipsize(ui.painter(), &p.name, &font, w - 4.0);
+    ui.painter().text(Pos2::new(r.left() + 2.0, thumb.bottom() + 10.0), egui::Align2::LEFT_TOP, name, font, theme::TEXT);
+    let meta = format!("{}    {}    {}", p.resolution, format_time(dur), time_ago(p.updated_at));
+    ui.painter().text(Pos2::new(r.left() + 2.0, thumb.bottom() + 31.0), egui::Align2::LEFT_TOP, meta, egui::FontId::proportional(11.0), theme::MUTED);
+
+    // Acciones al pasar el ratón (esquina superior derecha de la miniatura).
+    let mut out = None;
+    let hover_card = ui.rect_contains_pointer(r);
+    if hover_card {
+        let mut x = thumb.right() - 6.0;
+        for (k, icon, tip) in [(3u8, "trash", "Eliminar"), (2, "download", "Guardar proyecto como archivo"), (1, "pencil", "Renombrar")] {
+            let br = Rect::from_min_size(Pos2::new(x - 26.0, thumb.top() + 6.0), Vec2::splat(26.0));
+            x -= 30.0;
+            let bresp = ui.interact(br, ui.scope_id().with(("card-action", &p.id, k)), Sense::click());
+            ui.painter().rect_filled(br, 5.0, if bresp.hovered() { Color32::from_black_alpha(230) } else { Color32::from_black_alpha(170) });
+            icons::paint(ui.painter(), icon, br.center(), 13.0, Color32::WHITE);
+            if bresp.on_hover_text(tip).clicked() {
+                out = Some(k);
+            }
+        }
+    }
+    if out.is_none() && resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+        out = Some(0);
+    }
+    out
 }

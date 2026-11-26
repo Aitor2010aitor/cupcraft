@@ -283,7 +283,7 @@ impl Store {
         let mut entries = Vec::new();
         for meta in project.media.clone() {
             let record = self.get_media(&meta.id)?;
-            let mut entry = crate::MediaEntry { meta: meta.clone(), mime: None, data: None };
+            let mut entry = crate::MediaEntry { meta: meta.clone(), mime: None, data: None, asset: None };
             if let Some(record) = record {
                 let size = record.bytes.len() as u64;
                 if size > 0 && embedded + size <= crate::PROJECT_FILE_EMBED_LIMIT {
@@ -296,6 +296,77 @@ impl Store {
         }
         project.media.clear();
         Ok(ProjectFile::new(project, entries))
+    }
+
+    /// Empaqueta un proyecto como contenedor `.cupcraft` (ZIP): `project.json`
+    /// con el proyecto y los metadatos, y los bytes de cada medio en
+    /// `assets/<id>.<ext>`. Portable: al abrirlo en otra instalación se recrean
+    /// los medios y las referencias de los clips (`media_id`) siguen válidas.
+    pub fn export_cupcraft(&mut self, project_id: &str) -> Result<Vec<u8>, StoreError> {
+        let mut project = self
+            .get_project(project_id)?
+            .ok_or_else(|| StoreError::NotFound(project_id.to_string()))?;
+        let mut assets: Vec<(String, Vec<u8>)> = Vec::new();
+        let mut entries = Vec::new();
+        for meta in project.media.clone() {
+            let mut entry = crate::MediaEntry { meta: meta.clone(), mime: None, data: None, asset: None };
+            if let Some(record) = self.get_media(&meta.id)? {
+                if !record.bytes.is_empty() {
+                    let name = format!("assets/{}.{}", meta.id, crate::pack::ext_for_mime(&record.mime));
+                    entry.mime = Some(record.mime.clone());
+                    entry.asset = Some(name.clone());
+                    assets.push((name, record.bytes));
+                }
+            }
+            entries.push(entry);
+        }
+        project.media.clear();
+        let file = ProjectFile::new(project, entries);
+        let mut files = vec![("project.json".to_string(), file.to_text().into_bytes())];
+        files.extend(assets);
+        Ok(crate::pack::write_zip(&files))
+    }
+
+    /// Importa un contenedor `.cupcraft`: lee `project.json`, recrea los medios
+    /// desde `assets/` (o, por compatibilidad, desde los bytes incrustados de un
+    /// `.opencup.json` leído como ProjectFile) y guarda el proyecto. Cuenta como
+    /// `missing` los medios cuyo asset no estaba en el contenedor.
+    pub fn import_cupcraft(&mut self, data: &[u8]) -> Result<crate::ImportReport, StoreError> {
+        let files = crate::pack::read_zip(data).map_err(|e| StoreError::CorruptMedia(e.to_string()))?;
+        let mut map: std::collections::HashMap<String, Vec<u8>> = files.into_iter().collect();
+        let text = map
+            .remove("project.json")
+            .ok_or_else(|| StoreError::CorruptMedia("falta project.json en el contenedor".into()))?;
+        let text = String::from_utf8(text).map_err(|_| StoreError::CorruptMedia("project.json no es texto".into()))?;
+        let file = ProjectFile::parse(&text).map_err(|e| StoreError::CorruptMedia(e.to_string()))?;
+        let (metas, _) = file.split_media();
+        let mut missing = 0;
+        for entry in &file.media {
+            if entry.meta.id.is_empty() {
+                continue;
+            }
+            let fallback_mime = entry.mime.clone().unwrap_or_else(|| "application/octet-stream".into());
+            let found = if let Some(asset) = &entry.asset {
+                map.remove(asset).map(|bytes| (fallback_mime.clone(), bytes))
+            } else if let Some(data_url) = &entry.data {
+                decode_data_url(data_url, entry.mime.as_deref().unwrap_or("")).ok()
+            } else {
+                None
+            };
+            match found {
+                Some((mime, bytes)) if !bytes.is_empty() => {
+                    self.save_media(&MediaRecord { meta: entry.meta.clone(), mime, bytes })?;
+                }
+                _ => missing += 1,
+            }
+        }
+        let mut project = file.project.clone();
+        project.media = metas;
+        project.updated_at = cupcraft_core::now_millis();
+        self.save_project(&project)?;
+        let mut report = file.import_report();
+        report.missing = missing;
+        Ok(report)
     }
 }
 
@@ -438,6 +509,7 @@ mod tests {
             },
             mime: None,
             data: None,
+            asset: None,
         });
         let report = store.import_project_file(&file.to_text()).unwrap();
         assert_eq!(report.media, 2);
@@ -485,5 +557,54 @@ mod tests {
         assert!(!expected_file.exists(), "El archivo debe eliminarse de disco al borrar el medio");
 
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn cupcraft_round_trip_embeds_media_and_edits() {
+        // Un proyecto con un vídeo (bytes), un filtro y un efecto parametrizado
+        // debe sobrevivir intacto al ciclo exportar `.cupcraft` → importar.
+        let mut store = Store::open_in_memory().unwrap();
+        let mut p = sample_project();
+        p.media[0].kind = Some("video".into());
+        p.media[0].name = Some("clip.mp4".into());
+        {
+            let clip = &mut p.tracks[1].clips[0];
+            clip.filter = "sepia(0.6) contrast(1.2)".into();
+            clip.extra.insert("effect".into(), serde_json::json!("col_adjust"));
+            clip.extra.insert(
+                "effectParams".into(),
+                serde_json::json!({ "contrast": 140.0, "saturate": 90.0 }),
+            );
+        }
+        store.save_project(&p).unwrap();
+        let video_bytes = vec![10u8, 20, 30, 40, 50];
+        store
+            .save_media(&MediaRecord {
+                meta: p.media[0].clone(),
+                mime: "video/mp4".into(),
+                bytes: video_bytes.clone(),
+            })
+            .unwrap();
+
+        let container = store.export_cupcraft("prj_store").unwrap();
+        // Es un ZIP real (empieza con la firma PK\x03\x04).
+        assert_eq!(container.get(0..4), Some(&crate::ZIP_MAGIC[..]));
+
+        // Importar en un almacén limpio: no queda nada del original fuera del archivo.
+        let mut other = Store::open_in_memory().unwrap();
+        let report = other.import_cupcraft(&container).unwrap();
+        assert_eq!(report.missing, 0, "ningún medio debe faltar");
+
+        let loaded = other.get_project("prj_store").unwrap().unwrap();
+        let clip = &loaded.tracks[1].clips[0];
+        assert_eq!(clip.filter, "sepia(0.6) contrast(1.2)");
+        assert_eq!(clip.extra.get("effect").and_then(|v| v.as_str()), Some("col_adjust"));
+        assert_eq!(
+            clip.extra.get("effectParams").and_then(|v| v.get("contrast")).and_then(|v| v.as_f64()),
+            Some(140.0)
+        );
+        // Y los bytes del vídeo están dentro del contenedor, no referenciados fuera.
+        let media = other.get_media("m1").unwrap().unwrap();
+        assert_eq!(media.bytes, video_bytes);
     }
 }

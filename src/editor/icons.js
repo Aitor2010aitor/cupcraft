@@ -107,9 +107,6 @@ const p = {
   reverse: '<path d="M11 19l-9-7 9-7v14zM22 19l-9-7 9-7v14z"/>',
   freeze: '<path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14"/>',
   extractAudio: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><path d="M17 14l4 4m0-4l-4 4"/>',
-  video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9 5 3-5 3Z"/>',
-  audio: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17" cy="16" r="2.5"/>',
-  gif: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 10H7v4h2M9 10v4"/><path d="M12 10h2.5M12 12h2l-2 2h2.5"/><path d="M18 10h-1.5v4H18"/>',
 };
 
 export function icon(name, size = 18, cls = '') {

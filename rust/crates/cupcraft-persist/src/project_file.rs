@@ -34,8 +34,15 @@ pub struct MediaEntry {
     pub meta: Media,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mime: Option<String>,
+    /// Bytes incrustados como data URL (formato `.opencup.json`). En un
+    /// contenedor `.cupcraft` va vacío y los bytes viven en `assets/` (ver
+    /// `asset`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<String>,
+    /// Ruta del medio dentro del ZIP `.cupcraft` (`assets/<id>.<ext>`). Solo la
+    /// usa el contenedor empaquetado; en `.opencup.json` es `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset: Option<String>,
 }
 
 /// Resultado de importar un archivo.
@@ -222,6 +229,15 @@ pub fn export_file_name(project_name: &str) -> String {
     format!("{base}.opencup.json")
 }
 
+/// Nombre de archivo sugerido para el contenedor nativo `.cupcraft`.
+pub fn export_file_name_cupcraft(project_name: &str) -> String {
+    let base = export_file_name(project_name)
+        .strip_suffix(".opencup.json")
+        .unwrap_or("proyecto")
+        .to_string();
+    format!("{base}.{}", crate::pack::CUPCRAFT_EXT)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -256,6 +272,7 @@ mod tests {
             meta: p.media[0].clone(),
             mime: Some("image/png".into()),
             data: Some(encode_data_url("image/png", &[1, 2, 3, 4])),
+            asset: None,
         }];
         p.media.clear();
         ProjectFile::new(p, entries)
@@ -305,6 +322,7 @@ mod tests {
             },
             mime: None,
             data: None,
+            asset: None,
         });
         file.media.push(MediaEntry {
             meta: Media {
@@ -317,6 +335,7 @@ mod tests {
             },
             mime: None,
             data: None,
+            asset: None,
         });
         let (metas, missing) = file.split_media();
         assert_eq!(metas.len(), 2, "las entradas sin id se ignoran");

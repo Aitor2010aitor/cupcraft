@@ -154,6 +154,16 @@ pub fn by_key(key: &str) -> Option<&'static Filter> {
     FILTERS.iter().find(|filter| filter.key == key)
 }
 
+/// Shaders GL de **textura pura**: no modifican el color, solo añaden
+/// geometría/ruido sobre el fotograma (viñeta, grano, división RGB,
+/// posterizar). El compositor los pinta como un pase real a pantalla completa
+/// (puerto exacto de `gl-post.js`), por lo que su `css` de reserva —una
+/// aproximación de color inventada solo para la vista previa y las miniaturas—
+/// se omite en la exportación para no sumar un tono que el shader real no tiene.
+pub fn is_pure_texture_gl(shader: &str) -> bool {
+    matches!(shader, "vignette" | "grain" | "posterize" | "rgb-split")
+}
+
 /// ¿Existe la clave en la línea? (útil para validar `clip.filter`.)
 pub fn is_valid(key: &str) -> bool {
     key == "none" || by_key(key).is_some()

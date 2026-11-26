@@ -36,11 +36,11 @@ pub fn time_ago(updated_at_ms: i64) -> String {
     } else if diff < 3600 {
         format!("hace {} min", diff / 60)
     } else if diff < 86_400 {
-        format!("hace {} h", diff / 36_000)
+        format!("hace {} h", diff / 3600)
     } else if diff < 604_800 {
         format!("hace {} d", diff / 86_400)
     } else {
-        let (y, m, d) = civil_from_days(diff / 86_400);
+        let (y, m, d) = civil_from_days(updated_at_ms.div_euclid(86_400_000));
         let _ = y;
         format!("{d} {}", MONTHS[(m - 1) as usize])
     }

@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
 use cupcraft_audio::AudioBuffer;
 use crate::ffmpeg::{FfmpegLocation, HwAccel};
 use crate::probe::ProbeError;
@@ -38,7 +38,7 @@ impl VideoEncoderSession {
             HwAccel::Cpu
         };
 
-        let mut cmd = Command::new(&loc.ffmpeg_path);
+        let mut cmd = crate::ffmpeg::command(&loc.ffmpeg_path);
         cmd.args([
             "-y", // Overwrite output
             "-f", "rawvideo",
@@ -51,25 +51,25 @@ impl VideoEncoderSession {
         // Codec selection with HW acceleration
         match (format, hw) {
             (ExportFormat::Mp4H264, HwAccel::Nvenc) => {
-                cmd.args(["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "20"]);
+                cmd.args(["-c:v", "h264_nvenc", "-preset", "p4", "-cq", "20", "-pix_fmt", "yuv420p"]);
             }
             (ExportFormat::Mp4H264, HwAccel::Qsv) => {
-                cmd.args(["-c:v", "h264_qsv", "-global_quality", "20"]);
+                cmd.args(["-c:v", "h264_qsv", "-global_quality", "20", "-pix_fmt", "nv12"]);
             }
             (ExportFormat::Mp4H264, HwAccel::Amf) => {
-                cmd.args(["-c:v", "h264_amf", "-quality", "speed"]);
+                cmd.args(["-c:v", "h264_amf", "-quality", "speed", "-pix_fmt", "yuv420p"]);
             }
             (ExportFormat::Mp4H264, HwAccel::Cpu) => {
                 cmd.args(["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p"]);
             }
             (ExportFormat::Mp4H265, HwAccel::Nvenc) => {
-                cmd.args(["-c:v", "hevc_nvenc", "-preset", "p4", "-cq", "22"]);
+                cmd.args(["-c:v", "hevc_nvenc", "-preset", "p4", "-cq", "22", "-pix_fmt", "yuv420p"]);
             }
             (ExportFormat::Mp4H265, HwAccel::Qsv) => {
-                cmd.args(["-c:v", "hevc_qsv", "-global_quality", "22"]);
+                cmd.args(["-c:v", "hevc_qsv", "-global_quality", "22", "-pix_fmt", "nv12"]);
             }
             (ExportFormat::Mp4H265, HwAccel::Amf) => {
-                cmd.args(["-c:v", "hevc_amf"]);
+                cmd.args(["-c:v", "hevc_amf", "-pix_fmt", "yuv420p"]);
             }
             (ExportFormat::Mp4H265, HwAccel::Cpu) => {
                 cmd.args(["-c:v", "libx265", "-preset", "fast", "-crf", "24", "-pix_fmt", "yuv420p"]);
@@ -119,6 +119,13 @@ impl VideoEncoderSession {
         Ok(progress)
     }
 
+    /// Cancela la codificación: cierra la tubería y termina el proceso FFmpeg.
+    pub fn abort(mut self) {
+        drop(self.child.stdin.take());
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+
     /// Closes stdin and waits for FFmpeg to finish encoding.
     pub fn finish(mut self) -> Result<(), ProbeError> {
         drop(self.child.stdin.take());
@@ -143,7 +150,15 @@ pub fn mux_audio_video<P: AsRef<Path>>(
     let temp_audio = std::env::temp_dir().join(format!("cupcraft_temp_audio_{}.wav", std::process::id()));
     write_wav(&temp_audio, audio)?;
 
-    let status = Command::new(&loc.ffmpeg_path)
+    // WebM solo admite Opus/Vorbis; MP4 usa AAC.
+    let is_webm = output_path
+        .as_ref()
+        .extension()
+        .map(|e| e.eq_ignore_ascii_case("webm"))
+        .unwrap_or(false);
+    let acodec = if is_webm { "libopus" } else { "aac" };
+
+    let status = crate::ffmpeg::command(&loc.ffmpeg_path)
         .args([
             "-y",
             "-i",
@@ -155,7 +170,7 @@ pub fn mux_audio_video<P: AsRef<Path>>(
         .arg(&temp_audio)
         .args([
             "-c:v", "copy",
-            "-c:a", "aac",
+            "-c:a", acodec,
             "-b:a", "192k",
             "-shortest",
         ])

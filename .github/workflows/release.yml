@@ -1,0 +1,161 @@
+name: Release
+
+# Publishes a GitHub Release with builds for Windows, macOS and Linux every time
+# a version tag (v0.4.6, v0.5.0, ...) is pushed. The release also contains the
+# `version.json` file the in-app updater reads (see docs/RELEASING.md).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          cargo_version=$(grep -m1 '^version' rust/Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$cargo_version" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$cargo_version" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match the version in rust/Cargo.toml ($cargo_version). Bump it first, otherwise the updater would loop."
+            exit 1
+          fi
+
+  build:
+    needs: check-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - key: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: cupcraft-app.exe
+            asset: cupcraft-windows-x86_64.exe
+          - key: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bin: cupcraft-app
+            asset: cupcraft-linux-x86_64
+          - key: macos-aarch64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            bin: cupcraft-app
+            asset: cupcraft-macos-aarch64
+          - key: macos-x86_64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            bin: cupcraft-app
+            asset: cupcraft-macos-x86_64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: ${{ matrix.target }}
+
+      - name: Linux system libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libasound2-dev libgtk-3-dev libxkbcommon-dev \
+            libwayland-dev libx11-dev libxcursor-dev libxrandr-dev libxi-dev libssl-dev
+
+      - name: Build
+        working-directory: rust
+        run: cargo build --release -p cupcraft-app --target ${{ matrix.target }}
+
+      - name: Stage assets
+        shell: bash
+        run: |
+          mkdir -p out dist
+          cp "rust/target/${{ matrix.target }}/release/${{ matrix.bin }}" "out/${{ matrix.asset }}"
+          cp "out/${{ matrix.asset }}" "dist/$( [ '${{ runner.os }}' = Windows ] && echo cupcraft.exe || echo cupcraft )"
+          cd out
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            chmod +x "${{ matrix.asset }}"
+            # Archive that keeps the executable bit, for the first manual install.
+            mkdir pkg && cp "${{ matrix.asset }}" pkg/cupcraft
+            tar -czf "${{ matrix.asset }}.tar.gz" -C pkg cupcraft
+            rm -rf pkg
+          fi
+
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ needs.check-version.outputs.version }}" tools\installer.iss
+          Move-Item dist\cupcraft-setup-windows-x86_64.exe out\
+
+      - name: Checksum
+        shell: bash
+        run: |
+          cd out
+          if command -v sha256sum >/dev/null; then sha256sum "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
+          else shasum -a 256 "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"; fi
+          cat "${{ matrix.asset }}.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.key }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    needs: [check-version, build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create version.json
+        env:
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os, glob
+          assets = {}
+          for sha in glob.glob("artifacts/*.sha256"):
+              digest, name = open(sha).read().split()[:2]
+              name = name.lstrip("*")
+              key = name.replace("cupcraft-", "", 1)
+              if key.endswith(".exe"):
+                  key = key[:-4]
+              assets[key] = {"file": name, "sha256": digest}
+          notes = os.environ.get("RELEASE_NOTES", "")
+          json.dump({"version": os.environ["VERSION"], "notes": notes, "assets": assets},
+                    open("artifacts/version.json", "w"), indent=2)
+          print(open("artifacts/version.json").read())
+          PY
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check-version.outputs.version }}
+        run: |
+          rm -f artifacts/*.sha256
+          gh release create "v${VERSION}" artifacts/* \
+            --title "cupcraft v${VERSION}" \
+            --generate-notes \
+            --verify-tag

@@ -36,6 +36,8 @@ impl PlayheadClock {
 pub struct AudioEngine {
     _stream: Option<Stream>,
     pub is_playing: Arc<AtomicBool>,
+    /// Silencio general del reproductor (botón de volumen): el reloj sigue avanzando.
+    pub muted: Arc<AtomicBool>,
     pub clock: Arc<PlayheadClock>,
     pub mixer: Arc<Mutex<AudioMixer>>,
     pub project: Arc<Mutex<Project>>,
@@ -45,6 +47,7 @@ impl AudioEngine {
     pub fn new(project: Project) -> Self {
         let clock = Arc::new(PlayheadClock::new(0.0));
         let is_playing = Arc::new(AtomicBool::new(false));
+        let muted = Arc::new(AtomicBool::new(false));
         let mixer = Arc::new(Mutex::new(AudioMixer::new()));
         let project = Arc::new(Mutex::new(project));
 
@@ -57,6 +60,7 @@ impl AudioEngine {
 
                 let clock_clone = Arc::clone(&clock);
                 let playing_clone = Arc::clone(&is_playing);
+                let muted_clone = Arc::clone(&muted);
                 let mixer_clone = Arc::clone(&mixer);
                 let project_clone = Arc::clone(&project);
 
@@ -78,10 +82,12 @@ impl AudioEngine {
                             let proj_guard = project_clone.lock();
                             let mixer_guard = mixer_clone.lock();
                             let frames = data.len() / channels;
+                            let gain = if muted_clone.load(Ordering::Relaxed) { 0.0 } else { 1.0 };
 
                             for f in 0..frames {
                                 let t = clock_clone.get();
                                 let (l, r) = mixer_guard.sample_at(&proj_guard, t);
+                                let (l, r) = (l * gain, r * gain);
 
                                 let idx = f * channels;
                                 if channels >= 2 {
@@ -113,6 +119,7 @@ impl AudioEngine {
         Self {
             _stream: stream_opt,
             is_playing,
+            muted,
             clock,
             mixer,
             project,
@@ -127,8 +134,17 @@ impl AudioEngine {
         self.is_playing.store(false, Ordering::Relaxed);
     }
 
+    pub fn set_muted(&self, muted: bool) {
+        self.muted.store(muted, Ordering::Relaxed);
+    }
+
     pub fn seek(&self, time_sec: f64) {
         self.clock.set(time_sec);
+    }
+
+    /// `true` si hay un dispositivo de salida activo (el reloj avanza con el audio).
+    pub fn has_output(&self) -> bool {
+        self._stream.is_some()
     }
 
     pub fn current_time(&self) -> f64 {

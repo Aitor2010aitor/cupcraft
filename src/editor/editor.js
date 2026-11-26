@@ -56,7 +56,6 @@ export function mountEditor(root) {
         <div class="titlebar-right">
           <span class="save-state" data-save-state></span>
           <button class="win-icon" data-act="shot" title="Capturar fotograma">${icon('monitor', 15)}${icon('chevronDown', 9)}</button>
-          <button class="pro-banner" data-act="pro"><span class="pro-gem">◆</span> Obtén 7 días gratis de la versión Pro</button>
           <button class="share-btn" data-act="share">${icon('share', 14)} Compartir</button>
           <button class="export-btn" data-act="export">${icon('export', 14)} Exportar</button>
           <span class="tl-sep" style="height:14px;background:#333;margin:0 4px"></span>

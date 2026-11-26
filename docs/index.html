@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cupcraft · editor de vídeo nativo</title>
+  <meta name="description" content="cupcraft es un editor de vídeo de escritorio gratuito, local y nativo, escrito al 100 % en Rust. Descárgalo para Windows, macOS o Linux.">
+  <meta name="theme-color" content="#0b1022">
+  <meta property="og:title" content="cupcraft, editor de vídeo nativo">
+  <meta property="og:description" content="Gratis, local y escrito al 100 % en Rust.">
+  <meta property="og:image" content="img/logo.png">
+  <link rel="icon" href="img/logo.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Mona+Sans:wdth,wght@100,400;100,500;125,300&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="site.css">
+  <script>document.documentElement.classList.add('js');</script>
+</head>
+<body>
+
+<header class="slab">
+  <div class="container slab__in">
+    <a class="mark" href="#top"><img src="img/logo.png" alt="" width="32" height="32">cupcraft</a>
+    <nav aria-label="Principal">
+      <a class="opt" href="#que-es">Qué es</a>
+      <a class="opt" href="#porque">Por qué</a>
+      <a class="opt" href="#historia">Historia</a>
+      <a href="#descargar">Descargar</a>
+      <a href="v2/">Web nueva</a>
+      <a href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener">Discord</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="container hero">
+    <h1 class="settle" style="--i:0">Edita vídeo sin salir de tu PC</h1>
+    <p class="lead settle" style="--i:1">Gratis, nativo y hecho en Rust. Sin cuenta ni nube.</p>
+    <div class="hero__acts settle" style="--i:2">
+      <a class="btn btn--primary" href="https://github.com/Aitor2010aitor/cupcraft/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19h14"/></svg>
+        Descargar gratis
+      </a>
+      <a class="btn" href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener">Únete al Discord</a>
+    </div>
+
+    <div class="tl settle" style="--i:3" aria-hidden="true">
+      <div class="tl__ruler"><span>00:00</span><span>00:05</span><span>00:10</span><span>00:15</span><span>00:20</span></div>
+      <div class="tl__track"><span>Texto</span><div class="tl__lane"><i class="clip clip--t" style="--x:8%;--w:30%;--i:4"></i><i class="clip clip--t" style="--x:56%;--w:24%;--i:5"></i></div></div>
+      <div class="tl__track"><span>Vídeo</span><div class="tl__lane"><i class="clip clip--v" style="--x:0%;--w:42%;--i:0"></i><i class="clip clip--v" style="--x:43%;--w:35%;--i:1"></i><i class="clip clip--v" style="--x:79%;--w:21%;--i:2"></i></div></div>
+      <div class="tl__track"><span>Audio</span><div class="tl__lane"><i class="clip clip--a" style="--x:0%;--w:88%;--i:3"></i></div></div>
+      <div class="tl__head"></div>
+    </div>
+  </section>
+
+  <section class="container sec why" id="porque">
+    <blockquote class="why__quote" data-reveal>
+      <p>Quería un editor de vídeo tipo CapCut que corriera entero en mi ordenador. Si nadie lo hacía como yo lo quería, lo hacía yo.</p>
+      <footer>AITOR2010, creador de cupcraft</footer>
+    </blockquote>
+    <div class="why__cols">
+      <p data-reveal>CapCut es rápido y bonito, pero todo pasa por sus servidores: tus vídeos, tus datos y tus renders. cupcraft busca la misma fluidez sin ceder tus archivos a nadie.</p>
+      <p data-reveal style="--i:1">Y sin peso extra: nada de Electron, WebView ni servidor en segundo plano. Un único ejecutable que abre al instante y usa la GPU de verdad.</p>
+    </div>
+  </section>
+
+  <section class="container sec" id="que-es">
+    <div class="sec__head" data-reveal>
+      <h2>Qué es cupcraft</h2>
+      <p>Un editor de vídeo de escritorio con línea de tiempo, efectos y exportación. Un solo ejecutable: todo ocurre en tu ordenador.</p>
+    </div>
+    <div class="bento">
+      <figure class="tile tile--shot" data-reveal style="margin:0">
+        <img src="img/editor.png" width="1686" height="934" alt="Pantalla de inicio de cupcraft, de cuando aún se llamaba openCUP, con el botón Crear proyecto y la lista de proyectos" loading="lazy">
+      </figure>
+      <div class="tile tile--fig" data-reveal style="--i:1">
+        <span class="fig">100 %</span>
+        <p>Rust, con egui y wgpu. Sin Electron ni navegador.</p>
+      </div>
+      <div class="tile" data-reveal style="--i:2">
+        <h3>Multipista</h3>
+        <p>Vídeo, audio, texto, stickers y efectos, con fotogramas clave.</p>
+      </div>
+      <div class="tile tile--wide" data-reveal>
+        <h3>IA que corre en tu equipo</h3>
+        <p>Quita fondos y genera subtítulos con Whisper, sin subir nada.</p>
+      </div>
+      <div class="tile tile--wide" data-reveal style="--i:1">
+        <h3>Exporta con tu tarjeta gráfica</h3>
+        <p>MP4 y WebM con NVENC, QSV o AMF cuando están disponibles.</p>
+      </div>
+      <div class="tile" data-reveal>
+        <h3>Privado</h3>
+        <p>Sin cuenta y sin telemetría.</p>
+      </div>
+      <div class="tile" data-reveal style="--i:1">
+        <h3>Se actualiza solo</h3>
+        <p>Desde GitHub, con verificación SHA-256.</p>
+      </div>
+      <div class="tile tile--wide" data-reveal style="--i:2">
+        <h3>Abre tus borradores de CapCut</h3>
+        <p>Los lee y los convierte en proyectos de cupcraft.</p>
+      </div>
+    </div>
+    <p class="caption">Captura de una versión temprana, cuando el proyecto se llamaba openCUP.</p>
+  </section>
+
+  <section class="band sec" id="historia">
+    <div class="container story">
+      <div class="story__art" data-reveal>
+        <img src="img/home.jpg" width="1024" height="768" alt="Ilustración de cupcraft: un lobo editando vídeo en un portátil" loading="lazy">
+      </div>
+      <div>
+        <div class="sec__head" data-reveal>
+          <h2>Cómo empezó</h2>
+          <p>Un mes, tres nombres y cuatro bases tecnológicas hasta dar con la buena.</p>
+        </div>
+        <div class="log" data-log>
+          <span class="log__track" aria-hidden="true"><span class="log__fill"></span></span>
+          <ol class="log__list">
+          <li data-reveal><time datetime="2026-10-27">27 de octubre</time><h3>Primer alfa de Cacup</h3><p>Así se llamaba el primer commit. Un prototipo web en HTML, CSS y JavaScript: funcionaba, pero por debajo era un navegador.</p></li>
+          <li data-reveal><time datetime="2026-10-29">29 de octubre</time><h3>openCUP y un lanzador en C++</h3><p>Nuevo nombre y un lanzador nativo Win32. Más control, pero la interfaz seguía siendo HTML dentro de WebView2.</p></li>
+          <li data-reveal><time datetime="2026-11-02">2 de noviembre</time><h3>Intento en C# y WinForms</h3><p>Una app de escritorio de verdad… que todavía arrastraba WebView2 para pintar la UI.</p></li>
+          <li data-reveal><time datetime="2026-11-06">6 de noviembre</time><h3>Nace el nombre cupcraft</h3><p>Logo nuevo en la app y en el instalador.</p></li>
+          <li data-reveal><time datetime="2026-11-19">9 al 19 de noviembre</time><h3>El salto a Rust</h3><p>Interfaz con egui y render con wgpu. Ni rastro de HTML: todo compilado en un solo binario. El punto de no retorno.</p></li>
+          <li data-reveal><time datetime="2026-11-26">26 de noviembre</time><h3>Versión 0.4.7</h3><p>Autoactualización y descargas para Windows, macOS y Linux.</p></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container sec" id="rust">
+    <div class="rule" data-reveal>
+      <h2>Una regla: todo local</h2>
+      <p>Se probaron Kokoro TTS y un puente con servidor axum. Al final salió todo lo que pedía un servidor HTTP o un WebView: la voz pasó a Piper y la IA vive dentro del binario.</p>
+      <p class="rule__law">App nativa en Rust. Sin WebView2, sin HTML, CSS ni JavaScript, y sin servidor HTTP para la interfaz. Lo que no cumpla eso, no entra.</p>
+    </div>
+    <div class="why-rust">
+      <div class="size" data-reveal>
+        <span class="fig" data-count="46">46</span><span class="size__unit">MB</span>
+        <p>Un solo ejecutable con la app, Piper y sus voces, FFmpeg portable y los modelos. Funciona sin internet.</p>
+      </div>
+      <div>
+        <h3 class="why-rust__h" data-reveal>Por qué Rust</h3>
+        <ul class="reasons">
+          <li data-reveal><b>Un solo binario</b><span>Sin runtime externo que instalar.</span></li>
+          <li data-reveal style="--i:1"><b>Rendimiento real</b><span>Para componer vídeo fotograma a fotograma.</span></li>
+          <li data-reveal style="--i:2"><b>Memoria predecible</b><span>Importa cuando un clip pesa varios GB.</span></li>
+          <li data-reveal style="--i:3"><b>Multiplataforma</b><span>Windows, macOS y Linux con el mismo código.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="container sec" id="descargar">
+    <div class="sec__head" data-reveal>
+      <h2>Descárgalo</h2>
+      <p>Gratis, de código abierto y con licencia MIT.</p>
+    </div>
+    <div class="rows">
+      <div class="row" data-reveal><h3>Windows</h3><code>cupcraft-setup-windows-x86_64.exe</code><span>Instalador, sin permisos de administrador</span></div>
+      <div class="row" data-reveal style="--i:1"><h3>Windows portable</h3><code>cupcraft-windows-x86_64.exe</code><span>Un solo archivo</span></div>
+      <div class="row" data-reveal style="--i:2"><h3>macOS</h3><code>cupcraft-macos-aarch64.tar.gz</code><span>Experimental, también para Intel</span></div>
+      <div class="row" data-reveal style="--i:3"><h3>Linux</h3><code>cupcraft-linux-x86_64.tar.gz</code><span>Experimental</span></div>
+    </div>
+    <p class="note">Los ejecutables aún no están firmados, así que Windows puede mostrar un aviso de SmartScreen la primera vez.</p>
+  </section>
+
+  <section class="band sec" id="discord">
+    <div class="container close">
+      <div data-reveal>
+        <h2>Habla con quien lo hace</h2>
+        <p>Ideas, fallos y lo que estás editando: todo pasa en el servidor de Discord.</p>
+        <div class="close__acts">
+          <a class="btn btn--primary" href="https://github.com/Aitor2010aitor/cupcraft/releases/latest">Descargar gratis</a>
+          <a class="btn" href="https://github.com/Aitor2010aitor/cupcraft" target="_blank" rel="noopener">Ver en GitHub</a>
+        </div>
+      </div>
+      <a class="dc" href="https://discord.gg/N2kfVGjeZ7" target="_blank" rel="noopener" data-reveal style="--i:1">
+        <span class="ring" aria-hidden="true"></span><span class="ring" aria-hidden="true"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8.1 8.7c2.6-1.2 5.2-1.2 7.8 0 1.3 1.9 2.1 4.2 2.3 6.7-1.4 1.1-2.9 1.8-4.4 2.1l-.6-1.2c-1.5.3-3 .3-4.5 0l-.6 1.2c-1.5-.3-3-1-4.4-2.1.2-2.5 1-4.8 2.3-6.7"/>
+          <circle class="eye" cx="9.6" cy="13" r="1.15" fill="currentColor" stroke="none"/>
+          <circle class="eye" cx="14.4" cy="13" r="1.15" fill="currentColor" stroke="none"/>
+        </svg>
+        <span class="dc__label">Únete al Discord de cupcraft</span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="container">
+    <p class="foot__sign">Gracias por pasarte. Si lo pruebas, cuéntanos qué tal en Discord.</p>
+    <p class="foot__by">AITOR2010, creador y mantenedor, con Claude (Anthropic) como copiloto de IA. Noviembre de 2026.</p>
+    <div class="foot__links">
+      <a class="link" href="https://github.com/Aitor2010aitor/cupcraft">GitHub</a>
+      <a class="link" href="https://github.com/Aitor2010aitor/cupcraft/releases">Versiones</a>
+      <a class="link" href="https://discord.gg/N2kfVGjeZ7">Discord</a>
+      <a class="link" href="https://github.com/Aitor2010aitor/cupcraft/blob/0.4.6/LICENSE">Licencia MIT</a>
+    </div>
+    <p class="foot__legal">cupcraft es una implementación original. No incluye binarios, logos ni recursos de CapCut, y no está afiliado a ByteDance ni respaldado por ella.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
+  }), { rootMargin: '0px 0px -10% 0px' });
+  document.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
+
+  const head = document.querySelector('.tl__head');
+  const setRun = () => head && head.style.setProperty('--run', head.clientWidth + 'px');
+  setRun(); addEventListener('resize', setRun);
+
+  const log = document.querySelector('[data-log]');
+  const fill = log && log.querySelector('.log__fill');
+  if (fill && !reduce) {
+    const tick = () => {
+      const r = log.getBoundingClientRect(), vh = innerHeight;
+      const p = Math.min(1, Math.max(0, (vh * 0.6 - r.top) / r.height));
+      fill.style.setProperty('--p', p.toFixed(3));
+    };
+    tick(); addEventListener('scroll', tick, { passive: true }); addEventListener('resize', tick);
+  }
+  const num = document.querySelector('[data-count]');
+  if (num && !reduce) {
+    const end = +num.dataset.count; num.textContent = '0';
+    const run = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return; run.disconnect();
+      const t0 = performance.now();
+      const step = (t) => { const k = Math.min(1, (t - t0) / 1400); num.textContent = Math.round(end * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+    }, { threshold: 0.6 });
+    run.observe(num);
+  }
+})();
+</script>
+</body>
+</html>

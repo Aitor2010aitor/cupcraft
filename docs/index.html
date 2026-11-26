@@ -506,18 +506,60 @@ html.rv-on .rv.is-in { opacity: 1; transform: none; filter: none; }
     el.classList.add('rv');
     if (el.matches('.shot')) el.classList.add('rv--img');
     var sib = Array.prototype.filter.call(el.parentNode.children, function (c) { return els.indexOf(c) > -1; });
-    el.style.setProperty('--rv-d', Math.min(sib.indexOf(el), 8) * 70 + 'ms');
+    el.__rvD = Math.min(sib.indexOf(el), 8) * 70; el.style.setProperty('--rv-d', el.__rvD + 'ms');
     if (el.closest('.hero')) { el.classList.add('is-in'); hero.push(el); }
   });
   var io = new IntersectionObserver(function (es) {
     es.forEach(function (e) {
       var el = e.target;
-      if (e.isIntersecting) { el.classList.add('is-in'); }
-      else { el.classList.remove('is-in'); el.classList.toggle('rv--up', e.boundingClientRect.top < 0); }
+      if (e.isIntersecting) { el.classList.add('is-in'); clearTimeout(el.__rvT); el.__rvT = setTimeout(function () { el.style.setProperty('--rv-d', '0ms'); }, 1000 + (el.__rvD || 0)); }
+      else { clearTimeout(el.__rvT); el.style.setProperty('--rv-d', (el.__rvD || 0) + 'ms'); el.classList.remove('is-in'); el.classList.toggle('rv--up', e.boundingClientRect.top < 0); }
     });
   }, { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
   els.forEach(function (el) { if (hero.indexOf(el) < 0) io.observe(el); });
   setTimeout(function () { hero.forEach(function (el) { io.observe(el); }); }, 1400);
+})();
+</script>
+<!-- raton encima de una herramienta: esa se acerca, las demas se alejan; fotos que crecen y se van con el scroll -->
+<style>
+.tools__group li { position: relative; padding: 10px; margin: -10px; border-radius: 12px; }
+html .tools__group li, html.rv-on .tools__group li.rv {
+  transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .85s cubic-bezier(.2,.7,.2,1), filter .5s cubic-bezier(.2,.7,.2,1), scale .35s cubic-bezier(.2,.9,.3,1.2), translate .35s cubic-bezier(.2,.9,.3,1.2), background-color .3s, box-shadow .35s;
+  transition-delay: var(--rv-d, 0ms), var(--rv-d, 0ms), 0ms, 0ms, 0ms, 0ms, 0ms;
+}
+.tools__ic { transition: transform .35s cubic-bezier(.2,.9,.3,1.4), background-color .3s, color .3s; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .tools__group li:hover { z-index: 2; scale: 1.07; translate: 0 -4px; background: var(--card, var(--bg)); box-shadow: 0 2px 4px rgb(0 0 0 / .06), 0 18px 40px -12px rgb(0 0 0 / .3); }
+  .tools__group li:hover .tools__ic { transform: scale(1.12) rotate(-6deg); background: var(--accent); color: var(--bg); }
+  html .tools:has(li:hover) li:not(:hover), html.rv-on .tools:has(li:hover) li.rv.is-in:not(:hover) { scale: .95; translate: 0 2px; opacity: .45; filter: blur(.6px); }
+}
+.shot { will-change: scale, translate; }
+</style>
+<script>
+(function () {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var shots = Array.prototype.slice.call(document.querySelectorAll('.shot'));
+  var ticking = false;
+  function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+  function update() {
+    ticking = false;
+    var vh = innerHeight;
+    shots.forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.bottom < -100 || r.top > vh + 100) return;
+      var enter = clamp((vh - r.top) / (vh * 0.75));
+      var leave = clamp(r.bottom / (vh * 0.55));
+      var s = ease(Math.min(enter, leave));
+      el.style.scale = (0.84 + 0.16 * s).toFixed(4);
+      el.style.translate = '0 ' + ((1 - s) * (enter < leave ? 70 : -50)).toFixed(1) + 'px';
+      el.style.opacity = (0.35 + 0.65 * s).toFixed(3);
+    });
+  }
+  function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+  addEventListener('scroll', onScroll, { passive: true });
+  addEventListener('resize', onScroll);
+  update();
 })();
 </script>
 <script type="module" src="assets/system.js"></script>

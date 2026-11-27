@@ -629,12 +629,12 @@ html .tools__group li, html.rv-on .tools__group li.rv {
   .tools__group li:hover .tools__ic { transform: scale(1.12) rotate(-6deg); background: var(--accent); color: var(--bg); }
   html .tools:has(li:hover) li:not(:hover), html.rv-on .tools:has(li:hover) li.rv.is-in:not(:hover) { scale: .95; translate: 0 2px; opacity: .45; filter: blur(.6px); }
 }
-.shot { will-change: scale, translate; }
+.shot, .ver { will-change: scale, translate; }
 </style>
 <script>
 (function () {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var shots = Array.prototype.slice.call(document.querySelectorAll('.shot'));
+  var shots = Array.prototype.slice.call(document.querySelectorAll('.shot, .ver'));
   var ticking = false;
   function clamp(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function ease(t) { return 1 - Math.pow(1 - t, 3); }

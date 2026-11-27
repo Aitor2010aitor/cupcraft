@@ -156,7 +156,8 @@ jobs:
           VERSION: ${{ needs.check-version.outputs.version }}
         run: |
           rm -f artifacts/*.sha256
+          if [ -s RELEASE_NOTES.md ]; then NOTES="--notes-file RELEASE_NOTES.md"; else NOTES="--generate-notes"; fi
           gh release create "v${VERSION}" artifacts/* \
             --title "cupcraft v${VERSION}" \
-            --generate-notes \
+            $NOTES \
             --verify-tag

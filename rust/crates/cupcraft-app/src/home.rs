@@ -102,7 +102,7 @@ fn side_item(ui: &mut egui::Ui, icon: &str, label: &str, active: bool) -> egui::
 
 fn side_label(ui: &mut egui::Ui, text: &str) {
     ui.add_space(4.0);
-    ui.label(RichText::new(text).size(10.5).color(theme::MUTED2));
+    ui.label(RichText::new(crate::i18n::tr(&text)).size(10.5).color(theme::MUTED2));
     ui.add_space(2.0);
 }
 
@@ -142,7 +142,7 @@ fn sidebar(ui: &mut egui::Ui, app: &mut CupApp, scroll_to: &mut Option<f32>) {
                 let (ar, _) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::hover());
                 ui.painter().rect_filled(ar, 14.0, Color32::from_rgb(0x22, 0x2f, 0x32));
                 icons::paint_logo(ui.painter(), ar.shrink(5.0), Color32::WHITE);
-                ui.label(RichText::new("Iniciar sesión").size(12.0).strong().color(theme::TEXT));
+                ui.label(RichText::new(crate::i18n::tr("Iniciar sesión")).size(12.0).strong().color(theme::TEXT));
             });
         });
     ui.add_space(10.0);
@@ -185,15 +185,15 @@ fn sidebar(ui: &mut egui::Ui, app: &mut CupApp, scroll_to: &mut Option<f32>) {
     if side_item(ui, "folderOpen", "Proyectos de CapCut", false).clicked() {
         app.open_capcut();
     }
-    let bridge = side_item(ui, "link", "Puente IA", false).on_hover_text("Puerto local para IA");
+    let bridge = side_item(ui, "link", "Puente IA", false).on_hover_text(crate::i18n::tr("Puerto local para IA"));
     ui.painter().circle_filled(bridge.rect.right_center() - Vec2::new(14.0, 0.0), 3.5, Color32::from_rgb(0x25, 0xd4, 0x90));
     if bridge.clicked() {
         app.modal = Some(Modal::Bridge);
     }
-    if side_item(ui, "github", "GitHub", false).on_hover_text("Repositorio en GitHub (copia el enlace)").clicked() {
+    if side_item(ui, "github", "GitHub", false).on_hover_text(crate::i18n::tr("Repositorio en GitHub (copia el enlace)")).clicked() {
         copy_link(ui, app, "GitHub", GITHUB_URL);
     }
-    if side_item(ui, "discord", "Discord", false).on_hover_text("Servidor de Discord de cupcraft (copia el enlace)").clicked() {
+    if side_item(ui, "discord", "Discord", false).on_hover_text(crate::i18n::tr("Servidor de Discord de cupcraft (copia el enlace)")).clicked() {
         copy_link(ui, app, "Discord", DISCORD_URL);
     }
 
@@ -365,7 +365,7 @@ fn ai_grid(ui: &mut egui::Ui, app: &mut CupApp) {
                 .id(egui::Id::new("editpilot-input"))
                 .frame(egui::Frame::NONE)
                 .char_limit(180)
-                .hint_text(RichText::new("Describe lo que quieres editar").color(Color32::from_rgb(0xa4, 0xc8, 0xcb)))
+                .hint_text(RichText::new(crate::i18n::tr("Describe lo que quieres editar")).color(Color32::from_rgb(0xa4, 0xc8, 0xcb)))
                 .text_color(Color32::WHITE)
                 .desired_width(field.width()),
         );
@@ -378,7 +378,7 @@ fn ai_grid(ui: &mut egui::Ui, app: &mut CupApp) {
         let sresp = ui.interact(send, ui.scope_id().with("editpilot-send"), Sense::click());
         ui.painter().circle_filled(send.center(), 13.0, Color32::from_white_alpha(if sresp.hovered() { 70 } else { 45 }));
         icons::paint(ui.painter(), "chevronRight", send.center(), 14.0, Color32::WHITE);
-        if sresp.on_hover_text("Crear borrador").clicked() || enter {
+        if sresp.on_hover_text(crate::i18n::tr("Crear borrador")).clicked() || enter {
             submit_editpilot(app);
         }
 
@@ -410,7 +410,7 @@ fn pill(ui: &mut egui::Ui, icon: &str, label: &str, tip: &str) -> bool {
 
 fn projects_head(ui: &mut egui::Ui, app: &mut CupApp) -> egui::Response {
     ui.horizontal(|ui| {
-        ui.label(RichText::new("Proyectos").size(18.0).strong().color(theme::TEXT));
+        ui.label(RichText::new(crate::i18n::tr("Proyectos")).size(18.0).strong().color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 6.0;
             if icons::icon_button(ui, "filter", 15.0, theme::MUTED, "Ordenar proyectos").clicked() {
@@ -448,7 +448,7 @@ fn projects_head(ui: &mut egui::Ui, app: &mut CupApp) -> egui::Response {
                 let resp = ui.add(
                     egui::TextEdit::singleline(&mut app.home_search)
                         .id(egui::Id::new("home-search"))
-                        .hint_text("Buscar proyectos")
+                        .hint_text(crate::i18n::tr("Buscar proyectos"))
                         .desired_width(200.0),
                 );
                 if resp.gained_focus() || app.home_search.is_empty() && !resp.has_focus() && !resp.lost_focus() {
@@ -481,11 +481,11 @@ fn projects_grid(ui: &mut egui::Ui, app: &mut CupApp) {
             .show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.vertical_centered(|ui| {
-                    ui.label(RichText::new("Aún no hay proyectos").size(14.0).strong().color(theme::TEXT));
-                    ui.label(RichText::new("Crea tu primer video o importa un archivo para empezar.").size(12.0).color(theme::MUTED));
+                    ui.label(RichText::new(crate::i18n::tr("Aún no hay proyectos")).size(14.0).strong().color(theme::TEXT));
+                    ui.label(RichText::new(crate::i18n::tr("Crea tu primer video o importa un archivo para empezar.")).size(12.0).color(theme::MUTED));
                     ui.add_space(10.0);
                     if ui
-                        .add(egui::Button::new(RichText::new("+  Crear proyecto").color(theme::ACCENT_INK).strong()).fill(theme::ACCENT).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(150.0, 32.0)))
+                        .add(egui::Button::new(RichText::new(crate::i18n::tr("+  Crear proyecto")).color(theme::ACCENT_INK).strong()).fill(theme::ACCENT).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(150.0, 32.0)))
                         .clicked()
                     {
                         app.modal = Some(new_project_modal());

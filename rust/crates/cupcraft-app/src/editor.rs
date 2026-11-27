@@ -219,13 +219,13 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
         // Logotipo → inicio
         let (lr, lresp) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
         icons::paint_logo(ui.painter(), lr, Color32::WHITE);
-        if lresp.on_hover_text("Volver al inicio").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+        if lresp.on_hover_text(crate::i18n::tr("Volver al inicio")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
             app.back_home();
             return;
         }
         ui.add_space(4.0);
         main_menu(ui, app);
-        if text_button(ui, "Registro", false).on_hover_text("Ver el registro de actividad").clicked() {
+        if text_button(ui, "Registro", false).on_hover_text(crate::i18n::tr("Ver el registro de actividad")).clicked() {
             app.modal = Some(Modal::Log { filter: String::new(), only_errors: false });
         }
 
@@ -234,12 +234,12 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
             ui.add_space(8.0);
             ui.spacing_mut().item_spacing.x = 8.0;
             let export = ui.add(
-                egui::Button::new(RichText::new("Exportar").color(theme::ACCENT_INK).strong().size(12.5))
+                egui::Button::new(RichText::new(crate::i18n::tr("Exportar")).color(theme::ACCENT_INK).strong().size(12.5))
                     .fill(theme::ACCENT)
                     .corner_radius(CornerRadius::from(6))
                     .min_size(Vec2::new(84.0, 28.0)),
             );
-            if export.on_hover_text("Exportar video (MP4 / WebM)").clicked() {
+            if export.on_hover_text(crate::i18n::tr("Exportar video (MP4 / WebM)")).clicked() {
                 app.export_handle = app.export_handle.take().filter(|h| h.is_running());
                 app.modal = Some(Modal::Export);
             }
@@ -266,7 +266,7 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
 }
 
 fn text_button(ui: &mut egui::Ui, label: &str, framed: bool) -> egui::Response {
-    let b = egui::Button::new(RichText::new(label).color(theme::TEXT).size(12.5)).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(0.0, 28.0));
+    let b = egui::Button::new(RichText::new(crate::i18n::tr(&label)).color(theme::TEXT).size(12.5)).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(0.0, 28.0));
     let b = if framed { b.fill(theme::PANEL3) } else { b.frame(false) };
     ui.add(b).on_hover_cursor(egui::CursorIcon::PointingHand)
 }
@@ -289,7 +289,7 @@ fn title_field(ui: &mut egui::Ui, app: &mut CupApp) {
             .text_color(theme::TEXT)
             .desired_width(w),
     );
-    let resp = resp.on_hover_text("Cambiar el nombre del proyecto");
+    let resp = resp.on_hover_text(crate::i18n::tr("Cambiar el nombre del proyecto"));
     if resp.lost_focus() {
         let name = app.title_buf.trim().to_string();
         if !name.is_empty() && name != pname {
@@ -323,7 +323,7 @@ fn style_menu(ui: &mut egui::Ui) {
 }
 
 fn main_menu(ui: &mut egui::Ui, app: &mut CupApp) {
-    let btn = egui::Button::new(RichText::new("Menú ▾").color(theme::TEXT).size(12.5)).frame(false).min_size(Vec2::new(0.0, 28.0));
+    let btn = egui::Button::new(RichText::new(crate::i18n::tr("Menú ▾")).color(theme::TEXT).size(12.5)).frame(false).min_size(Vec2::new(0.0, 28.0));
     egui::containers::menu::MenuButton::from_button(btn).ui(ui, |ui| {
         style_menu(ui);
         if menu_item(ui, "plus", "Nuevo proyecto", "") {
@@ -374,7 +374,7 @@ fn settings_menu(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.painter().rect_filled(r, 4.0, Color32::from_rgb(0x2f, 0x2f, 0x2f));
     }
     icons::paint(ui.painter(), "settings", r.center(), 16.0, if resp.hovered() { Color32::WHITE } else { theme::MUTED });
-    let resp = resp.on_hover_text("Ajustes");
+    let resp = resp.on_hover_text(crate::i18n::tr("Ajustes"));
     egui::Popup::menu(&resp).show(|ui| {
         style_menu(ui);
         if menu_item(ui, "settings", "Preferencias", "") {
@@ -478,7 +478,7 @@ fn rail(ui: &mut egui::Ui, app: &mut CupApp) {
         icons::paint(p, "chevronUp", ir.right_center() - Vec2::new(12.0, 0.0), 12.0, theme::ACCENT2);
     }
     let imp = imp.on_hover_cursor(egui::CursorIcon::PointingHand);
-    if imp.on_hover_text("Importar videos, imágenes o audio (Ctrl+I)").clicked() {
+    if imp.on_hover_text(crate::i18n::tr("Importar videos, imágenes o audio (Ctrl+I)")).clicked() {
         app.import_media_dialog();
     }
     ui.add_space(8.0);
@@ -560,7 +560,7 @@ fn rail(ui: &mut egui::Ui, app: &mut CupApp) {
 fn view_head(ui: &mut egui::Ui, app: &mut CupApp, title: &str) {
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new(title).size(14.0).strong().color(theme::TEXT));
+        ui.label(RichText::new(crate::i18n::tr(&title)).size(14.0).strong().color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if icons::icon_button(ui, "info", 15.0, theme::MUTED, "Ayuda").clicked() {
                 app.modal = Some(Modal::Shortcuts);
@@ -616,12 +616,12 @@ fn timeline_view(ui: &mut egui::Ui, app: &mut CupApp) {
                     };
                     icons::icon(ui, ic, 14.0, theme::MUTED);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(name).size(12.5).strong().color(theme::TEXT));
+                        ui.label(RichText::new(crate::i18n::tr(&name)).size(12.5).strong().color(theme::TEXT));
                         ui.label(RichText::new(format!("{n} clip{}", if *n == 1 { "" } else { "s" })).size(11.0).color(theme::MUTED));
                     });
                     if *hidden {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(RichText::new("Oculta").size(11.0).color(theme::MUTED2));
+                            ui.label(RichText::new(crate::i18n::tr("Oculta")).size(11.0).color(theme::MUTED2));
                         });
                     }
                 });
@@ -668,7 +668,7 @@ fn secondary_view(ui: &mut egui::Ui, app: &mut CupApp) {
                 egui::FontId::proportional(11.0),
                 theme::MUTED,
             );
-            if resp.on_hover_text("Abrir este proyecto").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            if resp.on_hover_text(crate::i18n::tr("Abrir este proyecto")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 open = Some(p.id.clone());
             }
             ui.add_space(4.0);
@@ -1319,7 +1319,7 @@ pub fn custom_ratio_dialog(ctx: &egui::Context, app: &mut CupApp) {
             ui.label(":");
             ui.add(egui::DragValue::new(&mut h).range(0.1..=100.0).speed(0.1));
         });
-        if ui.button("Aplicar").clicked() {
+        if ui.button(crate::i18n::tr("Aplicar")).clicked() {
             apply = true;
         }
     });

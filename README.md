@@ -45,6 +45,7 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Keyframe diamonds** — Scale, Position X/Y, Rotation and Opacity now have a ◆ button: click it to add a keyframe at the playhead and animate the property over time. The preview and dragging on the stage follow the keyframes.
 - **App language** — a language selector in Settings with Spanish, English, French, German, Portuguese (Brazil), Russian, Japanese and Chinese.
 - **Your own language** — export a JSON template with every app text, translate it (by hand or with an AI) and import it back to switch the whole app.
+- **More complete translations**: panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names now follow the chosen language (English fallback for any text a pack does not cover).
 
 ## 🆕 What's new in v0.4.11.1
 

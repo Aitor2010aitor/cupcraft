@@ -220,7 +220,7 @@ fn badge(ui: &mut egui::Ui, text: &str) {
         .fill(theme::PANEL3)
         .corner_radius(CornerRadius::from(3))
         .inner_margin(egui::Margin::symmetric(4, 0))
-        .show(ui, |ui| ui.label(egui::RichText::new(text).size(9.5).color(theme::ACCENT)));
+        .show(ui, |ui| ui.label(egui::RichText::new(crate::i18n::tr(&text)).size(9.5).color(theme::ACCENT)));
 }
 
 /// `switchRow` sobre una clave de primer nivel del clip.
@@ -246,7 +246,7 @@ fn sw_nested(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, label: &str, key: &st
 fn locked(ui: &mut egui::Ui, e: &mut Edit, label: &str, bdg: &str, nt: &str) {
     let r = ui
         .horizontal(|ui| {
-            ui.label(egui::RichText::new(label).size(12.0).color(theme::TEXT));
+            ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(12.0).color(theme::TEXT));
             badge(ui, bdg);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(egui::RichText::new("›").size(13.0).color(theme::MUTED));
@@ -286,9 +286,9 @@ fn nested_range(
 
 fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).size(12.0).color(theme::TEXT));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(12.0).color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(value).size(12.0).color(theme::TEXT).strong());
+            ui.label(egui::RichText::new(crate::i18n::tr(&value)).size(12.0).color(theme::TEXT).strong());
         });
     });
 }
@@ -300,9 +300,9 @@ fn color_pick(ui: &mut egui::Ui, label: &str, cur: &str) -> Option<String> {
         if ui.color_edit_button_srgba(&mut c).changed() {
             out = Some(to_hex(c));
         }
-        ui.label(egui::RichText::new(label).size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(11.5).color(theme::MUTED));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(cur).size(11.0).color(theme::TEXT).monospace());
+            ui.label(egui::RichText::new(crate::i18n::tr(&cur)).size(11.0).color(theme::TEXT).monospace());
         });
     });
     out
@@ -337,13 +337,13 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp, clip: &Clip, track_name: &str) 
         let (r, _) = ui.allocate_exact_size(Vec2::splat(8.0), Sense::hover());
         ui.painter().circle_filled(r.center(), 3.5, theme::ACCENT);
         let name = if clip.name.is_empty() { kind_label } else { clip.name.as_str() };
-        ui.label(egui::RichText::new(name).color(theme::TEXT).strong())
+        ui.label(egui::RichText::new(crate::i18n::tr(&name)).color(theme::TEXT).strong())
             .on_hover_text(format!("Pista: {track_name}"));
         egui::Frame::NONE
             .fill(theme::PANEL3)
             .corner_radius(CornerRadius::from(4))
             .inner_margin(egui::Margin::symmetric(6, 1))
-            .show(ui, |ui| ui.label(egui::RichText::new(kind_label).size(10.5).color(theme::MUTED)));
+            .show(ui, |ui| ui.label(egui::RichText::new(crate::i18n::tr(&kind_label)).size(10.5).color(theme::MUTED)));
     });
     ui.add_space(4.0);
 
@@ -561,7 +561,7 @@ fn video_basic(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> bo
     let mut all = false;
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Lienzo").size(12.5).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr("Lienzo")).size(12.5).color(theme::TEXT).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             all = secondary_button(ui, "Aplicar a todo").clicked();
         });
@@ -621,7 +621,7 @@ fn apply_to_all(app: &mut CupApp, clip: &Clip) {
 /// Eliminar fondo. Devuelve `true` si se pulsó «Recortar con una máscara».
 fn cutout_tab(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> bool {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Eliminación automática").size(12.0).color(theme::TEXT));
+        ui.label(egui::RichText::new(crate::i18n::tr("Eliminación automática")).size(12.0).color(theme::TEXT));
         badge(ui, "IA");
     });
     sw(ui, e, clip, "Activar", "autoCutout", "");
@@ -656,9 +656,9 @@ fn cutout_tab(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> boo
     let cur_bg = exs(clip, "autoCutoutBg", "");
     let cur_name = images.iter().find(|(i, _)| i == cur_bg).map(|(_, n)| n.as_str()).unwrap_or("Sin foto de fondo");
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Foto del fondo").size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("Foto del fondo")).size(11.5).color(theme::MUTED));
         egui::ComboBox::from_id_salt("cutout-bg-plate").selected_text(cur_name).show_ui(ui, |ui| {
-            if ui.selectable_label(cur_bg.is_empty(), "Sin foto de fondo").clicked() {
+            if ui.selectable_label(cur_bg.is_empty(), crate::i18n::tr("Sin foto de fondo")).clicked() {
                 cset(e, "autoCutoutBg", Value::Null);
             }
             for (mid, name) in &images {
@@ -766,7 +766,7 @@ fn mask_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip) {
     let mut m = obj(clip, "mask");
     let mut dirty = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Máscara").size(12.5).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr("Máscara")).size(12.5).color(theme::TEXT).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if secondary_button(ui, "🗑 Quitar").clicked() {
                 m.insert("shape".into(), json!("none"));
@@ -1082,7 +1082,7 @@ fn effects_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, cat: &str) {
             if !prm.choices.is_empty() {
                 let cur = (mn(&m, prm.key, prm.default) as usize).min(prm.choices.len() - 1);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(prm.label).size(12.0).color(theme::TEXT));
+                    ui.label(egui::RichText::new(crate::i18n::tr(&prm.label)).size(12.0).color(theme::TEXT));
                     egui::ComboBox::from_id_salt(("fx-choice", prm.key)).selected_text(prm.choices[cur]).show_ui(ui, |ui| {
                         for (n, name) in prm.choices.iter().enumerate() {
                             if ui.selectable_label(n == cur, *name).clicked() && n != cur {
@@ -1135,9 +1135,9 @@ fn adjust_basic(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip) {
         .unwrap_or("Ninguno");
     let mut lut: Option<&str> = None;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("LUT").size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("LUT")).size(11.5).color(theme::MUTED));
         egui::ComboBox::from_id_salt("clip-lut").selected_text(cur).width(170.0).show_ui(ui, |ui| {
-            if ui.selectable_label(clip.filter == "none", "Ninguno").clicked() {
+            if ui.selectable_label(clip.filter == "none", crate::i18n::tr("Ninguno")).clicked() {
                 lut = Some("none");
             }
             for f in cupcraft_core::FILTERS.iter() {
@@ -1387,7 +1387,7 @@ fn footer(ui: &mut egui::Ui, _e: &mut Edit, clip: &Clip) -> bool {
     );
     ui.add_space(4.0);
     let w = ui.available_width();
-    ui.add_sized([w, 26.0], egui::Button::new(egui::RichText::new("↺ Restablecer ajustes").color(theme::TEXT)).frame(true))
+    ui.add_sized([w, 26.0], egui::Button::new(egui::RichText::new(crate::i18n::tr("↺ Restablecer ajustes")).color(theme::TEXT)).frame(true))
         .clicked()
 }
 

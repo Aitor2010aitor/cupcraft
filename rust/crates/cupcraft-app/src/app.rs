@@ -438,13 +438,13 @@ impl CupApp {
     }
 
     pub fn toast(&mut self, msg: impl Into<String>) {
-        let msg = msg.into();
+        let msg = crate::i18n::tr_dyn(&msg.into());
         self.log(LogKind::Info, msg.clone());
         self.toast = Some((msg, now_secs() + 2.6));
     }
 
     pub fn toast_error(&mut self, msg: impl Into<String>) {
-        let msg = msg.into();
+        let msg = crate::i18n::tr_dyn(&msg.into());
         self.log(LogKind::Error, msg.clone());
         self.toast = Some((msg, now_secs() + 4.0));
     }
@@ -1637,7 +1637,7 @@ pub fn show_toast(ctx: &egui::Context, app: &CupApp) {
                     .corner_radius(egui::CornerRadius::from(8))
                     .inner_margin(egui::Margin::symmetric(14, 8))
                     .show(ui, |ui| {
-                        ui.label(egui::RichText::new(msg).color(theme::TEXT).size(13.0));
+                        ui.label(egui::RichText::new(crate::i18n::tr(&msg)).color(theme::TEXT).size(13.0));
                     });
             });
     }

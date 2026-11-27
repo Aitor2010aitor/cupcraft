@@ -235,7 +235,7 @@ pub(crate) fn card(ui: &mut egui::Ui, w: f32, h: f32, label: &str, active: bool)
         p.rect_stroke(img, 6.0, Stroke::new(1.0, theme::MUTED2), StrokeKind::Inside);
     }
     let font = egui::FontId::proportional(11.0);
-    let txt = paint::ellipsize(p, label, &font, w);
+    let txt = paint::ellipsize(p, &crate::i18n::tr(label), &font, w);
     p.text(
         egui::pos2(rect.center().x, img.bottom() + 9.0),
         egui::Align2::CENTER_CENTER,
@@ -464,7 +464,7 @@ fn media_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.add_space(30.0);
         ui.vertical_centered(|ui| {
             icons::icon(ui, "upload", 30.0, theme::MUTED2);
-            ui.label(egui::RichText::new("Importa medios para empezar").color(theme::MUTED));
+            ui.label(egui::RichText::new(crate::i18n::tr("Importa medios para empezar")).color(theme::MUTED));
             hint(ui, "Video, imagen o audio desde tu equipo");
         });
         return;
@@ -484,11 +484,11 @@ fn media_panel(ui: &mut egui::Ui, app: &mut CupApp) {
             add = Some(m.id.clone());
         }
         resp.context_menu(|ui| {
-            if ui.button("Añadir a la línea de tiempo").clicked() {
+            if ui.button(crate::i18n::tr("Añadir a la línea de tiempo")).clicked() {
                 add = Some(m.id.clone());
                 ui.close();
             }
-            if ui.button("Eliminar del proyecto").clicked() {
+            if ui.button(crate::i18n::tr("Eliminar del proyecto")).clicked() {
                 remove = Some(m.id.clone());
                 ui.close();
             }
@@ -582,11 +582,11 @@ fn audio_panel(ui: &mut egui::Ui, app: &mut CupApp) {
             add = Some(m.id.clone());
         }
         resp.context_menu(|ui| {
-            if ui.button("Añadir a la línea de tiempo").clicked() {
+            if ui.button(crate::i18n::tr("Añadir a la línea de tiempo")).clicked() {
                 add = Some(m.id.clone());
                 ui.close();
             }
-            if ui.button("Eliminar del proyecto").clicked() {
+            if ui.button(crate::i18n::tr("Eliminar del proyecto")).clicked() {
                 remove = Some(m.id.clone());
                 ui.close();
             }
@@ -728,7 +728,7 @@ fn text_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.add_space(4.0);
         ui.add(
             egui::TextEdit::multiline(&mut app.text_content)
-                .hint_text("Escribe el texto que se insertará (opcional)")
+                .hint_text(crate::i18n::tr("Escribe el texto que se insertará (opcional)"))
                 .desired_rows(2)
                 .desired_width(f32::INFINITY),
         );
@@ -845,15 +845,15 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     let ready = available && !list.is_empty();
     let mut do_install_piper = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("BETA").size(10.5).strong().color(theme::ACCENT_INK).background_color(theme::ACCENT));
+        ui.label(egui::RichText::new(crate::i18n::tr("BETA")).size(10.5).strong().color(theme::ACCENT_INK).background_color(theme::ACCENT));
         hint(ui, "En pruebas: puede fallar o sonar raro.");
     });
     if !available {
         egui::Frame::NONE.fill(theme::PANEL2).corner_radius(CornerRadius::from(6)).inner_margin(10).show(ui, |ui| {
-            ui.label(egui::RichText::new("Falta el motor de voz").color(theme::TEXT).strong());
+            ui.label(egui::RichText::new(crate::i18n::tr("Falta el motor de voz")).color(theme::TEXT).strong());
             hint(ui, "Se usa Piper, un motor local (~25 MB + una voz). No se envía nada a internet. Se descarga una sola vez.");
             ui.horizontal(|ui| {
-                if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar motor y voz")).clicked() {
+                if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new(crate::i18n::tr("Descargar motor y voz"))).clicked() {
                     do_install_piper = true;
                 }
                 if secondary_button(ui, "Volver a buscar").clicked() {
@@ -888,9 +888,9 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         });
     }
     section(ui, "Texto");
-    ui.add(egui::TextEdit::multiline(&mut app.tts_text).hint_text("Escribe lo que quieres que se lea").desired_rows(4).desired_width(f32::INFINITY));
+    ui.add(egui::TextEdit::multiline(&mut app.tts_text).hint_text(crate::i18n::tr("Escribe lo que quieres que se lea")).desired_rows(4).desired_width(f32::INFINITY));
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Velocidad").color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("Velocidad")).color(theme::MUTED));
         ui.add(egui::Slider::new(&mut app.tts_speed, 0.5..=2.0).step_by(0.05).suffix("×"));
     });
     section(ui, "Estilo de voz");
@@ -903,7 +903,7 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         }
     });
     ui.add_space(4.0);
-    ui.checkbox(&mut app.tts_captions, "Añadir subtítulos automáticos (karaoke)");
+    ui.checkbox(&mut app.tts_captions, crate::i18n::tr("Añadir subtítulos automáticos (karaoke)"));
     ui.add_space(6.0);
     ui.add_enabled_ui(ready && !app.tts_busy && !app.tts_text.trim().is_empty(), |ui| {
         if primary_button(ui, if app.tts_busy { "Generando…" } else { "Generar voz y añadir" }).clicked() {
@@ -922,11 +922,11 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         for cv in crate::services::voices::CATALOG {
             let have = models.as_deref().map(|m| crate::services::voices::installed(m, cv.id)).unwrap_or(false);
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(cv.label).color(theme::TEXT));
-                ui.label(egui::RichText::new(cv.size).color(theme::MUTED));
+                ui.label(egui::RichText::new(crate::i18n::tr(&cv.label)).color(theme::TEXT));
+                ui.label(egui::RichText::new(crate::i18n::tr(&cv.size)).color(theme::MUTED));
                 if have {
-                    ui.label(egui::RichText::new("Instalada").color(theme::MUTED));
-                } else if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar")).clicked() {
+                    ui.label(egui::RichText::new(crate::i18n::tr("Instalada")).color(theme::MUTED));
+                } else if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new(crate::i18n::tr("Descargar"))).clicked() {
                     to_install = Some(cv.id);
                 }
             });
@@ -1073,7 +1073,7 @@ fn transitions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     });
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Duración").color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("Duración")).color(theme::MUTED));
         ui.add(egui::Slider::new(&mut app.transition_duration, 0.3..=2.0).step_by(0.1).suffix(" s"));
     });
     let sel = selected_clip(app);
@@ -1414,27 +1414,27 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
                 }
                 let c = paint::hex(&app.caption_karaoke_color);
                 let mut rgb = [c.r(), c.g(), c.b()];
-                if ui.color_edit_button_srgb(&mut rgb).on_hover_text("Otro color").changed() {
+                if ui.color_edit_button_srgb(&mut rgb).on_hover_text(crate::i18n::tr("Otro color")).changed() {
                     app.caption_karaoke_color = format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]);
                 }
             });
             ui.add_space(6.0);
-            ui.checkbox(&mut app.caption_replace, "Reemplazar subtítulos actuales en la pista de texto");
+            ui.checkbox(&mut app.caption_replace, crate::i18n::tr("Reemplazar subtítulos actuales en la pista de texto"));
             ui.add_space(4.0);
             egui::Frame::NONE.fill(theme::PANEL2).corner_radius(CornerRadius::from(6)).inner_margin(10).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 if let Some((msg, p)) = app.whisper_busy.clone() {
-                    ui.label(egui::RichText::new(msg).color(theme::TEXT));
+                    ui.label(egui::RichText::new(crate::i18n::tr(&msg)).color(theme::TEXT));
                     if p >= 0.0 {
                         ui.add(egui::ProgressBar::new(p).show_percentage());
                     } else {
                         ui.spinner();
                     }
                 } else if ready {
-                    ui.label(egui::RichText::new("✓ Modelo Whisper disponible localmente").color(theme::ACCENT2).strong());
+                    ui.label(egui::RichText::new(crate::i18n::tr("✓ Modelo Whisper disponible localmente")).color(theme::ACCENT2).strong());
                     hint(ui, "Whisper Base ya está descargado. La transcripción se ejecutará de forma directa en tu PC.");
                 } else {
-                    ui.label(egui::RichText::new("Falta el modelo Whisper").color(theme::TEXT).strong());
+                    ui.label(egui::RichText::new(crate::i18n::tr("Falta el modelo Whisper")).color(theme::TEXT).strong());
                     hint(ui, "Hay que descargar el motor y el modelo una sola vez (~140 MB).");
                     if secondary_button(ui, "Descargar motor y modelo").clicked() {
                         install = true;
@@ -1504,7 +1504,7 @@ fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     });
     section(ui, "Efecto karaoke (estilo TikTok)");
     hint(ui, "El párrafo se ve entero y la palabra que se dice cambia de color a medida que avanza.");
-    ui.checkbox(&mut app.caption_karaoke, "Resaltar la palabra que se está diciendo");
+    ui.checkbox(&mut app.caption_karaoke, crate::i18n::tr("Resaltar la palabra que se está diciendo"));
     if app.caption_karaoke {
         ui.horizontal_wrapped(|ui| {
             for (hex, label) in crate::karaoke::COLORS {
@@ -1523,9 +1523,9 @@ fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     }
     section(ui, "Subtítulos manuales");
     hint(ui, "Una línea por subtítulo. Se colocan uno tras otro desde el cursor.");
-    ui.add(egui::TextEdit::multiline(&mut app.caption_text).hint_text("Escribe tus subtítulos…").desired_rows(5).desired_width(f32::INFINITY));
+    ui.add(egui::TextEdit::multiline(&mut app.caption_text).hint_text(crate::i18n::tr("Escribe tus subtítulos…")).desired_rows(5).desired_width(f32::INFINITY));
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Duración de cada línea").color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("Duración de cada línea")).color(theme::MUTED));
         ui.add(egui::Slider::new(&mut app.caption_duration, 0.5..=8.0).step_by(0.1).suffix(" s"));
     });
     ui.add_space(4.0);
@@ -1688,7 +1688,7 @@ fn adjust_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         }
         if is_tuyos && pid != "custom" {
             resp.context_menu(|ui| {
-                if ui.button("Eliminar ajuste").clicked() {
+                if ui.button(crate::i18n::tr("Eliminar ajuste")).clicked() {
                     if let Some(i) = (0..custom_n).find(|_| true).and(Some(0)) {
                         let _ = i;
                     }
@@ -1742,7 +1742,7 @@ fn adjust_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     ] {
         let mut v = paint::num_of(&adj, key, def);
         ui.horizontal(|ui| {
-            ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new(label).color(theme::MUTED)));
+            ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new(crate::i18n::tr(&label)).color(theme::MUTED)));
             if ui.add(egui::Slider::new(&mut v, lo..=hi).step_by(1.0)).changed() {
                 adj[key] = json!(v);
                 changed = true;
@@ -1754,19 +1754,19 @@ fn adjust_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     let mut rotate = clip.rotate;
     let mut geo: Option<Value> = None;
     ui.horizontal(|ui| {
-        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new("Opacidad").color(theme::MUTED)));
+        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new(crate::i18n::tr("Opacidad")).color(theme::MUTED)));
         if ui.add(egui::Slider::new(&mut opacity, 0.0..=100.0).suffix(" %")).changed() {
             geo = Some(json!({ "opacity": opacity / 100.0 }));
         }
     });
     ui.horizontal(|ui| {
-        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new("Escala").color(theme::MUTED)));
+        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new(crate::i18n::tr("Escala")).color(theme::MUTED)));
         if ui.add(egui::Slider::new(&mut scale, 10.0..=400.0).suffix(" %")).changed() {
             geo = Some(json!({ "scale": scale / 100.0 }));
         }
     });
     ui.horizontal(|ui| {
-        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new("Rotación").color(theme::MUTED)));
+        ui.add_sized([96.0, 18.0], egui::Label::new(egui::RichText::new(crate::i18n::tr("Rotación")).color(theme::MUTED)));
         if ui.add(egui::Slider::new(&mut rotate, -180.0..=180.0).suffix("°")).changed() {
             geo = Some(json!({ "rotate": rotate }));
         }

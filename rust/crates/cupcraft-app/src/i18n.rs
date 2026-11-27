@@ -80,6 +80,14 @@ pub fn languages() -> Vec<LangInfo> {
     out
 }
 
+/// Textos extra (paneles, catalogos…) que solo existen en ingles: se usan como
+/// respaldo en todos los idiomas distintos del español.
+fn add_english_fallback(m: &mut HashMap<String, &'static str>) {
+    for (k, v) in crate::i18n_extra::all() {
+        m.entry((*k).to_string()).or_insert(v);
+    }
+}
+
 fn leak(s: &str) -> &'static str {
     Box::leak(s.to_string().into_boxed_str())
 }
@@ -89,13 +97,17 @@ fn builtin_map(code: &str) -> Option<HashMap<String, &'static str>> {
     if code == "es" {
         return None;
     }
-    Some(KEYS.lines().zip(pack.lines()).filter(|(_, v)| !v.trim().is_empty()).map(|(k, v)| (k.to_string(), leak(v))).collect())
+    let mut m: HashMap<String, &'static str> = KEYS.lines().zip(pack.lines()).filter(|(_, v)| !v.trim().is_empty()).map(|(k, v)| (k.to_string(), leak(v))).collect();
+    add_english_fallback(&mut m);
+    Some(m)
 }
 
 fn user_map(code: &str) -> Option<HashMap<String, &'static str>> {
     let text = std::fs::read_to_string(langs_dir().join(format!("{code}.json"))).ok()?;
     let v: Value = serde_json::from_str(&text).ok()?;
-    Some(strings_of(&v)?.into_iter().map(|(k, v)| (k, leak(&v))).collect())
+    let mut m: HashMap<String, &'static str> = strings_of(&v)?.into_iter().map(|(k, v)| (k, leak(&v))).collect();
+    add_english_fallback(&mut m);
+    Some(m)
 }
 
 /// Pares (clave, traducción) no vacíos de una plantilla.
@@ -143,6 +155,33 @@ pub fn tr(es: &str) -> Cow<'_, str> {
         }
     }
     Cow::Borrowed(es)
+}
+
+/// Traduce mensajes ya formateados ("Estilo aplicado: Neón"): primero exacto; si
+/// no, prueba plantillas "Prefijo: {label}" y "Prefijo {e}" traduciendo el resto.
+pub fn tr_dyn(msg: &str) -> String {
+    if let Ok(s) = ACTIVE.read() {
+        let Some(m) = s.map.as_ref() else { return msg.to_string() };
+        if let Some(t) = m.get(msg) {
+            return (*t).to_string();
+        }
+        if let Some((a, b)) = msg.split_once(": ") {
+            for ph in ["{label}", "{name}", "{e}", "{}"] {
+                if let Some(t) = m.get(format!("{a}: {ph}").as_str()) {
+                    let rest = m.get(b).copied().unwrap_or(b);
+                    return t.replace(ph, rest);
+                }
+            }
+        }
+        if let Some((a, b)) = msg.rsplit_once(' ') {
+            for ph in ["{e}", "{}", "{name}"] {
+                if let Some(t) = m.get(format!("{a} {ph}").as_str()) {
+                    return t.replace(ph, b);
+                }
+            }
+        }
+    }
+    msg.to_string()
 }
 
 fn quote(s: &str) -> String {

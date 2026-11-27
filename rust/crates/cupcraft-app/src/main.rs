@@ -19,6 +19,7 @@ mod fx_library;
 mod fx_style;
 mod fx_table;
 mod home;
+mod i18n;
 mod icon_data;
 mod icons;
 mod karaoke;

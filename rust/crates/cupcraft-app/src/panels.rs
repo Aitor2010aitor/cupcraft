@@ -160,7 +160,7 @@ pub const TEMPLATES: &[Template] = &[
 
 pub fn chip(ui: &mut egui::Ui, label: &str, active: bool) -> egui::Response {
     let font = egui::FontId::proportional(12.0);
-    let galley = ui.painter().layout_no_wrap(label.to_string(), font, theme::TEXT);
+    let galley = ui.painter().layout_no_wrap(crate::i18n::tr(label).into_owned(), font, theme::TEXT);
     let size = Vec2::new(galley.size().x + 20.0, 24.0);
     let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
     let fill = if active {
@@ -172,18 +172,18 @@ pub fn chip(ui: &mut egui::Ui, label: &str, active: bool) -> egui::Response {
     };
     ui.painter().rect_filled(rect, 12.0, fill);
     let color = if active { theme::ACCENT } else if resp.hovered() { theme::TEXT } else { theme::MUTED };
-    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label, egui::FontId::proportional(12.0), color);
+    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, crate::i18n::tr(label), egui::FontId::proportional(12.0), color);
     resp.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 pub fn section(ui: &mut egui::Ui, text: &str) {
     ui.add_space(6.0);
-    ui.label(egui::RichText::new(text).size(12.0).color(theme::MUTED).strong());
+    ui.label(egui::RichText::new(crate::i18n::tr(text)).size(12.0).color(theme::MUTED).strong());
     ui.add_space(2.0);
 }
 
 pub fn hint(ui: &mut egui::Ui, text: &str) {
-    ui.label(egui::RichText::new(text).size(11.5).color(theme::MUTED2));
+    ui.label(egui::RichText::new(crate::i18n::tr(text)).size(11.5).color(theme::MUTED2));
 }
 
 pub fn search_box(ui: &mut egui::Ui, buf: &mut String, hint_text: &str) {
@@ -197,7 +197,7 @@ pub fn search_box(ui: &mut egui::Ui, buf: &mut String, hint_text: &str) {
                 icons::icon(ui, "search", 14.0, theme::MUTED);
                 ui.add(
                     egui::TextEdit::singleline(buf)
-                        .hint_text(hint_text)
+                        .hint_text(crate::i18n::tr(hint_text))
                         .frame(egui::Frame::NONE)
                         .desired_width(w - 44.0),
                 );
@@ -207,7 +207,7 @@ pub fn search_box(ui: &mut egui::Ui, buf: &mut String, hint_text: &str) {
 
 pub fn primary_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     ui.add(
-        egui::Button::new(egui::RichText::new(label).color(theme::ACCENT_INK).strong().size(12.5))
+        egui::Button::new(egui::RichText::new(crate::i18n::tr(label)).color(theme::ACCENT_INK).strong().size(12.5))
             .fill(theme::ACCENT)
             .corner_radius(CornerRadius::from(6))
             .min_size(Vec2::new(0.0, 28.0)),
@@ -216,7 +216,7 @@ pub fn primary_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
 
 pub fn secondary_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     ui.add(
-        egui::Button::new(egui::RichText::new(label).color(theme::TEXT).size(12.5))
+        egui::Button::new(egui::RichText::new(crate::i18n::tr(label)).color(theme::TEXT).size(12.5))
             .fill(theme::FIELD)
             .corner_radius(CornerRadius::from(6))
             .min_size(Vec2::new(0.0, 28.0)),
@@ -314,7 +314,7 @@ pub fn tab_strip(ui: &mut egui::Ui, app: &mut CupApp) {
             }
             let c = if active { theme::ACCENT } else if resp.hovered() { theme::TEXT } else { theme::MUTED };
             icons::paint(p, tab.icon(), egui::pos2(rect.center().x, rect.top() + 18.0), 18.0, c);
-            let (label, fpx) = fit_label(p, tab.short(), w - 4.0, 10.5, 8.0);
+            let (label, fpx) = fit_label(p, &crate::i18n::tr(tab.short()), w - 4.0, 10.5, 8.0);
             p.text(
                 egui::pos2(rect.center().x, rect.top() + 38.0),
                 egui::Align2::CENTER_CENTER,
@@ -328,7 +328,7 @@ pub fn tab_strip(ui: &mut egui::Ui, app: &mut CupApp) {
                     Stroke::new(2.0, theme::ACCENT),
                 );
             }
-            if resp.on_hover_text(tab.title()).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            if resp.on_hover_text(crate::i18n::tr(tab.title())).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 app.panel_tab = tab;
             }
         }
@@ -341,7 +341,7 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
     ui.add_space(6.0);
     // Cabecera: título + ayuda.
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(app.panel_tab.title()).size(14.0).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr(app.panel_tab.title())).size(14.0).color(theme::TEXT).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if icons::icon_button(ui, "info", 15.0, theme::MUTED, "Ayuda").clicked() {
                 app.modal = Some(Modal::Help(app.panel_tab));

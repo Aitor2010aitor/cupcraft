@@ -305,7 +305,7 @@ fn menu_item(ui: &mut egui::Ui, icon: &str, label: &str, shortcut: &str) -> bool
         ui.painter().rect_filled(r, 4.0, theme::PANEL3);
     }
     icons::paint(ui.painter(), icon, r.left_center() + Vec2::new(16.0, 0.0), 15.0, theme::MUTED);
-    ui.painter().text(r.left_center() + Vec2::new(32.0, 0.0), egui::Align2::LEFT_CENTER, label, egui::FontId::proportional(12.5), theme::TEXT);
+    ui.painter().text(r.left_center() + Vec2::new(32.0, 0.0), egui::Align2::LEFT_CENTER, crate::i18n::tr(label), egui::FontId::proportional(12.5), theme::TEXT);
     if !shortcut.is_empty() {
         ui.painter().text(r.right_center() - Vec2::new(10.0, 0.0), egui::Align2::RIGHT_CENTER, shortcut, egui::FontId::proportional(11.0), theme::MUTED2);
     }
@@ -571,7 +571,7 @@ fn view_head(ui: &mut egui::Ui, app: &mut CupApp, title: &str) {
 
 fn section_head(ui: &mut egui::Ui, label: &str, count: usize) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new(label).size(12.0).color(theme::MUTED));
+        ui.label(RichText::new(crate::i18n::tr(label)).size(12.0).color(theme::MUTED));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(RichText::new(count.to_string()).size(12.0).strong().color(theme::TEXT));
         });

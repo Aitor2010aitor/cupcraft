@@ -48,6 +48,7 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **More karaoke effects and any color** — color, jump, big word, color box, box + jump, underline and progressive, each with an animated preview, plus a color picker.
 - **Fix: some Piper voices failed** with a phoneme error — Amy, Joe and Ald now work.
 - **More voices** — Spain Spanish voices and three Loquendo-style presets (an approximation: the real Loquendo voices are commercial and can't be bundled).
+- **App language** — switch the interface between Spanish and English in Settings; your choice is remembered.
 
 ## What's new in v0.4.11
 

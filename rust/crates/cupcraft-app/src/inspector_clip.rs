@@ -208,7 +208,7 @@ fn cset(e: &mut Edit, key: &str, v: Value) {
 
 fn note(ui: &mut egui::Ui, text: &str) {
     if !text.is_empty() {
-        ui.label(egui::RichText::new(text).size(10.5).color(theme::MUTED2));
+        ui.label(egui::RichText::new(crate::i18n::tr(text)).size(10.5).color(theme::MUTED2));
     }
 }
 

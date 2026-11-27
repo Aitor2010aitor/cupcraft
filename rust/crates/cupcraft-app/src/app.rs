@@ -326,6 +326,7 @@ pub struct CupApp {
 impl CupApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         theme::apply(&cc.egui_ctx);
+        crate::i18n::load();
         let store_path = store_path();
         if let Some(dir) = store_path.parent() {
             let _ = std::fs::create_dir_all(dir);

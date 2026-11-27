@@ -6,3 +6,4 @@
 - **More karaoke effects + any color**: color, jump, big word, color box, box + jump, underline and progressive, each with an animated preview, and a color picker.
 - **Fix: voices that failed with a phoneme error** (Amy, Joe, Ald...) now work.
 - **More voices**: Spain Spanish (Davefx, Sharvard, Carlfm) and 3 Loquendo-style voice presets.
+- **App language (Spanish / English)**: new selector in Settings; menus, buttons, tabs and most dialogs switch instantly and the choice is remembered.

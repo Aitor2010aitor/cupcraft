@@ -105,9 +105,9 @@ fn dialog(ctx: &egui::Context, id: &str, title: &str, width: f32, add: impl FnOn
         .show(ctx, |ui| {
             ui.set_width(width);
             ui.horizontal(|ui| {
-                ui.label(RichText::new(title).size(17.0).strong().color(theme::TEXT));
+                ui.label(RichText::new(crate::i18n::tr(title)).size(17.0).strong().color(theme::TEXT));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icons::icon_button(ui, "x", 16.0, theme::MUTED, "Cerrar").clicked() {
+                    if icons::icon_button(ui, "x", 16.0, theme::MUTED, &crate::i18n::tr("Cerrar")).clicked() {
                         keep = false;
                     }
                 });
@@ -132,7 +132,7 @@ fn note(ui: &mut egui::Ui, text: &str) {
             ui.set_width(ui.available_width());
             ui.horizontal_top(|ui| {
                 icons::icon(ui, "info", 15.0, theme::ACCENT);
-                ui.add(egui::Label::new(RichText::new(text).size(12.0).color(theme::MUTED)).wrap());
+                ui.add(egui::Label::new(RichText::new(crate::i18n::tr(text)).size(12.0).color(theme::MUTED)).wrap());
             });
         });
 }
@@ -157,9 +157,9 @@ fn danger_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
 
 fn kv(ui: &mut egui::Ui, k: &str, v: &str) {
     ui.horizontal(|ui| {
-        ui.label(RichText::new(k).color(theme::MUTED).size(12.5));
+        ui.label(RichText::new(crate::i18n::tr(k)).color(theme::MUTED).size(12.5));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(RichText::new(v).color(theme::TEXT).size(12.5));
+            ui.label(RichText::new(crate::i18n::tr(v)).color(theme::TEXT).size(12.5));
         });
     });
 }
@@ -546,7 +546,18 @@ fn settings(ctx: &egui::Context, app: &mut CupApp) -> bool {
         kv(ui, "Espacio usado", &format_bytes(used));
         panels::section(ui, "Preferencias");
         kv(ui, "Tema", "Oscuro");
-        kv(ui, "Idioma", "Español");
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(crate::i18n::tr("Idioma de la app")).color(theme::MUTED).size(12.5));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let en = crate::i18n::is_english();
+                if panels::chip(ui, "English", en).clicked() && !en {
+                    crate::i18n::set_english(true);
+                }
+                if panels::chip(ui, "Español", !en).clicked() && en {
+                    crate::i18n::set_english(false);
+                }
+            });
+        });
         panels::section(ui, "Integraciones");
         let mut capcut = false;
         let mut bridge = false;

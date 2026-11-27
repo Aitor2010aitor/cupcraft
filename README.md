@@ -49,6 +49,7 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Fix: some Piper voices failed** with a phoneme error — Amy, Joe and Ald now work.
 - **More voices** — Spain Spanish voices and three Loquendo-style presets (an approximation: the real Loquendo voices are commercial and can't be bundled).
 - **App language** — switch the interface between Spanish and English in Settings; your choice is remembered.
+- **More accurate subtitles** — Whisper Base model, cleaner audio and tighter timing. Text to speech is now labelled Beta.
 
 ## What's new in v0.4.11
 

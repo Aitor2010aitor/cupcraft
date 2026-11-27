@@ -7,3 +7,5 @@
 - **Fix: voices that failed with a phoneme error** (Amy, Joe, Ald...) now work.
 - **More voices**: Spain Spanish (Davefx, Sharvard, Carlfm) and 3 Loquendo-style voice presets.
 - **App language (Spanish / English)**: new selector in Settings; menus, buttons, tabs and most dialogs switch instantly and the choice is remembered.
+- **More accurate subtitles**: Whisper Base model (re-download once, ~142 MB), cleaner audio, beam search and timing nudged earlier.
+- **Text to speech marked Beta**.

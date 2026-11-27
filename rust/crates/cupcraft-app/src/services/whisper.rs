@@ -8,7 +8,7 @@
 //!   whisper y devuelve `{text,start,end}` en segundos del propio clip.
 
 use cupcraft_media::ffmpeg::command;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -17,8 +17,8 @@ use std::process::Stdio;
 const ENGINE_URL: &str = "https://github.com/ggml-org/whisper.cpp/releases/download/b5907/whisper-bin-x64.zip";
 #[cfg(unix)]
 const SOURCE_URL: &str = "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.7.6.tar.gz";
-const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
-const MODEL_FILE: &str = "ggml-tiny.bin";
+const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin";
+const MODEL_FILE: &str = "ggml-base.bin";
 
 /// Carpeta `tools\whisper` (cwd, o junto al ejecutable y sus padres).
 pub fn dir() -> PathBuf {
@@ -234,7 +234,7 @@ pub fn install(progress: &dyn Fn(String, f32)) -> Result<(), String> {
         install_engine(&d, progress)?;
     }
     if !d.join(MODEL_FILE).is_file() {
-        download(MODEL_URL, &d.join(MODEL_FILE), "modelo Whisper (~78 MB)", 0.2, 0.8, progress)?;
+        download(MODEL_URL, &d.join(MODEL_FILE), "modelo Whisper Base (~142 MB)", 0.2, 0.8, progress)?;
     }
     progress("Listo".into(), 1.0);
     Ok(())
@@ -254,10 +254,11 @@ pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str, words:
     let ff = cupcraft_media::FfmpegLocation::find().ok_or("FFmpeg no encontrado")?;
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|t| t.as_millis()).unwrap_or(0);
     let wav = std::env::temp_dir().join(format!("cupcraft-stt-{stamp}.wav"));
+    // Voz más limpia para el reconocimiento: sin graves de ruido y volumen parejo.
     let st = command(&ff.ffmpeg_path)
         .args(["-y", "-v", "error", "-ss", &format!("{:.3}", in_point.max(0.0)), "-t", &format!("{:.3}", duration.max(0.1)), "-i"])
         .arg(media)
-        .args(["-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"])
+        .args(["-vn", "-af", "highpass=f=80,loudnorm=I=-18:TP=-2", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le"])
         .arg(&wav)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -268,7 +269,7 @@ pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str, words:
     }
     let base = std::env::temp_dir().join(format!("cupcraft-stt-{stamp}"));
     let mut cmd = command(&cli);
-    cmd.arg("-m").arg(&model).arg("-f").arg(&wav).args(["-l", lang, "-osrt", "-of"]).arg(&base).args(["-np"]);
+    cmd.arg("-m").arg(&model).arg("-f").arg(&wav).args(["-l", lang, "-osrt", "-of"]).arg(&base).args(["-np", "-bs", "5", "-bo", "5", "-mc", "0"]);
     if words {
         cmd.args(["-ml", "1", "-sow"]);
     }
@@ -284,4 +285,50 @@ pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str, words:
     let text = text.map_err(|_| format!("Whisper no produjo subtítulos: {}", String::from_utf8_lossy(&out.stderr).lines().last().unwrap_or("")))?;
     let items = crate::panels::parse_srt(&text);
     Ok(if words { crate::karaoke::group_words(&items, 4) } else { items })
+    .map(|v| tighten(v))
+}
+
+/// Ajusta los tiempos: whisper tiende a poner los subtítulos un pelo tarde,
+/// así que se adelantan `LEAD` s (sin pasar de 0 ni del final anterior).
+const LEAD: f64 = 0.08;
+
+fn tighten(mut items: Vec<Value>) -> Vec<Value> {
+    let mut prev_end = 0.0_f64;
+    for it in &mut items {
+        let (Some(s), Some(e)) = (it.get("start").and_then(Value::as_f64), it.get("end").and_then(Value::as_f64)) else { continue };
+        let ns = (s - LEAD).max(prev_end.min(s)).max(0.0);
+        let ne = (e - LEAD).max(ns + 0.1);
+        let shift = s - ns;
+        it["start"] = json!(ns);
+        it["end"] = json!(ne);
+        // Los tiempos de palabra son relativos a la línea: se compensa el adelanto.
+        if let Some(ws) = it.get_mut("words").and_then(Value::as_array_mut) {
+            for w in ws {
+                for k in ["s", "e"] {
+                    if let Some(v) = w.get(k).and_then(Value::as_f64) {
+                        w[k] = json!(v + shift);
+                    }
+                }
+            }
+        }
+        prev_end = ne;
+    }
+    items
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tighten_adelanta_sin_pasar_de_cero_ni_solaparse() {
+        let items = vec![
+            json!({ "text": "a", "start": 0.03, "end": 1.0, "words": [{ "s": 0.0, "e": 0.5 }] }),
+            json!({ "text": "b", "start": 1.02, "end": 2.0, "words": [{ "s": 0.0, "e": 0.5 }] }),
+        ];
+        let o = tighten(items);
+        assert_eq!(o[0]["start"].as_f64().unwrap(), 0.0);
+        assert!(o[1]["start"].as_f64().unwrap() >= o[0]["end"].as_f64().unwrap().min(1.02) - 1e-9);
+        assert!((o[1]["start"].as_f64().unwrap() - 0.94).abs() < 1e-9);
+    }
 }

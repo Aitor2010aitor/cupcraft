@@ -700,7 +700,7 @@ fn avatar_panel(ui: &mut egui::Ui, app: &mut CupApp) {
 
 fn text_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     ui.horizontal(|ui| {
-        for (i, l) in ["Estilos", "Burbujas", "Efectos", "Texto a voz", "Avatares"].iter().enumerate() {
+        for (i, l) in ["Estilos", "Burbujas", "Efectos", "Texto a voz (Beta)", "Avatares"].iter().enumerate() {
             if chip(ui, l, app.text_tab == i as u8).clicked() {
                 app.text_tab = i as u8;
             }
@@ -844,6 +844,10 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     let list: Vec<Value> = v.get("voices").and_then(|a| a.as_array()).cloned().unwrap_or_default();
     let ready = available && !list.is_empty();
     let mut do_install_piper = false;
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new("BETA").size(10.5).strong().color(theme::ACCENT_INK).background_color(theme::ACCENT));
+        hint(ui, "En pruebas: puede fallar o sonar raro.");
+    });
     if !available {
         egui::Frame::NONE.fill(theme::PANEL2).corner_radius(CornerRadius::from(6)).inner_margin(10).show(ui, |ui| {
             ui.label(egui::RichText::new("Falta el motor de voz").color(theme::TEXT).strong());
@@ -1428,10 +1432,10 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
                     }
                 } else if ready {
                     ui.label(egui::RichText::new("✓ Modelo Whisper disponible localmente").color(theme::ACCENT2).strong());
-                    hint(ui, "Whisper Tiny ya está descargado. La transcripción se ejecutará de forma directa en tu PC.");
+                    hint(ui, "Whisper Base ya está descargado. La transcripción se ejecutará de forma directa en tu PC.");
                 } else {
                     ui.label(egui::RichText::new("Falta el modelo Whisper").color(theme::TEXT).strong());
-                    hint(ui, "Hay que descargar el motor y el modelo una sola vez (~80 MB).");
+                    hint(ui, "Hay que descargar el motor y el modelo una sola vez (~140 MB).");
                     if secondary_button(ui, "Descargar motor y modelo").clicked() {
                         install = true;
                     }
@@ -1479,7 +1483,7 @@ fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
             ui.add(egui::Spinner::new());
         }
     } else if !crate::services::whisper::ready() {
-        hint(ui, "Transcribe la voz del clip a subtítulos, 100 % en tu PC (Whisper). La primera vez hay que descargar el motor y el modelo (~80 MB).");
+        hint(ui, "Transcribe la voz del clip a subtítulos, 100 % en tu PC (Whisper). La primera vez hay que descargar el motor y el modelo (~140 MB).");
         if primary_button(ui, "Descargar motor y modelo").clicked() {
             app.install_whisper();
         }

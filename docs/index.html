@@ -841,7 +841,7 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
       var ua = navigator.userAgent; o.selectedIndex = /Linux/.test(ua) && !/Android/.test(ua) ? 1 : /Mac/.test(ua) ? 2 : 0;
     }
   }
-  function open(e) { if (e) e.preventDefault(); render(); dlg.showModal(); $('bgT').focus(); }
+  function open(e) { if (e) e.preventDefault(); if (dlg.open) return; render(); dlg.showModal(); $('bgT').focus(); if (location.hash !== '#bug') history.replaceState(null, '', '#bug'); }
   function send() {
     var t = L[lang()], title = $('bgT').value.trim(), what = $('bgW').value.trim();
     if (!title || !what) { $('bgT').style.borderColor = title ? '' : '#e5484d'; $('bgW').style.borderColor = what ? '' : '#e5484d'; alert(t.err); return; }
@@ -863,6 +863,10 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
   $('bgGo').addEventListener('click', send);
   $('bgX').addEventListener('click', function () { dlg.close(); });
   dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('close', function () { if (location.hash === '#bug') history.replaceState(null, '', location.pathname + location.search); });
+  function fromHash() { if (location.hash === '#bug') open(); }
+  window.addEventListener('hashchange', fromHash);
+  if (document.readyState === 'complete') fromHash(); else window.addEventListener('load', fromHash);
 })();
 </script>
 </body>

@@ -1,3 +1,7 @@
+## What's new in v0.4.12.1
+
+- **Complete translations**: panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names follow the chosen language (English fallback for anything a pack does not cover).
+
 ## What's new in v0.4.12
 
 - **Keyframe diamonds**: Scale, Position X/Y, Rotation and Opacity have a ◆ button to animate them over time; preview and stage dragging follow the keyframes.

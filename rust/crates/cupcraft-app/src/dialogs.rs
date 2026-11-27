@@ -232,6 +232,34 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
             footer(ui, |ui| close = primary_button(ui, "Entendido").clicked());
             !close
         }),
+        Modal::WhatsNew { version, notes } => dialog(ctx, "whatsnew", &format!("cupcraft {version}"), 460.0, |ui| {
+            ui.label(RichText::new("¡Actualización instalada! Novedades de esta versión:").size(13.0).color(theme::MUTED));
+            ui.add_space(8.0);
+            egui::ScrollArea::vertical().max_height(320.0).auto_shrink([false, true]).show(ui, |ui| {
+                if notes.trim().is_empty() {
+                    para(ui, "Mejoras generales y correcciones.");
+                }
+                for line in notes.lines() {
+                    let t = line.trim();
+                    if t.is_empty() {
+                        continue;
+                    }
+                    if let Some(h) = t.strip_prefix('#') {
+                        ui.add_space(4.0);
+                        ui.label(RichText::new(h.trim_start_matches('#').trim()).size(14.0).strong().color(theme::TEXT));
+                    } else if let Some(item) = t.strip_prefix("- ").or_else(|| t.strip_prefix("* ")) {
+                        ui.horizontal_top(|ui| {
+                            ui.label(RichText::new("•").color(theme::ACCENT));
+                            para(ui, &item.replace("**", "").replace('`', ""));
+                        });
+                    } else {
+                        para(ui, &t.replace("**", "").replace('`', ""));
+                    }
+                    ui.add_space(3.0);
+                }
+            });
+            true
+        }),
         Modal::Bridge => dialog(ctx, "bridge", "Puente IA", 480.0, |ui| {
             para(ui, "En la versión web, el Puente IA abría un puerto local para que asistentes externos controlaran el editor. La versión de escritorio nativa no abre ningún servidor ni puerto: toda la edición ocurre dentro de la ventana de cupcraft.");
             ui.add_space(8.0);

@@ -290,6 +290,33 @@ fn download_and_install(u: &Update, progress: &dyn Fn(f32)) -> Result<(), String
     Ok(())
 }
 
+fn whats_new_path() -> PathBuf {
+    crate::app::app_dir().join("whats_new.json")
+}
+
+/// Deja anotado qué versión se acaba de instalar para enseñar sus novedades al
+/// arrancar de nuevo.
+fn save_whats_new(u: &Update) {
+    let dir = crate::app::app_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    let json = serde_json::json!({ "version": u.version, "notes": u.notes });
+    let _ = std::fs::write(whats_new_path(), json.to_string());
+}
+
+/// Si la app acaba de actualizarse devuelve `(versión, notas)` una sola vez.
+/// Solo vale si la versión anotada es la que está corriendo ahora.
+pub fn take_whats_new() -> Option<(String, String)> {
+    let path = whats_new_path();
+    let text = std::fs::read_to_string(&path).ok()?;
+    let _ = std::fs::remove_file(&path);
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let version = v["version"].as_str()?.to_string();
+    if parse_version(&version) != parse_version(CURRENT) {
+        return None;
+    }
+    Some((version, v["notes"].as_str().unwrap_or("").to_string()))
+}
+
 /// Lanza la nueva versión y cierra el proceso actual.
 pub fn relaunch() -> ! {
     if let Ok(exe) = exe_path() {
@@ -325,6 +352,9 @@ impl Updater {
                 let _ = ptx.send(Msg::Progress(p));
                 pctx.request_repaint();
             });
+            if r.is_ok() {
+                save_whats_new(&u);
+            }
             let _ = tx.send(match r {
                 Ok(()) => Msg::Ready,
                 Err(e) => Msg::Failed(e),

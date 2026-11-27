@@ -135,6 +135,8 @@ pub enum Modal {
     About,
     Settings,
     Notifications,
+    /// Novedades que se enseñan al abrir la app justo después de actualizarla.
+    WhatsNew { version: String, notes: String },
     Bridge,
     Unavailable { title: String, msg: String },
     Help(PanelTab),
@@ -331,7 +333,7 @@ impl CupApp {
             store,
             store_path,
             toast: None,
-            modal: None,
+            modal: services::updater::take_whats_new().map(|(version, notes)| Modal::WhatsNew { version, notes }),
             log: Vec::new(),
             jobs_tx,
             jobs_rx,

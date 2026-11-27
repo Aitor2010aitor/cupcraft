@@ -40,7 +40,11 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
-## 🆕 What's new in v0.4.10
+## 🆕 What's new in v0.4.10.1
+
+- **"What's new" after updating** — when you press Update and cupcraft restarts, a window shows the version you just installed and what changed. Close it with the X and carry on.
+
+## What's new in v0.4.10
 
 - **Linux installer (.deb)** — a package for Debian, Ubuntu and Linux Mint: double-click it and cupcraft is installed system-wide, with its icon in the app menu.
 - **Updates on Linux ask for permission** — when cupcraft is installed in `/usr/bin`, the in-app updater shows the system password prompt (`pkexec`) to replace the program. If you cancel, nothing changes.

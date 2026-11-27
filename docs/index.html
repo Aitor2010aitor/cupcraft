@@ -779,6 +779,8 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
 .bug-dlg textarea { min-height: 84px; resize: vertical; }
 .bug-dlg input:focus, .bug-dlg select:focus, .bug-dlg textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .bug-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bug-only main, .bug-only footer, .bug-only .bug-fab { display: none !important; }
+.bug-only .bug-dlg { position: static; display: block; margin: 40px auto; max-height: none; }
 @media (max-width: 520px) { .bug-row { grid-template-columns: 1fr; } }
 .bug-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 .bug-actions button { font: 600 14px/1 var(--font-text, system-ui); border-radius: 999px; padding: 12px 18px; cursor: pointer; border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent); background: transparent; color: var(--ink); }
@@ -842,6 +844,12 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
     }
   }
   function open(e) { if (e) e.preventDefault(); if (dlg.open) return; render(); dlg.showModal(); $('bgT').focus(); if (location.hash !== '#bug') history.replaceState(null, '', '#bug'); }
+  /* enlace directo /#bug: solo se ve la cabecera y el formulario de reporte */
+  function pageMode() {
+    var on = location.hash === '#bug';
+    document.documentElement.classList.toggle('bug-only', on);
+    if (on && !dlg.open) { render(); dlg.show(); window.scrollTo(0, 0); }
+  }
   function send() {
     var t = L[lang()], title = $('bgT').value.trim(), what = $('bgW').value.trim();
     if (!title || !what) { $('bgT').style.borderColor = title ? '' : '#e5484d'; $('bgW').style.borderColor = what ? '' : '#e5484d'; alert(t.err); return; }
@@ -863,10 +871,14 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
   $('bgGo').addEventListener('click', send);
   $('bgX').addEventListener('click', function () { dlg.close(); });
   dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
-  dlg.addEventListener('close', function () { if (location.hash === '#bug') history.replaceState(null, '', location.pathname + location.search); });
-  function fromHash() { if (location.hash === '#bug') open(); }
+  dlg.addEventListener('close', function () {
+    if (location.hash === '#bug') history.replaceState(null, '', location.pathname + location.search);
+    document.documentElement.classList.remove('bug-only');
+  });
+  /* clic en el boton flotante / pie: ventana normal; enlace #bug: pagina de reporte */
+  function fromHash() { if (location.hash === '#bug') pageMode(); else document.documentElement.classList.remove('bug-only'); }
   window.addEventListener('hashchange', fromHash);
-  if (document.readyState === 'complete') fromHash(); else window.addEventListener('load', fromHash);
+  fromHash();
 })();
 </script>
 </body>

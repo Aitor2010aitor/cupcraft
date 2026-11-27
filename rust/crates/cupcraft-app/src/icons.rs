@@ -57,15 +57,20 @@ pub fn texture(ctx: &egui::Context, name: &str, size: f32) -> Option<TextureHand
 
 /// Pinta un icono centrado en `center`.
 pub fn paint(p: &egui::Painter, name: &str, center: Pos2, size: f32, color: Color32) {
+    let size = size * ICON_SCALE;
     if let Some(tex) = texture(p.ctx(), name, size) {
         let rect = Rect::from_center_size(center, Vec2::splat(size));
         p.image(tex.id(), rect, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), color);
     }
 }
 
+/// Factor global de tamaño de los iconos: los tamaños pedidos (12–16 px) se veían
+/// demasiado pequeños dentro de sus botones.
+const ICON_SCALE: f32 = 1.35;
+
 /// Icono suelto que ocupa su tamaño en el layout.
 pub fn icon(ui: &mut egui::Ui, name: &str, size: f32, color: Color32) -> Response {
-    let (rect, resp) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
+    let (rect, resp) = ui.allocate_exact_size(Vec2::splat(size * ICON_SCALE), Sense::hover());
     paint(ui.painter(), name, rect.center(), size, color);
     resp
 }

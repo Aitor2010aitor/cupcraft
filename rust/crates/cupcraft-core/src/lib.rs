@@ -11,6 +11,7 @@ pub mod model;
 pub mod timeline;
 
 pub use filters::{by_key as filter_by_key, Filter, FILTERS};
+pub use timeline::tracks_compatible;
 pub use history::{Editor, History, HISTORY_LIMIT};
 pub use model::{new_id, now_millis, Adjust, Clip, ClipKind, Media, Project, Track, TrackType};
 pub use timeline::{make_clip, resolve_start, TrimEdge};

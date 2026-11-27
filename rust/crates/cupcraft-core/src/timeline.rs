@@ -69,6 +69,12 @@ pub fn make_clip(kind: ClipKind, name: impl Into<String>, start: f64, duration: 
     }
 }
 
+/// Pistas entre las que un clip puede cambiar de capa: del mismo tipo, o
+/// vídeo ↔ superposición.
+pub fn tracks_compatible(a: TrackType, b: TrackType) -> bool {
+    a == b || (matches!(a, TrackType::Video | TrackType::Overlay) && matches!(b, TrackType::Video | TrackType::Overlay))
+}
+
 impl Project {
     /// Pista destino para un medio: la indicada si coincide en tipo, si no la
     /// primera del tipo adecuado.
@@ -355,7 +361,7 @@ impl Project {
             .map(|(t, c)| (t.id.clone(), t.kind, c.duration))
         else { return };
         let destination = match track_id {
-            Some(id) if id != origin_id => self.track(id).filter(|t| t.kind == kind).map(|t| t.id.clone()),
+            Some(id) if id != origin_id => self.track(id).filter(|t| tracks_compatible(t.kind, kind)).map(|t| t.id.clone()),
             _ => None,
         };
         let destination_id = destination.unwrap_or_else(|| origin_id.clone());
@@ -430,6 +436,17 @@ impl Project {
             n += 1;
         }
         name
+    }
+
+    /// Crea una pista vacía del tipo `kind` justo encima de la fila `index`
+    /// (0 = arriba del todo) y devuelve su id.
+    pub fn insert_track_at(&mut self, kind: TrackType, index: usize) -> String {
+        let name = self.next_track_name(kind);
+        let track = Track { id: new_id("track"), kind, name, muted: false, hidden: false, locked: false, clips: Vec::new() };
+        let id = track.id.clone();
+        let at = index.min(self.tracks.len());
+        self.tracks.insert(at, track);
+        id
     }
 
     /// Añade una pista vacía y devuelve su id.

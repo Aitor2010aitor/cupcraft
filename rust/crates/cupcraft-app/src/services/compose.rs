@@ -115,7 +115,8 @@ pub fn clip_alpha(clip: &Clip, local: f64) -> f32 {
 /// Capas activas en `t`, ordenadas para pintar.
 pub fn active_layers(project: &Project, t: f64) -> Vec<(&Clip, f64)> {
     let mut out = Vec::new();
-    for track in &project.tracks {
+    // La pista de arriba de la línea de tiempo se pinta encima (como en CapCut).
+    for track in project.tracks.iter().rev() {
         if track.hidden {
             continue;
         }

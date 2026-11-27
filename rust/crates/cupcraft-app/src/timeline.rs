@@ -10,7 +10,7 @@
 use crate::app::{CupApp, PanelTab, ToolMode};
 use crate::format::format_time;
 use crate::{icons, paint, theme};
-use cupcraft_core::{Clip, ClipKind, Project, TrackType, TrimEdge};
+use cupcraft_core::{tracks_compatible, Clip, ClipKind, Project, TrackType, TrimEdge};
 use eframe::egui::{self, Align2, Color32, CornerRadius, FontId, Pos2, Rect, Sense, Shape, Stroke, StrokeKind, Vec2};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -73,6 +73,10 @@ struct TlState {
     /// Transición agarrada por el cuerpo (id del clip, x del puntero): se
     /// suelta en el corte más cercano.
     trans_move: Option<(String, f32)>,
+    /// Clip sobre el que se abrió el menú de clic derecho.
+    ctx_clip: Option<String>,
+    /// Portapapeles de clips (Copiar / Cortar / Pegar del menú).
+    clipboard: Option<Clip>,
 }
 
 /// Clip de vídeo/imagen cuyo inicio (corte) queda más cerca de `t`.
@@ -1108,6 +1112,124 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
         }
     }
 
+    if tresp.secondary_clicked() {
+        if let Some(pos) = tresp.interact_pointer_pos() {
+            st.ctx_clip = match hit_at(pos) {
+                Some(Hit::Clip { id, .. }) => Some(id.clone()),
+                _ => None,
+            };
+            if let Some(id) = st.ctx_clip.clone() {
+                if !st.multi.contains(&id) {
+                    st.multi.clear();
+                    app.editor.select(Some(id));
+                }
+            }
+        }
+    }
+    let mut menu_act: Option<&'static str> = None;
+    if st.ctx_clip.is_some() || st.clipboard.is_some() {
+        let has_clip = st.ctx_clip.is_some();
+        let can_paste = st.clipboard.is_some();
+        let is_video = st
+            .ctx_clip
+            .as_deref()
+            .and_then(|id| project.find_clip(id))
+            .is_some_and(|(_, c)| c.kind == ClipKind::Video);
+        tresp.context_menu(|ui| {
+            ui.set_min_width(200.0);
+            let mut item = |ui: &mut egui::Ui, label: &str, key: &str, enabled: bool, act: &'static str| {
+                let b = ui.add_enabled(enabled, egui::Button::new(label).shortcut_text(key).min_size(Vec2::new(190.0, 0.0)));
+                if b.clicked() {
+                    menu_act = Some(act);
+                    ui.close();
+                }
+            };
+            item(ui, "Copiar", "Ctrl+C", has_clip, "copy");
+            item(ui, "Cortar", "Ctrl+X", has_clip, "cut");
+            item(ui, "Pegar", "Ctrl+V", can_paste, "paste");
+            item(ui, "Duplicar", "Ctrl+D", has_clip, "dup");
+            item(ui, "Eliminar", "Supr", has_clip, "del");
+            ui.separator();
+            item(ui, "Dividir en el cursor", "B", has_clip, "split");
+            item(ui, "Extraer audio", "Ctrl+Mayús+S", is_video, "extract");
+        });
+    }
+    if let Some(act) = menu_act {
+        let id = st.ctx_clip.clone();
+        match (act, id) {
+            ("copy", Some(id)) | ("cut", Some(id)) => {
+                st.clipboard = project.find_clip(&id).map(|(_, c)| c.clone());
+                if act == "cut" {
+                    app.editor.mutate(|p| p.remove_clip(&id));
+                    app.editor.select(None);
+                    app.save_current();
+                }
+                app.toast(if act == "cut" { "Clip cortado" } else { "Clip copiado" });
+            }
+            ("paste", _) => {
+                if let Some(mut clip) = st.clipboard.clone() {
+                    let at = app.playhead;
+                    clip.id = cupcraft_core::new_id("clip");
+                    let target = st.ctx_clip.as_deref().and_then(|i| project.find_clip(i)).map(|(t, _)| t.id.clone());
+                    let new_id = clip.id.clone();
+                    let move_id = new_id.clone();
+                    app.editor.mutate(move |p| {
+                        let kind = clip.kind;
+                        let tid = target
+                            .filter(|t| p.track(t).is_some_and(|tr| !tr.locked))
+                            .or_else(|| p.tracks.iter().find(|t| !t.locked && match (kind, t.kind) {
+                                (ClipKind::Audio, TrackType::Audio) | (ClipKind::Text, TrackType::Text) => true,
+                                (ClipKind::Audio, _) | (ClipKind::Text, _) => false,
+                                (_, k) => matches!(k, TrackType::Video | TrackType::Overlay),
+                            }).map(|t| t.id.clone()));
+                        if let Some(tid) = tid {
+                            if let Some(tr) = p.track_mut(&tid) {
+                                clip.start = at.max(0.0);
+                                tr.clips.push(clip);
+                            }
+                            p.move_clip(&move_id, Some(at.max(0.0)), None);
+                        }
+                    });
+                    app.editor.select(Some(new_id));
+                    app.save_current();
+                    app.toast("Clip pegado");
+                }
+            }
+            ("dup", Some(id)) => {
+                if let Some(Some(did)) = app.editor.mutate(|p| p.duplicate_clip(&id)) {
+                    app.editor.select(Some(did));
+                    app.save_current();
+                    app.toast("Clip duplicado");
+                }
+            }
+            ("del", Some(id)) => {
+                app.editor.mutate(|p| p.remove_clip(&id));
+                app.editor.select(None);
+                st.multi.clear();
+                app.save_current();
+                app.toast("Clip eliminado");
+            }
+            ("split", Some(id)) => {
+                let ph = app.playhead;
+                let n = app.editor.mutate(|p| p.split_at(ph, Some(&id))).unwrap_or(0);
+                if n > 0 {
+                    app.save_current();
+                    app.toast("Clip dividido");
+                } else {
+                    app.toast("Coloca el cursor sobre el clip para dividirlo");
+                }
+            }
+            ("extract", Some(id)) => match app.editor.mutate(|p| p.separate_audio(&id)).flatten() {
+                Some(_) => {
+                    app.save_current();
+                    app.toast("Audio separado a una nueva pista");
+                }
+                None => app.toast("Selecciona un clip de vídeo con audio"),
+            },
+            _ => {}
+        }
+    }
+
     if tresp.drag_started() {
         let origin = ui.input(|i| i.pointer.press_origin()).unwrap_or_default();
         match hit_at(origin) {
@@ -1212,13 +1334,34 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
                             st.drag_over = None;
                             if let Some(Row::Track(ti)) = row_at(pos.y).map(|i| rows[i].clone()) {
                                 let cand = &project.tracks[ti];
-                                if cand.kind == d.kind && !cand.locked {
+                                if tracks_compatible(cand.kind, d.kind) && !cand.locked {
                                     target = Some(cand.id.clone());
                                     st.drag_over = Some(cand.id.clone());
                                 }
                             }
+                            // Arrastrar por encima de la pista más alta crea una capa nueva arriba.
+                            let top_ti = project.tracks.iter().position(|t| tracks_compatible(t.kind, d.kind) && !t.locked);
+                            let top_row_y = top_ti.and_then(|ti| rows.iter().position(|r| matches!(r, Row::Track(i) if *i == ti))).map(row_y);
+                            let above_top = top_row_y.is_some_and(|y| pos.y < y + 6.0)
+                                && !matches!(row_at(pos.y).map(|i| rows[i].clone()), Some(Row::Track(ti)) if tracks_compatible(project.tracks[ti].kind, d.kind) && Some(ti) != top_ti);
+                            let new_layer = if above_top {
+                                let cur = project.find_clip(&d.clip_id).map(|(t, _)| (t.id.clone(), t.clips.len()));
+                                let alone_on_top = cur.is_some_and(|(tid, n)| n == 1 && top_ti.is_some_and(|ti| project.tracks[ti].id == tid));
+                                !alone_on_top
+                            } else {
+                                false
+                            };
                             let id = d.clip_id.clone();
-                            app.editor.mutate_silent(move |p| p.move_clip(&id, Some(value), target.as_deref()));
+                            if new_layer {
+                                let (kind, at) = (d.kind, top_ti.unwrap_or(0));
+                                st.drag_over = None;
+                                app.editor.mutate_silent(move |p| {
+                                    let tid = p.insert_track_at(kind, at);
+                                    p.move_clip(&id, Some(value), Some(&tid));
+                                });
+                            } else {
+                                app.editor.mutate_silent(move |p| p.move_clip(&id, Some(value), target.as_deref()));
+                            }
                         }
                         DragMode::Trim(edge) => {
                             let delta = match edge {

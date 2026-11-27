@@ -1,4 +1,4 @@
-## What's new in v0.4.12.1
+## What's new in v0.4.12.2
 
 - **Complete translations**: panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names follow the chosen language (English fallback for anything a pack does not cover).
 

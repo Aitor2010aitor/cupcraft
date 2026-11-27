@@ -40,6 +40,10 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
+## 🆕 What's new in v0.4.12.2
+
+- **Complete translations** — panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names follow the chosen language (English fallback for anything a pack does not cover).
+
 ## 🆕 What's new in v0.4.12
 
 - **Keyframe diamonds** — Scale, Position X/Y, Rotation and Opacity now have a ◆ button: click it to add a keyframe at the playhead and animate the property over time. The preview and dragging on the stage follow the keyframes.
@@ -125,8 +129,4 @@ A Rust workspace split into small crates (`cupcraft-core`, `-persist`, `-render`
 
 ## 📄 License
 
-[MIT](LICENSE) © 2026 AITOR2010## 🆕 What's new in v0.4.12.1
-
-- **Complete translations**: panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names follow the chosen language (English fallback for anything a pack does not cover).
-
-
+[MIT](LICENSE) © 2026 AITOR2010

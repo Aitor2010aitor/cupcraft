@@ -780,7 +780,11 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
 .bug-dlg input:focus, .bug-dlg select:focus, .bug-dlg textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .bug-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .bug-only main, .bug-only footer, .bug-only .bug-fab { display: none !important; }
-.bug-only .bug-dlg { position: static; display: block; margin: 40px auto; max-height: none; }
+.bug-only .bug-dlg { position: static; display: block; margin: 110px auto 48px; width: min(440px, calc(100vw - 28px)); max-height: none; }
+.bug-only .bug-dlg form { gap: 10px; padding: 18px 20px; }
+.bug-only .bug-dlg h2 { font-size: 19px; }
+.bug-only .bug-dlg p.bug-sub { font-size: 13px; }
+.bug-only .bug-dlg textarea { min-height: 64px; }
 @media (max-width: 520px) { .bug-row { grid-template-columns: 1fr; } }
 .bug-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 .bug-actions button { font: 600 14px/1 var(--font-text, system-ui); border-radius: 999px; padding: 12px 18px; cursor: pointer; border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent); background: transparent; color: var(--ink); }

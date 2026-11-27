@@ -171,6 +171,87 @@ pub fn clear_all_keyframes(clip: &mut Clip) {
     clip.extra.remove("keyframes");
 }
 
+/// Valor fijo (sin animar) de una propiedad animable del clip.
+pub fn base_value(clip: &Clip, prop: &str) -> f64 {
+    match prop {
+        "x" => clip.x,
+        "y" => clip.y,
+        "scale" => clip.scale,
+        "rotate" => clip.rotate,
+        "opacity" => clip.opacity,
+        other => clip.extra.get(other).and_then(|v| v.as_f64()).unwrap_or(0.0),
+    }
+}
+
+fn set_base_value(clip: &mut Clip, prop: &str, value: f64) {
+    match prop {
+        "x" => clip.x = value,
+        "y" => clip.y = value,
+        "scale" => clip.scale = value,
+        "rotate" => clip.rotate = value,
+        "opacity" => clip.opacity = value,
+        other => {
+            clip.extra.insert(other.to_string(), serde_json::json!(value));
+        }
+    }
+}
+
+/// Valor de la propiedad en `time`: el animado si tiene fotogramas clave y, si
+/// no, el fijo.
+pub fn value_at(clip: &Clip, prop: &str, time: f64) -> f64 {
+    keyframe_value(clip, prop, time, base_value(clip, prop))
+}
+
+/// ¿Hay un fotograma clave de esta propiedad justo en `time`?
+pub fn has_keyframe_at(clip: &Clip, prop: &str, time: f64) -> bool {
+    keyframes_of(clip, prop).is_some_and(|pts| pts.iter().any(|p| (p.t - time).abs() <= EPSILON))
+}
+
+/// Escribe un valor editado a mano: si la propiedad está animada crea o actualiza
+/// el fotograma clave en `time`; si no, cambia el valor fijo.
+pub fn write_value(clip: &mut Clip, prop: &str, time: f64, value: f64) {
+    if has_keyframes(clip, prop) {
+        set_keyframe(clip, prop, time, value);
+    } else {
+        set_base_value(clip, prop, value);
+    }
+}
+
+/// Quita todos los fotogramas clave de una propiedad (y limpia las entradas
+/// vacías). Devuelve `true` si había alguno.
+pub fn clear_prop(clip: &mut Clip, prop: &str) -> bool {
+    let Some(map) = clip.extra.get_mut("keyframes").and_then(|v| v.as_object_mut()) else {
+        return false;
+    };
+    let had = map.remove(prop).is_some();
+    if map.is_empty() {
+        clip.extra.remove("keyframes");
+    }
+    had
+}
+
+/// Rombo del panel: si hay un fotograma clave en `time` lo quita; si no, lo crea
+/// con el valor que la propiedad tiene en ese instante. Al quitar el último, el
+/// valor que se veía pasa a ser el fijo para que nada salte. Devuelve `true` si
+/// después hay un fotograma clave en `time`.
+pub fn toggle_keyframe(clip: &mut Clip, prop: &str, time: f64) -> bool {
+    let shown = value_at(clip, prop, time);
+    if has_keyframe_at(clip, prop, time) {
+        clear_keyframe(clip, prop, time);
+        if !has_keyframes(clip, prop) {
+            clear_prop(clip, prop);
+            set_base_value(clip, prop, shown);
+        } else if let Some(list) = clip.extra.get_mut("keyframes").and_then(|v| v.as_object_mut()) {
+            // Sin puntos vacíos que ensucien el archivo del proyecto.
+            list.retain(|_, v| v.as_array().is_none_or(|a| !a.is_empty()));
+        }
+        false
+    } else {
+        set_keyframe(clip, prop, time, shown);
+        true
+    }
+}
+
 /// Calcula la transformación completa de un clip en el instante `time`.
 pub fn transform_at(clip: &Clip, time: f64) -> Transform {
     let scale = keyframe_value(clip, "scale", time, clip.scale);
@@ -221,5 +302,42 @@ mod tests {
 
         clear_all_keyframes(&mut clip);
         assert!(!clip_has_keyframes(&clip));
+    }
+
+    #[test]
+    fn rombo_crea_y_quita_sin_saltos() {
+        let mut clip = make_clip(ClipKind::Video, "clip1", 0.0, 10.0);
+        clip.scale = 0.5;
+        // Sin animar, editar cambia el valor fijo.
+        write_value(&mut clip, "scale", 2.0, 0.6);
+        assert_eq!(clip.scale, 0.6);
+        assert!(!has_keyframes(&clip, "scale"));
+
+        // Primer rombo: queda un punto con el valor visible.
+        assert!(toggle_keyframe(&mut clip, "scale", 2.0));
+        assert!(has_keyframe_at(&clip, "scale", 2.0));
+        // Editar ahora anima: otro punto en otro instante.
+        write_value(&mut clip, "scale", 6.0, 1.0);
+        assert_eq!(clip.scale, 0.6, "el valor fijo no cambia al animar");
+        assert!((value_at(&clip, "scale", 4.0) - 0.8).abs() < 1e-9);
+
+        // Quitar el último deja el valor visible como fijo.
+        assert!(!toggle_keyframe(&mut clip, "scale", 6.0));
+        assert!(!toggle_keyframe(&mut clip, "scale", 2.0));
+        assert!(!clip_has_keyframes(&clip));
+        assert!(!clip.extra.contains_key("keyframes"));
+        assert_eq!(clip.scale, 0.6);
+    }
+
+    #[test]
+    fn quitar_animacion_de_una_propiedad() {
+        let mut clip = make_clip(ClipKind::Video, "clip1", 0.0, 10.0);
+        set_keyframe(&mut clip, "x", 0.0, 1.0);
+        set_keyframe(&mut clip, "y", 0.0, 2.0);
+        assert!(clear_prop(&mut clip, "x"));
+        assert!(!has_keyframes(&clip, "x") && has_keyframes(&clip, "y"));
+        assert!(clear_prop(&mut clip, "y"));
+        assert!(!clip.extra.contains_key("keyframes"));
+        assert!(!clear_prop(&mut clip, "y"));
     }
 }

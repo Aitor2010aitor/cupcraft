@@ -1,0 +1,173 @@
+Dateien
+Mediendateien
+Filter
+Vorlagen
+Untert.
+Untertitel
+Übergänge
+Übergänge
+Anpassen
+Sticker
+Text-zu-Sprache (Beta)
+Im Test: kann fehlschlagen oder seltsam klingen.
++ Standardtext hinzufügen
++ Importieren
++ Audio importieren
+Öffnen
+Ordner öffnen
+Datenordner öffnen
+Projekt aus Datei öffnen
+Schlanker
+Stimme isolieren
+Anpassen
+Manuelle Anpassung
+Einstellungen
+Speicher
+Animation
+Auf alle anwenden
+Ziehe Clips, um sie zu verschieben, nutze die Griffe an den Enden zum Kürzen und drücke B, um am Cursor zu teilen.
+Tastenkürzel
+Tastenkürzel
+Zurück
+Audio
+Projekt-Audio
+Untertitel hinzufügen
+Noch kein Audio. Importiere Musik oder Soundeffekte von deinem Computer.
+Effektbibliothek
+Audio suchen
+Sticker-Kategorien suchen
+Effekte suchen
+In deinen Medien suchen
+Stile suchen
+Filter suchen
+Übergänge suchen
+Grundlagen
+Ändert die Tonhöhe wie in TikTok-Videos (Eichhörnchen, tief, Roboter…). Wird offline mit FFmpeg angewendet.
+Abbrechen
+Schließen
+Hervorhebungsfarbe
+Kanal auffüllen
+Tipp: Halte Alt beim Ziehen eines Clips, um das Einrasten vorübergehend zu deaktivieren.
+Inhalt
+Weiter
+Kopieren
+Später entscheiden
+.txt herunterladen
+Engine und Modell herunterladen
+Verwerfen
+Zähne
+Untertiteleffekt
+Karaoke-Effekt (TikTok-Stil)
+Effekte
+Videoeffekte
+Effekte, die auf den ausgewählten Text angewendet werden.
+Der Effekt wird als Ebene am Cursor hinzugefügt und wirkt auf alles darunter.
+Der Stimmfilter wird in der Vorschau und beim Export auf das Clip-Audio angewendet.
+Der ganze Absatz ist sichtbar und das gesprochene Wort wechselt beim Fortschreiten die Farbe.
+Wähle die Farbe und stelle dann die Intensität ein.
+Wähle eine Sprechblase: Sie wird auf den ausgewählten Text angewendet.
+Verstanden
+Dieser Effekt hat keine einstellbaren Eigenschaften.
+Stil
+CapCut-Stil
+Stimmstil
+Voreingestellter Stil
+Standard
+Exportieren
+Video exportieren
+Wird erzeugt…
+Super
+Sprachaufnahme
+Speichern
+Als Voreinstellung speichern
+Projekt als Datei speichern
+Speichern und beenden
+Engine und Modell müssen einmalig heruntergeladen werden (~140 MB).
+Zeit in UTC.
+Sprache
+App-Sprache
+Sprache der Stimme
+SRT/VTT importieren
+Integrationen
+Der vorherige Export wurde abgebrochen.
+Die Aufnahme wird am Cursor als Audio-Clip eingefügt.
+Geschwindigkeitskurven erzeugen allmähliche Beschleunigungen innerhalb des Clips.
+Fertig
+Lokal · ohne Konto
+Farbanpassungen gelten für Video- oder Bild-Clips.
+Effekte gelten für Video-, Bild-, Text- oder Sticker-Clips.
+Projekte und Medien werden in %LOCALAPPDATA%\openCUP gespeichert. Der Export nutzt FFmpeg, falls auf dem Computer vorhanden.
+Projekte, Medien und Einstellungen werden in %LOCALAPPDATA%\openCUP gespeichert. Es sind keine Administratorrechte nötig.
+Stimme verbessern
+Modus
+Mehr Stimmen
+Keine Einträge.
+Keine neuen Benachrichtigungen. cupcraft funktioniert offline.
+Es gibt noch keine anderen Projekte. Erstelle eins im Menü oder gehe zurück zum Start.
+Keine Stimmen installiert. Lade unten unter „Mehr Stimmen“ eine herunter.
+Augen
+Spuren
+Einstellungen
+Wird verarbeitet…
+Eigenschaften
+CapCut-Projekt
+Projekte
+Nebenprojekte
+KI-Brücke
+Filter entfernen
+Hintergrund entfernen
+Alle Untertitel entfernen
+Übergang entfernen
+Mit einer Maske zuschneiden
+Rauschen reduzieren
+Auf GitHub melden
+Problem melden
+Zurücksetzen
+Retusche
+Es wird Piper verwendet, eine lokale Engine (~25 MB + eine Stimme). Es wird nichts ins Internet gesendet. Wird nur einmal heruntergeladen.
+Wähle einen Clip mit Audio, um die Lautstärke anzupassen.
+Wähle einen Video- oder Bild-Clip, um ihn anzupassen.
+Wenn du „Nein“ wählst, wird das Projekt nicht gespeichert und die Änderungen dieser Sitzung gehen verloren.
+Wenn aus, behält das Audio seine Tonhöhe bei Geschwindigkeitsänderung.
+Keine Animation
+Automatische Untertitel
+Manuelle Untertitel
+Ja, speichern
+Design
+Text
+Clip-Text
+Tracking-Typ
+Typografie
+Alle Funktionen dieser Version sind ohne Abo verfügbar. Deine Dateien verlassen nie deinen Computer.
+Alle
+Video-Übersetzer
+Eine Zeile pro Untertitel. Sie werden ab dem Cursor nacheinander platziert.
+Leeren
+Ansicht
+Video, Bild oder Audio von deinem Computer
+Stimmen aus der öffentlichen Piper-Sammlung (Hugging Face). Sie werden nur heruntergeladen, wenn du auf die Schaltfläche drückst.
+Erneut suchen
+Erneut versuchen
+Stimme
+Video / Audio zum Transkribieren
+Zu entfernender Bereich
+↺ Textstil zurücksetzen
+↺ Mischung zurücksetzen
+↺ Eigenschaften zurücksetzen
+↺ Transformation zurücksetzen
+↺ Keine Animation
+⊘ Kein Stil
+✨ Untertitel mit KI erzeugen…
+✨ Erzeugung starten
+🎙 Mit dem Mikrofon aufnehmen
+🎤 Vollständige Text-zu-Sprache öffnen
+🗑 Entfernen
+Keyframe hier entfernen
+Keyframe zu diesem Zeitpunkt hinzufügen
+Animieren: Keyframe zu diesem Zeitpunkt erstellen
+Sprachvorlage exportieren
+Sprache importieren…
+Deine Sprache fehlt? Exportiere die Vorlage, übersetze sie (von Hand oder mit einer KI) und importiere sie wieder.
+Vorlage gespeichert
+Sprache importiert
+Die Datei ist keine gültige Sprachvorlage

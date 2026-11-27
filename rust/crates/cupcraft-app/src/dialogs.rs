@@ -549,15 +549,41 @@ fn settings(ctx: &egui::Context, app: &mut CupApp) -> bool {
         ui.horizontal(|ui| {
             ui.label(RichText::new(crate::i18n::tr("Idioma de la app")).color(theme::MUTED).size(12.5));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let en = crate::i18n::is_english();
-                if panels::chip(ui, "English", en).clicked() && !en {
-                    crate::i18n::set_english(true);
-                }
-                if panels::chip(ui, "Español", !en).clicked() && en {
-                    crate::i18n::set_english(false);
-                }
+                let langs = crate::i18n::languages();
+                let cur = crate::i18n::current_code();
+                let cur_name = langs.iter().find(|l| l.code == cur).map(|l| l.name.clone()).unwrap_or_else(|| cur.clone());
+                egui::ComboBox::from_id_salt("app-language").selected_text(cur_name).width(190.0).show_ui(ui, |ui| {
+                    for l in &langs {
+                        if ui.selectable_label(l.code == cur, &l.name).clicked() && l.code != cur {
+                            crate::i18n::set_language(&l.code);
+                        }
+                    }
+                });
             });
         });
+        let (mut export_tpl, mut import_tpl) = (false, false);
+        ui.horizontal(|ui| {
+            export_tpl = secondary_button(ui, "Exportar plantilla de idioma").clicked();
+            import_tpl = secondary_button(ui, "Importar idioma…").clicked();
+        });
+        note(ui, "¿Falta tu idioma? Exporta la plantilla, tradúcela (a mano o con una IA) y vuelve a importarla.");
+        if export_tpl {
+            if let Some(path) = rfd::FileDialog::new().set_file_name("cupcraft-idioma.json").add_filter("JSON", &["json"]).save_file() {
+                match std::fs::write(&path, crate::i18n::export_template()) {
+                    Ok(()) => app.toast(crate::i18n::tr("Plantilla guardada").to_string()),
+                    Err(e) => app.toast_error(e.to_string()),
+                }
+            }
+        }
+        if import_tpl {
+            if let Some(path) = rfd::FileDialog::new().add_filter("JSON", &["json"]).pick_file() {
+                let res = std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| crate::i18n::import_template(&t));
+                match res {
+                    Ok(info) => app.toast(format!("{}: {}", crate::i18n::tr("Idioma importado"), info.name)),
+                    Err(e) => app.toast_error(format!("{} ({e})", crate::i18n::tr("El archivo no es una plantilla de idioma válida"))),
+                }
+            }
+        }
         panels::section(ui, "Integraciones");
         let mut capcut = false;
         let mut bridge = false;

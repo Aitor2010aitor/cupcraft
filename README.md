@@ -40,6 +40,12 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
+## 🆕 What's new in v0.4.12
+
+- **Keyframe diamonds** — Scale, Position X/Y, Rotation and Opacity now have a ◆ button: click it to add a keyframe at the playhead and animate the property over time. The preview and dragging on the stage follow the keyframes.
+- **App language** — a language selector in Settings with Spanish, English, French, German, Portuguese (Brazil), Russian, Japanese and Chinese.
+- **Your own language** — export a JSON template with every app text, translate it (by hand or with an AI) and import it back to switch the whole app.
+
 ## 🆕 What's new in v0.4.11.1
 
 - **AI subtitle generator window** — the new **Generate subtitles with AI…** button opens a window where you pick the clip, the voice language and a karaoke effect (each with an animated preview), choose whether to replace the current subtitles, and see if the Whisper model is ready.
@@ -50,35 +56,6 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **More voices** — Spain Spanish voices and three Loquendo-style presets (an approximation: the real Loquendo voices are commercial and can't be bundled).
 - **App language** — switch the interface between Spanish and English in Settings; your choice is remembered.
 - **More accurate subtitles** — Whisper Base model, cleaner audio and tighter timing. Text to speech is now labelled Beta.
-
-## What's new in v0.4.11
-
-- **Linux: subtitles (Whisper) now install** — pressing install shows the system password prompt (`pkexec`) to add what is missing (compiler, cmake and FFmpeg), then builds the Whisper engine on your PC. It takes a few minutes the first time.
-- **Linux: FFmpeg is detected** — cupcraft now finds `ffmpeg` on your system (`/usr/bin`, `PATH`), so exporting works after `sudo apt install ffmpeg`.
-
-## What's new in v0.4.10.1
-
-- **"What's new" after updating** — when you press Update and cupcraft restarts, a window shows the version you just installed and what changed. Close it with the X and carry on.
-
-## What's new in v0.4.10
-
-- **Linux installer (.deb)** — a package for Debian, Ubuntu and Linux Mint: double-click it and cupcraft is installed system-wide, with its icon in the app menu.
-- **Updates on Linux ask for permission** — when cupcraft is installed in `/usr/bin`, the in-app updater shows the system password prompt (`pkexec`) to replace the program. If you cancel, nothing changes.
-- **Fix: update notice that never went away on Linux** — after updating, the app relaunched the old version, so the "new version available" card kept coming back. It now relaunches the new one.
-
-## What's new in v0.4.9
-
-- **TikTok-style karaoke subtitles** — the whole line is visible and the word being spoken is highlighted (5 colors, plus an optional "pop" jump). Works with Whisper word timings, manual subtitles, SRT and generated voice.
-- **Voice styles for text to speech** — squirrel, young, deep, giant, robot, radio and echo, applied locally with FFmpeg.
-- **More voices** — download extra Piper voices (Spanish and English) from the Voice panel, only when you click the button.
-- **Auto captions for generated voice** — text to speech can add karaoke subtitles in the same step.
-
-## What's new in v0.4.8.1
-
-- **Right-click menu on clips** — Copy, Cut, Paste, Duplicate, Delete, Split at the playhead and Extract audio, right on the timeline.
-- **Move clips to any layer** — drag any clip (video, audio, text, stickers…) up or down to any track. Dragging above the top track creates a new layer.
-- **Layer order** — the track at the top of the timeline is now drawn on top, as in CapCut.
-- **Bigger toolbar icons** — icons are scaled up so they fit their buttons better.
 
 ## 📦 Download
 

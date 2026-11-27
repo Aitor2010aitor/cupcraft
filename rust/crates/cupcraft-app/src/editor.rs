@@ -11,6 +11,7 @@ use crate::services::compose::{active_layers, clip_alpha};
 use crate::services::{media, raster, video};
 use crate::theme;
 use crate::timeline as tl;
+use cupcraft_core::keyframes as kf;
 use cupcraft_core::ClipKind;
 use eframe::egui::{self, Color32, CornerRadius, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
 use std::collections::HashMap;
@@ -826,7 +827,8 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
         if let Some(pt) = origin {
             let mut state: Option<DragState> = None;
             if let (Some(h), Some((corner, rotp))) = (sel_hit, handles) {
-                let (cx, cy) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (c.scale, c.rotate))).unwrap_or((1.0, 0.0));
+                let ph_t = app.playhead;
+                let (cx, cy) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (kf::value_at(c, "scale", ph_t), kf::value_at(c, "rotate", ph_t)))).unwrap_or((1.0, 0.0));
                 if pt.distance(rotp) < 12.0 {
                     state = Some(DragState { id: h.id.clone(), kind: DragKind::Rotate { a0: angle_of(h.center, pt), r0: cy } });
                 } else if pt.distance(corner) < 12.0 {
@@ -837,7 +839,8 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                 // Objeto superior bajo el puntero (el último pintado está encima).
                 let top = hits.iter().rev().find(|h| contains(h, pt));
                 if let Some(h) = top {
-                    let (x0, y0) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (c.x, c.y))).unwrap_or((0.0, 0.0));
+                    let ph_t = app.playhead;
+                    let (x0, y0) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (kf::value_at(c, "x", ph_t), kf::value_at(c, "y", ph_t)))).unwrap_or((0.0, 0.0));
                     state = Some(DragState { id: h.id.clone(), kind: DragKind::Move { mouse0: pt, x0, y0 } });
                 }
             }
@@ -857,6 +860,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                 let shift = ui.input(|i| i.modifiers.shift);
                 let center = h.center;
                 let id = st.id.clone();
+                let ph_t = app.playhead;
                 match st.kind {
                     DragKind::Move { mouse0, x0, y0 } => {
                         let d = pt - mouse0;
@@ -873,8 +877,9 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         let (nx, ny) = (nx.clamp(-150.0, 150.0), ny.clamp(-150.0, 150.0));
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.x = nx;
-                                c.y = ny;
+                                // Con fotogramas clave, arrastrar crea/actualiza el del cursor.
+                                kf::write_value(c, "x", ph_t, nx);
+                                kf::write_value(c, "y", ph_t, ny);
                             }
                         });
                     }
@@ -882,7 +887,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         let ns = (s0 * (pt.distance(center) / d0) as f64).clamp(0.05, 8.0);
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.scale = ns;
+                                kf::write_value(c, "scale", ph_t, ns);
                             }
                         });
                     }
@@ -898,7 +903,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         }
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.rotate = nr;
+                                kf::write_value(c, "rotate", ph_t, nr);
                             }
                         });
                     }
@@ -1075,14 +1080,16 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 // Dimensiones reales del medio (la textura puede venir reducida).
                 let (mw, mh) = dims.map(|(w, h)| (w as f32, h as f32)).unwrap_or((size.x, size.y));
                 let fit = (pw as f32 / mw).min(ph as f32 / mh);
-                let mut sz = Vec2::new(mw * fit * k, mh * fit * k) * clip.scale as f32;
+                // Posición, escala, giro con fotogramas clave en este instante.
+                let tr = crate::services::compose::transform_at(clip, clip.start + *local);
+                let mut sz = Vec2::new(mw * fit * k * tr.scale_x as f32, mh * fit * k * tr.scale_y as f32);
                 if flag(clip, "flipH") {
                     sz.x = -sz.x;
                 }
                 if flag(clip, "flipV") {
                     sz.y = -sz.y;
                 }
-                let center = stage.center() + Vec2::new(clip.x as f32 / 100.0 * sw, clip.y as f32 / 100.0 * sh);
+                let center = stage.center() + Vec2::new(tr.x as f32 / 100.0 * sw, tr.y as f32 / 100.0 * sh);
                 // El color ya va horneado en los píxeles cuando `fx_active`; solo
                 // queda la opacidad del clip. Sin cadena, tinte blanco = idéntico.
                 let ca = crate::clip_anim::eval(clip, *local);
@@ -1090,8 +1097,8 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 let sz = sz * ca.scale;
                 let tint = Color32::from_white_alpha((alpha * ca.alpha * 255.0) as u8);
                 let neg = Vec2::new(sz.x.signum(), sz.y.signum());
-                hits.push(Hit { id: clip.id.clone(), center, half: sz.abs() / 2.0, rot: clip.rotate as f32 });
-                draw_quad(&painter, tex, center, Vec2::new(sz.x.abs(), sz.y.abs()) * neg, clip.rotate as f32 + ca.rot, tint);
+                hits.push(Hit { id: clip.id.clone(), center, half: sz.abs() / 2.0, rot: tr.rotate as f32 });
+                draw_quad(&painter, tex, center, Vec2::new(sz.x.abs(), sz.y.abs()) * neg, tr.rotate as f32 + ca.rot, tint);
             }
             Layer::Graphic { val, text, clip, alpha, local } => {
                 // Misma escala que el compositor: alto del lienzo / 1080,
@@ -1115,13 +1122,14 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 let vx = val.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
                 let vy = val.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
                 let vrot = if *text { 0.0 } else { val.get("rotate").and_then(|v| v.as_f64()).unwrap_or(0.0) };
-                let mut center = stage.center() + Vec2::new((clip.x + vx) as f32 / 100.0 * sw, (clip.y + vy) as f32 / 100.0 * sh);
-                let mut sz = size / ppp * clip.scale as f32;
-                let mut rot = (clip.rotate + vrot) as f32;
+                let tr = crate::services::compose::transform_at(clip, clip.start + *local);
+                let mut center = stage.center() + Vec2::new((tr.x + vx) as f32 / 100.0 * sw, (tr.y + vy) as f32 / 100.0 * sh);
+                let mut sz = size / ppp * tr.scale_x as f32;
+                let mut rot = (tr.rotate + vrot) as f32;
                 hits.push(Hit { id: clip.id.clone(), center, half: sz / 2.0, rot });
                 if let Some(a) = anim {
                     // Desplazamiento en tamaños de fuente, girado con el clip (igual que el canvas).
-                    let fpx = raster::text_font_px(val, scale) / ppp * clip.scale as f32 * a.scale;
+                    let fpx = raster::text_font_px(val, scale) / ppp * tr.scale_x as f32 * a.scale;
                     let (sn, cs) = rot.to_radians().sin_cos();
                     let (ox, oy) = (a.dx * fpx, a.dy * fpx);
                     center += Vec2::new(ox * cs - oy * sn, ox * sn + oy * cs);

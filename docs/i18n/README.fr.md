@@ -40,6 +40,23 @@ cupcraft est un éditeur vidéo de bureau inspiré du flux de travail et de l'in
 - **Mise à jour automatique** — les nouvelles versions publiées sur GitHub sont proposées dans l'application.
 - **Privé** — pas de compte, pas de cloud, pas de télémétrie. Le seul trafic réseau est la vérification des mises à jour et les téléchargements que vous lancez vous-même.
 
+## 🆕 Nouveautés de la v0.4.12
+
+- **Losanges d'images clés** — Échelle, Position X/Y, Rotation et Opacité ont un bouton ◆ : cliquez pour ajouter une image clé à la tête de lecture et animer la propriété dans le temps. L'aperçu et le déplacement sur la scène suivent les images clés.
+- **Langue de l'app** — sélecteur dans les Réglages : espagnol, anglais, français, allemand, portugais (Brésil), russe, japonais et chinois.
+- **Votre propre langue** — exportez un modèle JSON avec tous les textes, traduisez-le (à la main ou avec une IA) puis importez-le pour changer toute l'app.
+
+## 🆕 Nouveautés de la v0.4.11.1
+
+- **Fenêtre du générateur de sous-titres IA** — le nouveau bouton **Générer des sous-titres avec l'IA…** ouvre une fenêtre où vous choisissez le clip, la langue de la voix et un effet karaoké (chacun avec un aperçu animé), décidez de remplacer ou non les sous-titres actuels et voyez si le modèle Whisper est prêt.
+- **Téléchargement de Whisper tout en haut** — le bouton de téléchargement du moteur/modèle se trouve désormais tout en haut du panneau Sous-titres.
+- **Panneau voix corrigé** — vous pouvez toujours saisir le texte, choisir un style de voix et ajouter des sous-titres karaoké automatiques. Si le moteur Piper est absent, un bouton le télécharge avec une voix espagnole.
+- **Plus d'effets karaoké et n'importe quelle couleur** — couleur, saut, gros mot, boîte de couleur, boîte + saut, soulignement et progressif, chacun avec un aperçu animé, plus un sélecteur de couleur.
+- **Correctif : certaines voix Piper échouaient** avec une erreur de phonèmes — Amy, Joe et Ald fonctionnent maintenant.
+- **Plus de voix** — voix espagnoles d'Espagne et trois préréglages de style Loquendo (une approximation : les vraies voix Loquendo sont commerciales et ne peuvent pas être incluses).
+- **Langue de l'application** — basculez l'interface entre l'espagnol et l'anglais dans les Réglages ; votre choix est mémorisé.
+- **Sous-titres plus précis** — modèle Whisper Base, audio plus propre et synchronisation plus fine. La synthèse vocale est désormais marquée Bêta.
+
 ## 📦 Téléchargement
 
 Téléchargez la dernière version sur la [**page des Releases**](https://github.com/Aitor2010aitor/cupcraft/releases/latest).
@@ -50,10 +67,11 @@ Téléchargez la dernière version sur la [**page des Releases**](https://github
 | Windows (x64) | `cupcraft-windows-x86_64.exe` | Exécutable portable. |
 | macOS (Apple Silicon) | `cupcraft-macos-aarch64.tar.gz` | |
 | macOS (Intel) | `cupcraft-macos-x86_64.tar.gz` | |
-| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | |
+| Linux (x64) | `cupcraft-linux-x86_64.deb` | Installateur pour Debian / Ubuntu / Linux Mint (double-clic, ou `sudo apt install ./cupcraft-linux-x86_64.deb`). Ajoute cupcraft au menu des applications. |
+| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | Portable : extrayez et lancez `./cupcraft`. |
 
 > [!WARNING]
-> Les versions macOS et Linux sont **expérimentales**. Certains outils (sous-titres Whisper, voix Piper et import CapCut) dépendent encore de composants Windows et n'y sont pas disponibles.
+> Les versions macOS et Linux sont **expérimentales**. Certains outils (voix Piper et import CapCut) dépendent encore de composants Windows et n'y sont pas disponibles.
 
 > [!IMPORTANT]
 > Les binaires ne sont pas encore signés. Sous Windows, SmartScreen peut afficher un avertissement (**Informations complémentaires → Exécuter quand même**). Sous macOS, retirez une fois l'indicateur de quarantaine :

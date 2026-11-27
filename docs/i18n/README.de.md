@@ -40,6 +40,23 @@ cupcraft ist ein Desktop-Videoeditor, inspiriert vom Arbeitsablauf und der dunkl
 - **Selbstaktualisierend** — neue, auf GitHub veröffentlichte Versionen werden direkt in der App angeboten.
 - **Privat** — kein Konto, keine Cloud, keine Telemetrie. Der einzige Netzwerkverkehr sind die Update-Prüfung und Downloads, die Sie selbst starten.
 
+## 🆕 Neu in v0.4.12
+
+- **Keyframe-Rauten** — Skalierung, Position X/Y, Rotation und Deckkraft haben eine ◆-Taste: Klicke, um am Abspielkopf einen Keyframe zu setzen und die Eigenschaft über die Zeit zu animieren. Vorschau und Ziehen auf der Bühne folgen den Keyframes.
+- **App-Sprache** — Sprachauswahl in den Einstellungen: Spanisch, Englisch, Französisch, Deutsch, Portugiesisch (Brasilien), Russisch, Japanisch und Chinesisch.
+- **Eigene Sprache** — exportiere eine JSON-Vorlage mit allen Texten, übersetze sie (von Hand oder mit einer KI) und importiere sie, um die ganze App umzustellen.
+
+## 🆕 Neu in v0.4.11.1
+
+- **Fenster für den KI-Untertitel-Generator** — die neue Schaltfläche **Untertitel mit KI erzeugen…** öffnet ein Fenster, in dem Sie den Clip, die Sprache und einen Karaoke-Effekt (jeweils mit animierter Vorschau) wählen, entscheiden, ob die aktuellen Untertitel ersetzt werden, und sehen, ob das Whisper-Modell bereit ist.
+- **Whisper-Download ganz oben** — die Schaltfläche zum Herunterladen von Engine/Modell steht jetzt ganz oben im Untertitel-Bereich.
+- **Sprachbereich repariert** — Sie können immer den Text eingeben, einen Stimmstil wählen und automatische Karaoke-Untertitel hinzufügen. Fehlt die Piper-Engine, lädt ein Button sie mit einer spanischen Stimme herunter.
+- **Mehr Karaoke-Effekte und beliebige Farbe** — Farbe, Sprung, großes Wort, Farbbox, Box + Sprung, Unterstreichung und progressiv, jeweils mit animierter Vorschau, plus Farbauswahl.
+- **Fix: Einige Piper-Stimmen schlugen fehl** (Phonem-Fehler) — Amy, Joe und Ald funktionieren jetzt.
+- **Mehr Stimmen** — spanische Stimmen aus Spanien und drei Presets im Loquendo-Stil (eine Annäherung: die echten Loquendo-Stimmen sind kommerziell und können nicht mitgeliefert werden).
+- **App-Sprache** — wechseln Sie die Oberfläche in den Einstellungen zwischen Spanisch und Englisch; Ihre Wahl wird gespeichert.
+- **Genauere Untertitel** — Whisper-Base-Modell, saubereres Audio und engeres Timing. Text-to-Speech ist jetzt als Beta gekennzeichnet.
+
 ## 📦 Download
 
 Die neueste Version finden Sie auf der [**Releases-Seite**](https://github.com/Aitor2010aitor/cupcraft/releases/latest).
@@ -50,10 +67,11 @@ Die neueste Version finden Sie auf der [**Releases-Seite**](https://github.com/A
 | Windows (x64) | `cupcraft-windows-x86_64.exe` | Portable ausführbare Datei. |
 | macOS (Apple Silicon) | `cupcraft-macos-aarch64.tar.gz` | |
 | macOS (Intel) | `cupcraft-macos-x86_64.tar.gz` | |
-| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | |
+| Linux (x64) | `cupcraft-linux-x86_64.deb` | Installer für Debian / Ubuntu / Linux Mint (Doppelklick oder `sudo apt install ./cupcraft-linux-x86_64.deb`). Fügt cupcraft dem App-Menü hinzu. |
+| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | Portable: entpacken und `./cupcraft` ausführen. |
 
 > [!WARNING]
-> Die macOS- und Linux-Builds sind **experimentell**. Einige Werkzeuge (Whisper-Untertitel, Piper-Stimmen und CapCut-Import) hängen noch von Windows-Komponenten ab und sind dort nicht verfügbar.
+> Die macOS- und Linux-Builds sind **experimentell**. Einige Werkzeuge (Piper-Stimmen und CapCut-Import) hängen noch von Windows-Komponenten ab und sind dort nicht verfügbar.
 
 > [!IMPORTANT]
 > Die Binärdateien sind noch nicht signiert. Unter Windows kann SmartScreen eine Warnung anzeigen (**Weitere Informationen → Trotzdem ausführen**). Unter macOS entfernen Sie einmalig das Quarantäne-Flag:

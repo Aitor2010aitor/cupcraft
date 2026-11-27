@@ -1,0 +1,173 @@
+Files
+Media files
+Filters
+Templates
+Subs
+Subtitles
+Trans.
+Transitions
+Adjust
+Stickers
+Text to speech (Beta)
+Testing: it may fail or sound odd.
++ Add default text
++ Import
++ Import audio
+Open
+Open folder
+Open data folder
+Open project from file
+Slim
+Isolate voice
+Adjust
+Manual adjustment
+Settings
+Storage
+Animation
+Apply to all
+Drag clips to move them, use the end handles to trim and press B to split at the cursor.
+Shortcuts
+Keyboard shortcuts
+Back
+Audio
+Project audio
+Add subtitles
+No audio yet. Import music or sound effects from your computer.
+Effects library
+Search audio
+Search sticker categories
+Search effects
+Search your media
+Search styles
+Search filters
+Search transitions
+Basic
+Change the pitch like in TikTok videos (chipmunk, deep, robot…). Applied with FFmpeg, offline.
+Cancel
+Close
+Highlight color
+Fill channel
+Tip: hold Alt while dragging a clip to temporarily disable snapping.
+Content
+Continue
+Copy
+Decide later
+Download .txt
+Download engine and model
+Discard
+Teeth
+Subtitle effect
+Karaoke effect (TikTok style)
+Effects
+Video effects
+Effects applied to the selected text.
+The effect is added as a layer at the cursor and affects everything below it.
+The voice filter is applied to the clip audio in the preview and in the export.
+The whole paragraph is visible and the spoken word changes color as it goes.
+Pick the color, then adjust the intensity.
+Pick a bubble: it is applied to the selected text.
+Got it
+This effect has no configurable properties.
+Style
+CapCut style
+Voice style
+Preset style
+Standard
+Export
+Export video
+Generating…
+Great
+Record voiceover
+Save
+Save as preset
+Save project as file
+Save and quit
+The engine and model must be downloaded once (~140 MB).
+Time in UTC.
+Language
+App language
+Voice language
+Import SRT/VTT
+Integrations
+The previous export was cancelled.
+The recording is inserted at the cursor as an audio clip.
+Speed curves create gradual accelerations inside the clip.
+Done
+Local · no account
+Color adjustments apply to video or image clips.
+Effects apply to video, image, text or sticker clips.
+Projects and media are stored in %LOCALAPPDATA%\openCUP. Export uses FFmpeg if it is available on this computer.
+Projects, media and settings are stored in %LOCALAPPDATA%\openCUP. No administrator permissions are needed.
+Enhance voice
+Mode
+More voices
+No entries.
+No new notifications. cupcraft works offline.
+There are no other projects yet. Create a new one from the menu or go back home.
+No voices installed. Download one in “More voices”, below.
+Eyes
+Tracks
+Preferences
+Processing…
+Properties
+CapCut project
+Projects
+Secondary projects
+AI bridge
+Remove filter
+Remove background
+Remove all subtitles
+Remove transition
+Crop with a mask
+Reduce noise
+Report on GitHub
+Report a problem
+Reset
+Retouch
+Piper is used, a local engine (~25 MB + one voice). Nothing is sent to the internet. Downloaded only once.
+Select a clip with audio to adjust its volume.
+Select a video or image clip to adjust it.
+If you choose “No”, the project is not saved and this session's changes are lost.
+When off, the audio keeps its pitch when the speed changes.
+No animation
+Automatic subtitles
+Manual subtitles
+Yes, save
+Theme
+Text
+Clip text
+Tracking type
+Typography
+All features in this version are available without a subscription. Your files never leave your computer.
+All
+Video translator
+One line per subtitle. They are placed one after another from the cursor.
+Clear
+View
+Video, image or audio from your computer
+Voices from the public Piper collection (Hugging Face). They are only downloaded when you press the button.
+Search again
+Try again
+Voice
+Video / audio to transcribe
+Area to remove
+↺ Reset text style
+↺ Reset mix
+↺ Reset properties
+↺ Reset transform
+↺ No animation
+⊘ No style
+✨ Generate subtitles with AI…
+✨ Start generation
+🎙 Record with microphone
+🎤 Open full Text to speech
+🗑 Remove
+Remove keyframe here
+Add a keyframe at this moment
+Animate: create a keyframe at this moment
+Export language template
+Import language…
+Is your language missing? Export the template, translate it (by hand or with an AI) and import it back.
+Template saved
+Language imported
+The file is not a valid language template

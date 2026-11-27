@@ -148,6 +148,28 @@ fn install_fonts(ctx: &egui::Context) {
     }
     serif_keys.push("Ubuntu-Light".to_owned());
 
+    // Respaldo para japonés / chino / coreano (si no, salen cuadritos).
+    let mut cjk = None;
+    for (key, path) in [
+        ("cup-cjk-zh", r"C:\Windows\Fonts\msyh.ttc"),
+        ("cup-cjk-zh", r"C:\Windows\Fonts\msyh.ttf"),
+        ("cup-cjk-ja", r"C:\Windows\Fonts\meiryo.ttc"),
+        ("cup-cjk-ja", r"C:\Windows\Fonts\YuGothM.ttc"),
+        ("cup-cjk-ko", r"C:\Windows\Fonts\malgun.ttf"),
+    ] {
+        if fonts.font_data.contains_key(key) {
+            continue;
+        }
+        if load(&mut fonts, key, path) {
+            cjk.get_or_insert_with(Vec::new).push(key.to_owned());
+        }
+    }
+    if let Some(extra) = cjk {
+        for keys in [&mut sans_keys, &mut bold_keys, &mut serif_keys, &mut mono_keys] {
+            keys.extend(extra.iter().cloned());
+        }
+    }
+
     for (name, keys) in [
         (CUP_SANS, sans_keys),
         (CUP_SANS_BOLD, bold_keys),

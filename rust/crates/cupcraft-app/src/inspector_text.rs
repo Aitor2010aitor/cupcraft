@@ -107,7 +107,7 @@ pub(crate) fn apply(app: &mut CupApp, id: &str, e: Edit) {
     if e.silent {
         // Solo lo que afecta al audio obliga a clonar el proyecto al motor.
         let audio = patch.as_object().is_some_and(|o| {
-            o.keys().any(|k| !matches!(k.as_str(), "text" | "x" | "y" | "scale" | "rotate" | "opacity" | "fadeIn" | "fadeOut" | "filter" | "adjust" | "extra" | "transition" | "transitionDuration" | "blend"))
+            o.keys().any(|k| !matches!(k.as_str(), "text" | "x" | "y" | "scale" | "rotate" | "opacity" | "fadeIn" | "fadeOut" | "filter" | "adjust" | "extra" | "keyframes" | "transition" | "transitionDuration" | "blend"))
         });
         app.editor.mutate_silent(|p| p.update_clip(id, patch));
         if audio {
@@ -140,9 +140,52 @@ pub(crate) fn to_hex(c: Color32) -> String {
 /// guardado es `mostrado * factor`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn range(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min: f64, max: f64, step: f64, factor: f64, unit: &str) -> Option<f64> {
+    range_ex(ui, e, label, cur, min, max, step, factor, unit, None).0
+}
+
+/// Estado del rombo de fotogramas clave de un control.
+#[derive(Clone, Copy)]
+pub(crate) struct KfState {
+    /// La propiedad tiene fotogramas clave (está animada).
+    pub animated: bool,
+    /// Hay un fotograma clave justo en el cursor de reproducción.
+    pub on_key: bool,
+}
+
+/// Rombo de fotogramas clave: relleno = hay uno aquí, contorno = animada,
+/// gris = fija. Devuelve `true` si se pulsó.
+fn kf_diamond(ui: &mut egui::Ui, st: KfState) -> bool {
+    let (rect, r) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
+    let c = rect.center();
+    let hot = r.hovered();
+    let rad = if hot { 6.5 } else { 5.5 };
+    let pts = vec![egui::pos2(c.x, c.y - rad), egui::pos2(c.x + rad, c.y), egui::pos2(c.x, c.y + rad), egui::pos2(c.x - rad, c.y)];
+    let col = if st.animated { theme::ACCENT } else if hot { theme::TEXT } else { theme::MUTED };
+    let fill = if st.on_key { col } else { Color32::TRANSPARENT };
+    ui.painter().add(egui::Shape::convex_polygon(pts, fill, Stroke::new(1.4, col)));
+    let tip = if st.on_key {
+        crate::i18n::tr("Quitar fotograma clave aquí")
+    } else if st.animated {
+        crate::i18n::tr("Añadir fotograma clave en este instante")
+    } else {
+        crate::i18n::tr("Animar: crear fotograma clave en este instante")
+    };
+    r.on_hover_text(tip.to_string()).clicked()
+}
+
+/// Como `range`, con el rombo de fotogramas clave junto a la etiqueta.
+/// Devuelve (nuevo valor, rombo pulsado).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn range_ex(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min: f64, max: f64, step: f64, factor: f64, unit: &str, kf: Option<KfState>) -> (Option<f64>, bool) {
     let mut shown = cur / factor;
+    let mut diamond = false;
     ui.horizontal(|ui| {
         ui.label(egui::RichText::new(label).size(11.5).color(theme::MUTED));
+        if let Some(st) = kf {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                diamond = kf_diamond(ui, st);
+            });
+        }
     });
     let r = ui.add(
         egui::Slider::new(&mut shown, min..=max)
@@ -150,7 +193,7 @@ pub(crate) fn range(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min:
             .suffix(unit)
             .fixed_decimals(if step < 1.0 { 2 } else { 0 }),
     );
-    e.track(&r).then_some(shown * factor)
+    (e.track(&r).then_some(shown * factor), diamond)
 }
 
 fn text_range(ui: &mut egui::Ui, e: &mut Edit, t: &Value, label: &str, key: &str, min: f64, max: f64, step: f64, factor: f64, unit: &str) {

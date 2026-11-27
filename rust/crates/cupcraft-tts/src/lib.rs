@@ -90,6 +90,26 @@ pub fn list_voices(root: &Path) -> Value {
     })
 }
 
+/// Algunas voces nuevas traen en `phoneme_id_map` fonemas de varios caracteres
+/// («aɪ», «eɪ»…) que Piper 2023.11 no acepta («is not a single codepoint»).
+/// espeak solo emite fonemas de un carácter, así que se pueden quitar sin riesgo.
+pub fn sanitize_voice_config(onnx: &Path) {
+    let json = PathBuf::from(format!("{}.json", onnx.display()));
+    let Ok(text) = fs::read_to_string(&json) else { return };
+    let Ok(mut v) = serde_json::from_str::<Value>(&text) else { return };
+    let Some(map) = v.get_mut("phoneme_id_map").and_then(Value::as_object_mut) else { return };
+    let bad: Vec<String> = map.keys().filter(|k| k.chars().count() > 1).cloned().collect();
+    if bad.is_empty() {
+        return;
+    }
+    for k in bad {
+        map.remove(&k);
+    }
+    if let Ok(out) = serde_json::to_string(&v) {
+        let _ = fs::write(&json, out);
+    }
+}
+
 pub fn generate(root: &Path, text: &str, voice_id: &str, speed: f32) -> Result<Vec<u8>, String> {
     let text = text.trim();
     if text.is_empty() {
@@ -120,6 +140,7 @@ pub fn generate(root: &Path, text: &str, voice_id: &str, speed: f32) -> Result<V
         return Err(format!("No se encontró el modelo de voz {}", voice_name));
     }
 
+    sanitize_voice_config(&model_path);
     let speed_clamped = speed.clamp(0.5, 2.5);
     let length_scale = 1.0 / speed_clamped;
 

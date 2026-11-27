@@ -15,18 +15,19 @@ use serde_json::{json, Value};
 pub const COLORS: &[(&str, &str)] = &[("#ffe600", "Amarillo"), ("#00e5d0", "Turquesa"), ("#ff4d6d", "Rosa"), ("#7CFF6B", "Verde"), ("#ff9f1c", "Naranja")];
 
 /// Modos de resaltado: id y etiqueta.
-pub const MODES: &[(&str, &str)] = &[("color", "Color"), ("pop", "Color + salto")];
+pub const MODES: &[(&str, &str)] = &[("color", "Color"), ("pop", "Color + salto"), ("big", "Palabra grande"), ("box", "Caja de color"), ("boxpop", "Caja + salto"), ("underline", "Subrayado"), ("dim", "Progresivo")];
 
-/// Efectos que ofrece el menú de transcribir: id, etiqueta, ¿karaoke?, color, modo.
-pub const PRESETS: &[(&str, &str, bool, &str, &str)] = &[
-    ("none", "Sin efecto", false, "#ffe600", "color"),
-    ("yellow", "Amarillo", true, "#ffe600", "color"),
-    ("yellow-pop", "Amarillo + salto", true, "#ffe600", "pop"),
-    ("cyan", "Turquesa", true, "#00e5d0", "color"),
-    ("cyan-pop", "Turquesa + salto", true, "#00e5d0", "pop"),
-    ("pink-pop", "Rosa + salto", true, "#ff4d6d", "pop"),
-    ("green", "Verde", true, "#7CFF6B", "color"),
-    ("orange-pop", "Naranja + salto", true, "#ff9f1c", "pop"),
+/// Efectos que ofrece el menú de transcribir: id, etiqueta, ¿karaoke? y modo.
+/// El color de resalte se elige aparte.
+pub const PRESETS: &[(&str, &str, bool, &str)] = &[
+    ("none", "Sin efecto", false, "color"),
+    ("color", "Color", true, "color"),
+    ("pop", "Color + salto", true, "pop"),
+    ("big", "Palabra grande", true, "big"),
+    ("box", "Caja de color", true, "box"),
+    ("boxpop", "Caja + salto", true, "boxpop"),
+    ("underline", "Subrayado", true, "underline"),
+    ("dim", "Progresivo", true, "dim"),
 ];
 
 /// Índice de la palabra activa en `local` (segundos del clip): la última que
@@ -51,7 +52,7 @@ pub fn apply(val: &Value, local: f64) -> Value {
             json!({
                 "idx": active_index(&starts, local),
                 "color": k.get("color").and_then(Value::as_str).unwrap_or("#ffe600"),
-                "pop": k.get("mode").and_then(Value::as_str) == Some("pop"),
+                "mode": k.get("mode").and_then(Value::as_str).unwrap_or("color"),
             }),
         );
     }
@@ -157,7 +158,7 @@ mod tests {
         });
         let k = apply(&v, 1.2);
         assert_eq!(k["_karaoke"]["idx"], 1);
-        assert_eq!(k["_karaoke"]["pop"], true);
+        assert_eq!(k["_karaoke"]["mode"], "pop");
     }
 
     #[test]

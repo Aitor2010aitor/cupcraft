@@ -45,6 +45,9 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **AI subtitle generator window** — the new **Generate subtitles with AI…** button opens a window where you pick the clip, the voice language and a karaoke effect (each with an animated preview), choose whether to replace the current subtitles, and see if the Whisper model is ready.
 - **Whisper download at the top** — the engine/model download button now sits at the very top of the Subtitles panel.
 - **Voice panel fixed** — you can always type the text, pick a voice style and add automatic karaoke subtitles. If the Piper engine is missing, one button downloads it with a Spanish voice.
+- **More karaoke effects and any color** — color, jump, big word, color box, box + jump, underline and progressive, each with an animated preview, plus a color picker.
+- **Fix: some Piper voices failed** with a phoneme error — Amy, Joe and Ald now work.
+- **More voices** — Spain Spanish voices and three Loquendo-style presets (an approximation: the real Loquendo voices are commercial and can't be bundled).
 
 ## What's new in v0.4.11
 

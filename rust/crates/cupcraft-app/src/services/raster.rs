@@ -384,23 +384,70 @@ pub fn render_text(text: &Value, scale: f32) -> Option<Pixmap> {
     match (kara, word_of) {
         (Some(k), Some(word_of)) => {
             let active = k.get("idx").and_then(Value::as_u64).unwrap_or(0) as usize;
-            let pop = k.get("pop").and_then(Value::as_bool).unwrap_or(false);
-            let hot = parse_color(k.get("color").and_then(Value::as_str).unwrap_or("#ffe600"), opacity);
-            let (mut rest, mut lit) = (Vec::new(), Vec::new());
+            let mode = k.get("mode").and_then(Value::as_str).unwrap_or("color");
+            let hot_s = k.get("color").and_then(Value::as_str).unwrap_or("#ffe600");
+            let hot = parse_color(hot_s, opacity);
+            let dim = parse_color(st(text, "color", "#ffffff"), opacity * 0.38);
+            // Caja detrás de la palabra activa (y subrayado): límites de sus glifos.
+            if mode == "box" || mode == "boxpop" || mode == "underline" {
+                let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+                for ((font, gl, _), w) in g.items.iter().zip(&word_of) {
+                    if *w == active {
+                        let adv = font.as_scaled(gl.scale).h_advance(gl.id);
+                        x0 = x0.min(gl.position.x);
+                        x1 = x1.max(gl.position.x + adv);
+                        y0 = y0.min(gl.position.y - gl.scale.y * 0.82);
+                        y1 = y1.max(gl.position.y + gl.scale.y * 0.24);
+                    }
+                }
+                if x1 > x0 {
+                    let mut paint = Paint::default();
+                    paint.set_color(hot);
+                    paint.anti_alias = true;
+                    let path = if mode != "underline" {
+                        let pad = px * 0.12;
+                        rounded_rect(ox + x0 - pad, oy + y0 - pad * 0.5, x1 - x0 + pad * 2.0, y1 - y0 + pad, px * 0.2)
+                    } else {
+                        let th = (px * 0.07).max(2.0);
+                        rounded_rect(ox + x0, oy + y1 - th * 0.5, x1 - x0, th, th / 2.0)
+                    };
+                    if let Some(path) = path {
+                        pm.fill_path(&path, &paint, FillRule::Winding, Transform::identity(), None);
+                    }
+                }
+            }
+            // Texto sobre la caja: oscuro si el color de la caja es claro.
+            let on_box = {
+                let c = crate::paint::hex(hot_s).to_array();
+                if (c[0] as f32 * 0.299 + c[1] as f32 * 0.587 + c[2] as f32 * 0.114) > 150.0 { Color::from_rgba8(20, 20, 20, 255) } else { Color::from_rgba8(255, 255, 255, 255) }
+            };
+            let (mut rest, mut spoken, mut lit) = (Vec::new(), Vec::new(), Vec::new());
             for (item, w) in g.items.iter().zip(&word_of) {
                 if *w == active {
                     let mut it = item.clone();
-                    if pop {
-                        it.1.scale = PxScale { x: it.1.scale.x * 1.12, y: it.1.scale.y * 1.12 };
-                        it.1.position.y -= px * 0.05;
+                    match mode {
+                        "pop" | "boxpop" => {
+                            it.1.scale = PxScale { x: it.1.scale.x * 1.12, y: it.1.scale.y * 1.12 };
+                            it.1.position.y -= px * 0.05;
+                        }
+                        "big" => {
+                            it.1.scale = PxScale { x: it.1.scale.x * 1.3, y: it.1.scale.y * 1.3 };
+                            it.1.position.y -= px * 0.08;
+                        }
+                        _ => {}
                     }
                     lit.push(it);
+                } else if mode == "dim" && *w != usize::MAX && *w > active {
+                    spoken.push(item.clone());
                 } else {
                     rest.push(item.clone());
                 }
             }
-            draw_glyphs_color(&mut pm, &Glyphs { items: rest, width: g.width, height: g.height }, ox, oy, fill);
-            draw_glyphs_color(&mut pm, &Glyphs { items: lit, width: g.width, height: g.height }, ox, oy, hot);
+            let mk = |items| Glyphs { items, width: g.width, height: g.height };
+            draw_glyphs_color(&mut pm, &mk(rest), ox, oy, fill);
+            draw_glyphs_color(&mut pm, &mk(spoken), ox, oy, dim);
+            let lit_color = if mode == "box" || mode == "boxpop" { on_box } else { hot };
+            draw_glyphs_color(&mut pm, &mk(lit), ox, oy, lit_color);
         }
         _ => draw_glyphs_color(&mut pm, &g, ox, oy, fill),
     }

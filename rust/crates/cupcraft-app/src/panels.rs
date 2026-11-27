@@ -1274,30 +1274,51 @@ pub fn parse_srt(text: &str) -> Vec<Value> {
 }
 
 /// Vista previa animada de un efecto: «Hay una avispa» con la palabra activa resaltada.
-fn paint_fx_preview(ui: &mut egui::Ui, rect: egui::Rect, kara: bool, color: &str, pop: bool, t: f64) {
+fn paint_fx_preview(ui: &mut egui::Ui, rect: egui::Rect, kara: bool, color: &str, mode: &str, t: f64) {
     let p = ui.painter_at(rect);
     p.rect_filled(rect, 6.0, Color32::from_rgb(0x1b, 0x1d, 0x24));
     let words = ["Hay", "una", "avispa"];
     let hot = paint::hex(color);
     let idx = ((t / 0.6) as usize) % words.len();
     let base = 18.0;
-    let font = |big: bool| egui::FontId::proportional(if big { base * 1.15 } else { base });
-    let gap = 6.0;
+    let lum = hot.r() as f32 * 0.299 + hot.g() as f32 * 0.587 + hot.b() as f32 * 0.114;
+    let on_box = if lum > 150.0 { Color32::from_rgb(20, 20, 20) } else { Color32::WHITE };
+    let boxed = mode == "box" || mode == "boxpop";
+    let gap = 7.0;
     let galleys: Vec<_> = words
         .iter()
         .enumerate()
         .map(|(i, w)| {
             let on = kara && i == idx;
-            let c = if on { hot } else { Color32::WHITE };
-            p.layout_no_wrap(w.to_string(), font(on && pop), c)
+            let size = match (on, mode) {
+                (true, "pop") | (true, "boxpop") => base * 1.15,
+                (true, "big") => base * 1.35,
+                _ => base,
+            };
+            let c = if on {
+                if boxed { on_box } else { hot }
+            } else if kara && mode == "dim" && i > idx {
+                Color32::from_white_alpha(95)
+            } else {
+                Color32::WHITE
+            };
+            p.layout_no_wrap(w.to_string(), egui::FontId::proportional(size), c)
         })
         .collect();
     let total: f32 = galleys.iter().map(|g| g.size().x).sum::<f32>() + gap * 2.0;
     let mut x = rect.center().x - total / 2.0;
     for (i, g) in galleys.into_iter().enumerate() {
-        let lift = if kara && pop && i == idx { 3.0 } else { 0.0 };
-        let w = g.size().x;
-        let pos = egui::pos2(x, rect.center().y - g.size().y / 2.0 - lift);
+        let on = kara && i == idx;
+        let lift = if on && (mode == "pop" || mode == "boxpop") { 3.0 } else { 0.0 };
+        let (w, h) = (g.size().x, g.size().y);
+        let pos = egui::pos2(x, rect.center().y - h / 2.0 - lift);
+        if on && boxed {
+            p.rect_filled(egui::Rect::from_min_size(pos - Vec2::new(4.0, 1.0), Vec2::new(w + 8.0, h + 2.0)), 4.0, hot);
+        }
+        if on && mode == "underline" {
+            let y = pos.y + h - 1.0;
+            p.line_segment([egui::pos2(x, y), egui::pos2(x + w, y)], egui::Stroke::new(2.5, hot));
+        }
         p.galley(pos, g, Color32::WHITE);
         x += w + gap;
     }
@@ -1358,10 +1379,10 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
             section(ui, "Efecto de los subtítulos");
             let cw = (w - 10.0) / 2.0;
             egui::Grid::new("fx-presets").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
-                for (i, (_, label, kara, color, mode)) in crate::karaoke::PRESETS.iter().enumerate() {
+                for (i, (_, label, kara, mode)) in crate::karaoke::PRESETS.iter().enumerate() {
                     let sel = app.caption_preset == i;
                     let (rect, resp) = ui.allocate_exact_size(Vec2::new(cw, 62.0), Sense::click());
-                    paint_fx_preview(ui, rect, *kara, color, *mode == "pop", t);
+                    paint_fx_preview(ui, rect, *kara, &app.caption_karaoke_color, mode, t);
                     ui.painter().text(rect.left_top() + Vec2::new(8.0, 6.0), egui::Align2::LEFT_TOP, *label, egui::FontId::proportional(10.5), theme::MUTED);
                     if sel || resp.hovered() {
                         ui.painter().rect_stroke(rect, 6.0, egui::Stroke::new(if sel { 2.0 } else { 1.0 }, theme::ACCENT2), egui::StrokeKind::Inside);
@@ -1372,6 +1393,25 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
                     if i % 2 == 1 {
                         ui.end_row();
                     }
+                }
+            });
+            section(ui, "Color del resalte");
+            ui.horizontal_wrapped(|ui| {
+                for (hex, label) in crate::karaoke::COLORS {
+                    let sel = app.caption_karaoke_color.eq_ignore_ascii_case(hex);
+                    let (r, resp) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
+                    ui.painter().rect_filled(r, 12.0, paint::hex(hex));
+                    if sel {
+                        ui.painter().circle_stroke(r.center(), 13.0, egui::Stroke::new(2.0, Color32::WHITE));
+                    }
+                    if resp.on_hover_text(*label).clicked() {
+                        app.caption_karaoke_color = hex.to_string();
+                    }
+                }
+                let c = paint::hex(&app.caption_karaoke_color);
+                let mut rgb = [c.r(), c.g(), c.b()];
+                if ui.color_edit_button_srgb(&mut rgb).on_hover_text("Otro color").changed() {
+                    app.caption_karaoke_color = format!("#{:02x}{:02x}{:02x}", rgb[0], rgb[1], rgb[2]);
                 }
             });
             ui.add_space(6.0);
@@ -1417,9 +1457,8 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
         app.install_whisper();
     }
     if start {
-        let (_, _, kara, color, mode) = crate::karaoke::PRESETS[app.caption_preset.min(crate::karaoke::PRESETS.len() - 1)];
+        let (_, _, kara, mode) = crate::karaoke::PRESETS[app.caption_preset.min(crate::karaoke::PRESETS.len() - 1)];
         app.caption_karaoke = kara;
-        app.caption_karaoke_color = color.to_string();
         app.caption_karaoke_mode = mode.to_string();
         app.caption_dialog = None;
         app.transcribe_selected(&clip);

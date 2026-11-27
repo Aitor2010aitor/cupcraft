@@ -24,6 +24,9 @@ pub struct CatalogVoice {
 pub const CATALOG: &[CatalogVoice] = &[
     CatalogVoice { id: "es_MX-claude-high", path: "es/es_MX/claude/high", label: "Claude · Español (México)", size: "~60 MB" },
     CatalogVoice { id: "es_MX-ald-medium", path: "es/es_MX/ald/medium", label: "Ald · Español (México)", size: "~60 MB" },
+    CatalogVoice { id: "es_ES-davefx-medium", path: "es/es_ES/davefx/medium", label: "Davefx · Español (España)", size: "~60 MB" },
+    CatalogVoice { id: "es_ES-sharvard-medium", path: "es/es_ES/sharvard/medium", label: "Sharvard · Español (España)", size: "~75 MB" },
+    CatalogVoice { id: "es_ES-carlfm-x_low", path: "es/es_ES/carlfm/x_low", label: "Carlfm · Español (España), ligera", size: "~25 MB" },
     CatalogVoice { id: "es_AR-daniela-high", path: "es/es_AR/daniela/high", label: "Daniela · Español (Argentina)", size: "~60 MB" },
     CatalogVoice { id: "en_US-ryan-high", path: "en/en_US/ryan/high", label: "Ryan · Inglés (EE. UU.), narrador", size: "~115 MB" },
     CatalogVoice { id: "en_US-joe-medium", path: "en/en_US/joe/medium", label: "Joe · Inglés (EE. UU.)", size: "~60 MB" },
@@ -79,6 +82,7 @@ pub fn install_voice(models: &Path, v: &CatalogVoice, progress: &dyn Fn(String, 
     if !onnx.is_file() {
         super::whisper::download(&format!("{BASE}/{}/{}.onnx", v.path, v.id), &onnx, v.label, 0.02, 0.98, progress)?;
     }
+    cupcraft_tts::sanitize_voice_config(&onnx);
     progress("Listo".into(), 1.0);
     Ok(())
 }
@@ -99,6 +103,9 @@ pub const STYLES: &[Style] = &[
     Style { id: "gigante", label: "Gigante", pitch: 0.65, extra: "aecho=0.8:0.6:40:0.3" },
     Style { id: "robot", label: "Robot", pitch: 1.0, extra: "afftfilt=real='hypot(re,im)':imag='0':win_size=512:overlap=0.75" },
     Style { id: "radio", label: "Radio / teléfono", pitch: 1.0, extra: "highpass=f=400,lowpass=f=3200,acompressor=threshold=0.1:ratio=6" },
+    Style { id: "loq-clasico", label: "Loquendo clásico", pitch: 0.92, extra: "acrusher=bits=10:mode=lin:aa=0,equalizer=f=2600:t=q:w=1:g=5,highpass=f=150" },
+    Style { id: "loq-jorge", label: "Loquendo grave (tipo Jorge)", pitch: 0.78, extra: "acrusher=bits=10:mode=lin:aa=0,equalizer=f=1800:t=q:w=1:g=4,acompressor=threshold=0.15:ratio=4" },
+    Style { id: "loq-susana", label: "Loquendo agudo (tipo Susana)", pitch: 1.12, extra: "acrusher=bits=10:mode=lin:aa=0,equalizer=f=3200:t=q:w=1:g=4" },
     Style { id: "eco", label: "Eco de cueva", pitch: 1.0, extra: "aecho=0.8:0.88:70|140:0.5|0.3" },
 ];
 

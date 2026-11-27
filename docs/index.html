@@ -243,7 +243,7 @@
      plan: hero (the editor window cut by the frame, an export note looping three steps) / #editor app-frame
      (media list beside the preview and timeline) / #funciones three open cards (voice, background, subtitles) /
      #exportar split with a lanes diagram (project -> FFmpeg -> video, audio, text) / #historia split with a changelog card
-     (Cacup to v0.4.7) / #cifras statement with counter-rolls / #descargar split with the five files /
+     (Cacup to v0.4.11.1) / #cifras statement with counter-rolls / #descargar split with the five files /
      #faq split / footer.closing (close-word, columns) -->
 
 <header class="nav nav--centre">
@@ -254,6 +254,7 @@
       <div class="nav__item"><a class="nav__link" href="#editor">Editor</a></div>
       <div class="nav__item"><a class="nav__link" href="#herramientas">Herramientas</a></div>
       <div class="nav__item"><a class="nav__link" href="#historia">Historia</a></div>
+      <div class="nav__item"><a class="nav__link" href="#versiones">Versiones</a></div>
       <div class="nav__item"><a class="nav__link" href="#faq">Preguntas</a></div>
     </nav>
     <div class="nav__actions">
@@ -316,17 +317,28 @@
         <p class="t-lead muted">Lo que ya trae el editor para cortar, montar y exportar.</p>
       </div>
       <div class="tools">
-        <div class="tools__group"><h3>Panel de recursos</h3><p class="muted">Las diez pestañas de la izquierda del editor.</p><ul>
+        <div class="tools__group"><h3>Panel de recursos</h3><p class="muted">Las pestañas de la izquierda del editor.</p><ul>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></svg></span><div><b>Archivos multimedia</b><span>Importa vídeo, imagen y audio, o arrástralos a la ventana.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span><div><b>Audio</b><span>Música, efectos de sonido y voz grabada con el micrófono.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg></span><div><b>Voz</b><span>Escribe un texto y cupcraft lo lee con voces locales (Beta).</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></span><div><b>Texto</b><span>Estilos de título, fuentes del sistema y fuentes importadas.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><path d="M15 3v6h6"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg></span><div><b>Stickers</b><span>Por categorías, también GIF y WebP animados.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span><div><b>Efectos</b><span>Desenfoque, luz, grano, viñeta, espejo, vibración y 3D.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="9" height="12" rx="1.5"/><rect x="13" y="6" width="9" height="12" rx="1.5"/><path d="M9 12h6"/></svg></span><div><b>Transiciones</b><span>En el corte entre dos clips de la misma pista.</span></div></li>
-          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/></svg></span><div><b>Subtítulos</b><span>Escritos a mano con estilo, o importados de un SRT.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/></svg></span><div><b>Subtítulos</b><span>A mano, desde un SRT o generados solos, con karaoke.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16" cy="10" r="1.2"/><path d="M12 21a2 2 0 0 1 0-4h2a3 3 0 0 0 3-3"/></svg></span><div><b>Filtros</b><span>Familias de color y LUT, incluidas al exportar.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span><div><b>Ajuste</b><span>Brillo, contraste, saturación, opacidad, escala y giro.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span><div><b>Plantillas</b><span>Un proyecto nuevo con texto y formato ya puestos.</span></div></li>
+        </ul></div>
+        <div class="tools__group"><h3>Voz y subtítulos</h3><p class="muted">Todo se hace en tu ordenador.</p><ul>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/></svg></span><div><b>Generador de subtítulos</b><span>Elige el clip, el idioma y el efecto, con vistas previas animadas.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></span><div><b>Karaoke estilo TikTok</b><span>La línea entera visible y la palabra que suena resaltada.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="16" cy="10" r="1.2"/><path d="M12 21a2 2 0 0 1 0-4h2a3 3 0 0 0 3-3"/></svg></span><div><b>Efectos y color a elegir</b><span>Color, salto, palabra grande, caja, subrayado y progresivo.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 10v4M22 12h-1"/></svg></span><div><b>Tiempos precisos</b><span>Modelo Whisper Base, audio más limpio y sincronía ajustada.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg></span><div><b>Texto a voz (Beta)</b><span>Voces locales en español e inglés, sin enviar nada a internet.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/></svg></span><div><b>Estilos de voz</b><span>Ardilla, joven, grave, gigante, robot, radio y eco.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><div><b>Más voces</b><span>Descarga voces extra (España incluida) solo cuando tú lo pides.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3M17 10.5a2 2 0 1 0 0 3"/></svg></span><div><b>Subtítulos de la voz</b><span>Añade subtítulos karaoke en el mismo paso.</span></div></li>
         </ul></div>
         <div class="tools__group"><h3>Línea de tiempo</h3><p class="muted">Para cortar y ordenar los clips.</p><ul>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg></span><div><b>Dividir</b><span>Corta el clip justo en el cursor.</span></div></li>
@@ -339,6 +351,9 @@
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h10M3 18h10M17 14l4 4-4 4"/></svg></span><div><b>Separar audio</b><span>Saca el sonido de un vídeo a su propia pista.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M22 9l-6 6M16 9l6 6"/></svg></span><div><b>Silenciar y ocultar</b><span>Apaga el sonido o la imagen de una pista entera.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg></span><div><b>Zoom</b><span>Acerca o aleja la línea de tiempo.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="12" height="18" rx="2"/><path d="M8 8h4M8 12h4M18 9l3 3-3 3"/></svg></span><div><b>Menú con clic derecho</b><span>Copiar, cortar, pegar, duplicar, eliminar, dividir y separar audio.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 16V4M3 8l4-4 4 4M17 8v12M21 16l-4 4-4-4"/></svg></span><div><b>Mover a cualquier capa</b><span>Arrastra un clip a otra pista; encima de todas crea una capa nueva.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l10 5-10 5L2 7z"/><path d="M2 12l10 5 10-5M2 17l10 5 10-5"/></svg></span><div><b>Orden de capas</b><span>La pista de arriba se dibuja encima, como en CapCut.</span></div></li>
         </ul></div>
         <div class="tools__group"><h3>Clip seleccionado</h3><p class="muted">En el panel de detalles de la derecha.</p><ul>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14l4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/></svg></span><div><b>Velocidad</b><span>Más rápido o más lento.</span></div></li>
@@ -356,8 +371,11 @@
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></span><div><b>Exportar</b><span>MP4 (H.264 o H.265) y WebM, con la GPU si la hay.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6l2 3h8v13H4z"/><path d="M12 11v6M9 14l3 3 3-3"/></svg></span><div><b>Importar de CapCut</b><span>Abre borradores de CapCut y los convierte.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></span><div><b>Autoguardado</b><span>Cada cambio se guarda en SQLite mientras editas.</span></div></li>
-          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6"/><path d="M3.5 9a9 9 0 0 1 15-3.4L21 8M20.5 15a9 9 0 0 1-15 3.4L3 16"/></svg></span><div><b>Actualizaciones</b><span>Las versiones nuevas se ofrecen dentro de la app.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 2v6h-6M3 22v-6h6"/><path d="M3.5 9a9 9 0 0 1 15-3.4L21 8M20.5 15a9 9 0 0 1-15 3.4L3 16"/></svg></span><div><b>Actualizaciones</b><span>Las versiones nuevas se ofrecen dentro de la app; en Linux pide permiso del sistema.</span></div></li>
           <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></span><div><b>Atajos de teclado</b><span>La lista completa, en el menú de ayuda.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg></span><div><b>Idioma de la app</b><span>Cambia entre español e inglés en Ajustes y se recuerda.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12v9H4v-9M2 7h20v5H2zM12 21V7M12 7H8a2.5 2.5 0 1 1 0-5c3 0 4 5 4 5zM12 7h4a2.5 2.5 0 1 0 0-5c-3 0-4 5-4 5z"/></svg></span><div><b>Novedades al actualizar</b><span>Una ventana te cuenta qué ha cambiado en la versión nueva.</span></div></li>
+          <li><span class="tools__ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><div><b>Instalador .deb para Linux</b><span>Doble clic en Debian, Ubuntu o Mint y queda en el menú de apps.</span></div></li>
         </ul></div>
       </div>
     </div>
@@ -386,19 +404,41 @@
           <p>Empezó el 27 de octubre como Cacup. Pasó por un lanzador en C++ con WebView2 y por C#, cambió de nombre y acabó reescrito en Rust para ser rápido y ligero.</p>
         </div>
         <div class="span-6 start-7">
-          <div class="panel lit pad" role="img" aria-label="La historia de cupcraft: Cacup el 27 de octubre, openCUP el 29, C# el 2 de noviembre, el nombre cupcraft el 6, Rust del 9 al 19 y la versión 0.4.7 el 26 de noviembre">
+          <div class="panel lit pad" role="img" aria-label="La historia de cupcraft: Cacup el 27 de octubre, openCUP el 29, C# el 2 de noviembre, el nombre cupcraft el 6, Rust del 9 al 19 y la versión 0.4.6 el 26 de noviembre y la 0.4.11.1 el 27">
             <div class="d-card log" data-ui aria-hidden="true">
-              <div class="d-card__row"><h5>Historial de cupcraft</h5><span class="d-chip d-chip--blue">v0.4.7</span></div>
+              <div class="d-card__row"><h5>Historial de cupcraft</h5><span class="d-chip d-chip--blue">v0.4.11.1</span></div>
               <div class="d-note__line"><code>27 oct</code><span><b>Cacup</b>, la primera idea</span></div>
               <div class="d-note__line"><code>29 oct</code><span><b>openCUP</b>: C++ con WebView2</span></div>
               <div class="d-note__line"><code>2 nov</code><span>Segunda versión en <b>C#</b></span></div>
               <div class="d-note__line"><code>6 nov</code><span>Se llama <b>cupcraft</b></span></div>
               <div class="d-note__line"><code>9 nov</code><span>Reescrito en <b>Rust</b> con wgpu</span></div>
-              <div class="d-note__line"><code>26 nov</code><span><b>v0.4.7</b>, se actualiza solo</span></div>
+              <div class="d-note__line"><code>26 nov</code><span><b>v0.4.6</b>, se actualiza solo</span></div>
+              <div class="d-note__line"><code>27 nov</code><span><b>v0.4.11.1</b>, subtítulos karaoke</span></div>
             </div>
           </div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <section class="section" id="versiones" aria-labelledby="versiones-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="versiones-h">Cada versión de cupcraft</h2>
+        <p class="t-lead muted">Lo que trajo cada una, de la más nueva a la más antigua.</p>
+      </div>
+      <div class="vers">
+        <article class="ver ver--now"><header><b class="ver__n">v0.4.11.1</b><small>27 nov</small><em class="ver__new">Última</em></header><h3>Generador de subtítulos y karaoke a tu gusto</h3><ul><li><span>Ventana para generar subtítulos: eliges el clip, el idioma y el efecto karaoke.</span></li><li><span>Más efectos karaoke y selector de color.</span></li><li><span>Más voces, incluidas las de España, y arreglo de las voces Amy, Joe y Ald.</span></li><li><span>Idioma de la app en español o inglés, desde Ajustes.</span></li><li><span>Subtítulos más precisos con Whisper Base. Texto a voz marcado como Beta.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.11</b><small>27 nov</small></header><h3>Linux al día</h3><ul><li><span>Los subtítulos (Whisper) se instalan en Linux con el aviso de contraseña del sistema.</span></li><li><span>cupcraft encuentra FFmpeg en tu sistema, así que exportar funciona.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.10.1</b><small>27 nov</small></header><h3>Novedades tras actualizar</h3><ul><li><span>Al actualizar, una ventana muestra la versión instalada y qué ha cambiado.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.10</b><small>27 nov</small></header><h3>Instalador para Linux</h3><ul><li><span>Paquete .deb para Debian, Ubuntu y Linux Mint.</span></li><li><span>Las actualizaciones en Linux piden permiso con pkexec.</span></li><li><span>Arreglado el aviso de actualización que no desaparecía.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.9</b><small>27 nov</small></header><h3>Subtítulos karaoke y estilos de voz</h3><ul><li><span>Subtítulos karaoke estilo TikTok, con 5 colores y salto opcional.</span></li><li><span>Estilos de voz: ardilla, joven, grave, gigante, robot, radio y eco.</span></li><li><span>Más voces y subtítulos automáticos para la voz generada.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.8.1</b><small>27 nov</small></header><h3>Clic derecho y capas libres</h3><ul><li><span>Menú con clic derecho en los clips.</span></li><li><span>Mueve cualquier clip a cualquier capa, y crea una capa nueva arrastrando arriba.</span></li><li><span>La pista de arriba se dibuja encima. Iconos de la barra más grandes.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.8</b><small>27 nov</small></header><h3>El primer menú contextual</h3><ul><li><span>Menú con clic derecho y cambio de capa al arrastrar clips.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.7</b><small>26 nov</small></header><h3>Icono propio</h3><ul><li><span>El icono va dentro de cupcraft.exe.</span></li></ul></article>
+        <article class="ver"><header><b class="ver__n">v0.4.6</b><small>26 nov</small></header><h3>Se actualiza solo</h3><ul><li><span>Actualización automática desde GitHub y guardado al cerrar.</span></li><li><span>Versiones para Windows, macOS y Linux.</span></li></ul></article>
+      </div>
+      <p class="vers__more"><a class="link" href="https://github.com/Aitor2010aitor/cupcraft/releases" rel="noopener">Ver todas en GitHub</a></p>
     </div>
   </section>
 
@@ -428,7 +468,8 @@
             <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-windows-x86_64.exe"><span class="ic-tile ic-tile--40"><img class="ic ic-28" src="assets/icons/windows.svg" alt="" width="28" height="28"></span><span><b>Windows · portable, sin instalar</b><code>cupcraft-windows-x86_64.exe</code></span></a>
             <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-macos-aarch64.tar.gz"><span class="ic-tile ic-tile--40"><img class="ic ic-28 ic-ink" src="assets/icons/apple.svg" alt="" width="23" height="28"></span><span><b>macOS · Apple Silicon (experimental)</b><code>cupcraft-macos-aarch64.tar.gz</code></span></a>
             <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-macos-x86_64.tar.gz"><span class="ic-tile ic-tile--40"><img class="ic ic-28 ic-ink" src="assets/icons/apple.svg" alt="" width="23" height="28"></span><span><b>macOS · Intel (experimental)</b><code>cupcraft-macos-x86_64.tar.gz</code></span></a>
-            <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-linux-x86_64.tar.gz"><span class="ic-tile ic-tile--40"><img class="ic ic-28" src="assets/icons/linux-tux.svg" alt="" width="24" height="28"></span><span><b>Linux (experimental)</b><code>cupcraft-linux-x86_64.tar.gz</code></span></a>
+            <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-linux-x86_64.deb"><span class="ic-tile ic-tile--40"><img class="ic ic-28" src="assets/icons/linux-tux.svg" alt="" width="24" height="28"></span><span><b>Linux · instalador .deb (Debian, Ubuntu, Mint)</b><code>cupcraft-linux-x86_64.deb</code></span></a>
+            <a href="https://github.com/Aitor2010aitor/cupcraft/releases/latest/download/cupcraft-linux-x86_64.tar.gz"><span class="ic-tile ic-tile--40"><img class="ic ic-28" src="assets/icons/linux-tux.svg" alt="" width="24" height="28"></span><span><b>Linux · portable (experimental)</b><code>cupcraft-linux-x86_64.tar.gz</code></span></a>
           </div></div>
         </div>
       </div>
@@ -447,7 +488,7 @@
               <div class="d-card__row"><span class="ic-tile ic-tile--28"><img class="ic ic-20 ic-land" src="assets/icons/discord.svg" alt="" width="20" height="16"></span><h5>cupcraft en Discord</h5><span class="d-chip">Abierto</span></div>
               <div class="d-note__line"><code>#ayuda</code><span>¿Cómo exporto en 4K?</span></div>
               <div class="d-note__line"><code>#ideas</code><span>Plantillas de texto animado</span></div>
-              <div class="d-note__line"><code>#novedades</code><span>Ya está la v0.4.7</span></div>
+              <div class="d-note__line"><code>#novedades</code><span>Ya está la v0.4.11.1</span></div>
             </div>
           </div>
         </div>
@@ -456,6 +497,7 @@
           <div class="faq__item"><h3>¿El editor necesita internet?</h3><p>No. Editar y exportar funciona sin conexión. Solo busca actualizaciones si hay red.</p></div>
           <div class="faq__item"><h3>¿Por qué Windows avisa al abrirlo?</h3><p>El ejecutable no está firmado. Pulsa «Más información» y «Ejecutar de todas formas».</p></div>
           <div class="faq__item"><h3>¿cupcraft abre proyectos de CapCut?</h3><p>Importa borradores de CapCut en modo lectura. cupcraft no tiene relación con ByteDance ni CapCut.</p></div>
+          <div class="faq__item"><h3>¿Puedo generar subtítulos automáticos?</h3><p>Sí. El generador usa Whisper en tu ordenador, con efectos karaoke y el color que quieras. Nada sale de tu equipo.</p></div>
           <div class="faq__item"><h3>¿Pierdo el vídeo si se cierra?</h3><p>No. Guarda solo en SQLite mientras editas y te pide guardar al cerrar.</p></div>
           <div class="faq__item"><h3>¿Las actualizaciones de cupcraft son seguras?</h3><p>Sí. Cada descarga se comprueba con SHA-256 antes de instalarse.</p></div>
         </div>
@@ -505,7 +547,7 @@ html.rv-on .rv.is-in { opacity: 1; transform: none; filter: none; }
 <script>
 (function () {
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var sel = '.hero__text > *, .shot, main h2, main .grid > div, .tools__group, .tools__group li, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
+  var sel = '.hero__text > *, .shot, main h2, main .grid > div, .tools__group, .tools__group li, .ver, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
   var all = Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function (el) { return !el.matches('.hero__text'); });
   var els = all.filter(function (el) {
     return !all.some(function (o) { return o !== el && o.contains(el) && !o.classList.contains('tools__group'); });
@@ -625,7 +667,59 @@ document.querySelectorAll('main h1, main h2, main h3, main p, main li > span, ma
 .lang__menu button[aria-current="true"]::after { content: "✓"; color: var(--accent); font-weight: 700; }
 @keyframes lang-in { from { opacity: 0; transform: translateY(-6px) scale(.97); } }
 </style>
-<script src="i18n.js"></script>
+<style>
+.vers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5, 24px); margin-top: var(--s-7, 48px); }
+.ver { background: var(--surface); border-radius: var(--r-lg, 14px); padding: var(--s-6, 32px); display: flex; flex-direction: column; gap: 10px; }
+.ver--now { grid-column: 1 / -1; background: var(--action); color: var(--action-ink); }
+.ver--now ul, .ver--now small { color: inherit; }
+.ver header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ver__n { font: 500 14px/1 var(--font-mono); padding: 6px 10px; border-radius: 999px; background: color-mix(in oklab, currentColor 12%, transparent); }
+.ver small { font-size: 13px; opacity: .75; }
+.ver__new { font-style: normal; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--action-ink); color: var(--action); margin-left: auto; }
+.ver h3 { margin: 0; font: 600 20px/1.25 var(--font-display); }
+.ver ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; font-size: 15px; line-height: 1.45; color: var(--muted); }
+.ver li { position: relative; padding-left: 18px; }
+.ver li::before { content: ""; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
+.vers__more { margin-top: var(--s-5, 24px); }
+@media (max-width: 759px) { .vers { grid-template-columns: 1fr; } .ver { padding: var(--s-5, 20px); } }
+.dc { border: 0; padding: 0; background: transparent; color: var(--ink); max-width: min(440px, calc(100vw - 32px)); width: 100%; margin: auto; }
+.dc::backdrop { background: rgb(8 10 14 / .55); backdrop-filter: blur(3px); }
+.dc__box { background: var(--card, var(--bg)); border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent); border-radius: 20px; padding: 28px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / .5); display: grid; gap: 12px; }
+.dc[open] .dc__box { animation: dc-in .25s cubic-bezier(.2,.7,.2,1); }
+@keyframes dc-in { from { opacity: 0; transform: translateY(10px) scale(.97); } }
+.dc__ic { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: #5865f2; }
+.dc__ic img { width: 24px; height: auto; filter: brightness(0) invert(1); }
+.dc h2 { margin: 4px 0 0; font: 600 24px/1.2 var(--font-display); }
+.dc p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.dc__btns { display: grid; gap: 10px; margin-top: 8px; }
+.dc__btns .btn { width: 100%; justify-content: center; cursor: pointer; }
+</style>
+<dialog class="dc" id="dc" aria-labelledby="dc-h" aria-describedby="dc-p">
+  <div class="dc__box">
+    <span class="dc__ic" aria-hidden="true"><img src="assets/icons/discord.svg" alt="" width="24" height="19"></span>
+    <h2 id="dc-h">¿Te quieres unir al Discord?</h2>
+    <p id="dc-p">Ahí resolvemos dudas, enseñamos novedades y recogemos ideas. Tu descarga empieza igual.</p>
+    <div class="dc__btns">
+      <button type="button" class="btn btn--primary" id="dc-yes">Sí, unirme al Discord</button>
+      <button type="button" class="btn btn--secondary" id="dc-no">No, gracias, prefiero descargar ya</button>
+    </div>
+  </div>
+</dialog>
+<script>
+(function () {
+  var d = document.getElementById('dc'); if (!d || !d.showModal) return;
+  var href = '', DISCORD = 'https://discord.gg/N2kfVGjeZ7';
+  function go() { var a = document.createElement('a'); a.href = href; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('.dl a[href]'); if (!a) return;
+    e.preventDefault(); href = a.href; d.showModal(); document.getElementById('dc-yes').focus();
+  });
+  document.getElementById('dc-no').addEventListener('click', function () { d.close(); go(); });
+  document.getElementById('dc-yes').addEventListener('click', function () { d.close(); go(); window.open(DISCORD, '_blank', 'noopener'); });
+  d.addEventListener('click', function (e) { if (e.target === d) d.close(); });
+})();
+</script>
+<script src="i18n.js?v=2"></script>
 <script type="module" src="assets/system.js"></script>
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>

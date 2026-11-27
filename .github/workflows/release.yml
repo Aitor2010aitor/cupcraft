@@ -98,6 +98,11 @@ jobs:
             rm -rf pkg
           fi
 
+      - name: Linux .deb package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash tools/build-deb.sh "${{ needs.check-version.outputs.version }}" "out/${{ matrix.asset }}" "out/${{ matrix.asset }}.deb"
+
       - name: Windows installer
         if: runner.os == 'Windows'
         shell: pwsh

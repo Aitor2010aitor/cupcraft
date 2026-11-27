@@ -25,6 +25,7 @@ GitHub Actions builds Windows, macOS (Apple Silicon and Intel) and Linux, create
 | `cupcraft-setup-windows-x86_64.exe` | Windows installer (per-user, no admin) |
 | `cupcraft-windows-x86_64.exe`, `cupcraft-linux-x86_64`, `cupcraft-macos-aarch64`, `cupcraft-macos-x86_64` | Raw executables downloaded by the updater |
 | `cupcraft-*.tar.gz` | First manual install on macOS / Linux (keeps the executable bit) |
+| `cupcraft-linux-x86_64.deb` | Linux installer (Debian / Ubuntu / Mint), built by `tools/build-deb.sh`. Installs to `/usr/bin`, so the updater asks for administrator permission through `pkexec` when it replaces the binary |
 | `version.json` | Update manifest |
 
 ## How the updater works

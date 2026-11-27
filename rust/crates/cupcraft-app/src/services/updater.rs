@@ -21,6 +21,7 @@
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use eframe::egui;
@@ -122,8 +123,22 @@ fn fetch_latest() -> Result<Option<Update>, String> {
     }))
 }
 
+/// Quita el sufijo " (deleted)" que Linux añade a /proc/self/exe cuando el
+/// archivo en ejecución ya fue reemplazado.
+fn clean_exe_path(p: PathBuf) -> PathBuf {
+    let trimmed = p.to_string_lossy().strip_suffix(" (deleted)").map(PathBuf::from);
+    trimmed.unwrap_or(p)
+}
+
+/// Ruta del ejecutable en ejecución, fijada la primera vez que se pide (al
+/// arrancar, en `cleanup_old`). En Linux `current_exe()` lee /proc/self/exe, que
+/// sigue al archivo aunque se renombre: tras mover el ejecutable a `.old`
+/// devolvería esa ruta y `relaunch()` volvería a abrir la versión anterior en
+/// bucle, con el aviso de actualización saliendo siempre.
 fn exe_path() -> Result<PathBuf, String> {
-    std::env::current_exe().map_err(|e| e.to_string())
+    static EXE: OnceLock<Result<PathBuf, String>> = OnceLock::new();
+    EXE.get_or_init(|| std::env::current_exe().map(clean_exe_path).map_err(|e| e.to_string()))
+        .clone()
 }
 
 fn old_path(exe: &std::path::Path) -> PathBuf {
@@ -139,11 +154,71 @@ pub fn cleanup_old() {
     }
 }
 
+/// Crea un archivo temporal que solo puede leer y escribir el usuario actual.
+/// `create_new` (O_EXCL) no sigue enlaces simbólicos preexistentes, y se prefiere
+/// `XDG_RUNTIME_DIR` (privado) a /tmp: el archivo acabará instalándose como root,
+/// así que nadie más debe poder sustituirlo tras verificar el SHA-256.
+#[cfg(unix)]
+fn create_private_temp() -> Result<(PathBuf, std::fs::File), String> {
+    use std::os::unix::fs::OpenOptionsExt;
+    let dir = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir())
+        .unwrap_or_else(std::env::temp_dir);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let path = dir.join(format!("cupcraft-update-{}-{nanos}", std::process::id()));
+    let file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .map_err(|e| format!("no se puede escribir en la carpeta temporal: {e}"))?;
+    Ok((path, file))
+}
+
+#[cfg(not(unix))]
+fn create_private_temp() -> Result<(PathBuf, std::fs::File), String> {
+    Err("no se puede escribir junto al ejecutable".into())
+}
+
+/// Sustituye el ejecutable con permisos de administrador (`pkexec` muestra el
+/// diálogo de contraseña del sistema). Se copia junto al destino y se renombra:
+/// un `mv` sí puede reemplazar un ejecutable en uso.
+#[cfg(unix)]
+fn install_privileged(src: &std::path::Path, exe: &std::path::Path) -> Result<(), String> {
+    let status = std::process::Command::new("pkexec")
+        .args(["/bin/sh", "-c", r#"install -m 755 "$1" "$2.new" && mv -f "$2.new" "$2""#, "sh"])
+        .arg(src)
+        .arg(exe)
+        .status()
+        .map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                "falta pkexec (polkit): instala el .deb de la nueva versión a mano".to_string()
+            } else {
+                format!("no se pudieron pedir permisos de administrador: {e}")
+            }
+        })?;
+    match status.code() {
+        Some(0) => Ok(()),
+        Some(126) => Err("cancelaste la petición de permisos de administrador".into()),
+        Some(127) => Err("no se obtuvo autorización de administrador".into()),
+        _ => Err("no se pudo instalar la nueva versión con permisos de administrador".into()),
+    }
+}
+
+#[cfg(not(unix))]
+fn install_privileged(_src: &std::path::Path, _exe: &std::path::Path) -> Result<(), String> {
+    Err("no se pudo reemplazar el ejecutable".into())
+}
+
 fn download_and_install(u: &Update, progress: &dyn Fn(f32)) -> Result<(), String> {
     let exe = exe_path()?;
     let mut new_s = exe.as_os_str().to_owned();
     new_s.push(".new");
-    let new = PathBuf::from(new_s);
+    let mut new = PathBuf::from(new_s);
 
     let resp = agent()
         .get(&format!("{}/{}", base_url(), u.file))
@@ -151,7 +226,20 @@ fn download_and_install(u: &Update, progress: &dyn Fn(f32)) -> Result<(), String
         .map_err(|e| format!("descarga fallida: {e}"))?;
     let total = resp.header("Content-Length").and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
     let mut reader = resp.into_reader();
-    let mut out = std::fs::File::create(&new).map_err(|e| format!("no se puede escribir junto al ejecutable: {e}"))?;
+    // Junto al ejecutable si se puede escribir ahí. Si no (en Linux, /usr/bin
+    // tras instalar el .deb) se descarga a una carpeta temporal privada y el
+    // último paso se hace con permisos de administrador.
+    let mut privileged = false;
+    let mut out = match std::fs::File::create(&new) {
+        Ok(f) => f,
+        Err(e) if cfg!(unix) && e.kind() == std::io::ErrorKind::PermissionDenied => {
+            let (path, f) = create_private_temp()?;
+            privileged = true;
+            new = path;
+            f
+        }
+        Err(e) => return Err(format!("no se puede escribir junto al ejecutable: {e}")),
+    };
     let mut hasher = Sha256::new();
     let mut buf = vec![0u8; 256 * 1024];
     let mut done = 0u64;
@@ -184,6 +272,11 @@ fn download_and_install(u: &Update, progress: &dyn Fn(f32)) -> Result<(), String
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = std::fs::set_permissions(&new, std::fs::Permissions::from_mode(0o755));
+    }
+    if privileged {
+        let r = install_privileged(&new, &exe);
+        let _ = std::fs::remove_file(&new);
+        return r;
     }
     // Un ejecutable en uso no se puede sobrescribir en Windows, pero sí renombrar.
     let old = old_path(&exe);
@@ -320,6 +413,12 @@ impl Updater {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn exe_path_drops_deleted_suffix() {
+        assert_eq!(clean_exe_path(PathBuf::from("/usr/bin/cupcraft (deleted)")), PathBuf::from("/usr/bin/cupcraft"));
+        assert_eq!(clean_exe_path(PathBuf::from("/usr/bin/cupcraft")), PathBuf::from("/usr/bin/cupcraft"));
+    }
 
     #[test]
     fn version_compare() {

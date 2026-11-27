@@ -40,7 +40,13 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
-## 🆕 What's new in v0.4.9
+## 🆕 What's new in v0.4.10
+
+- **Linux installer (.deb)** — a package for Debian, Ubuntu and Linux Mint: double-click it and cupcraft is installed system-wide, with its icon in the app menu.
+- **Updates on Linux ask for permission** — when cupcraft is installed in `/usr/bin`, the in-app updater shows the system password prompt (`pkexec`) to replace the program. If you cancel, nothing changes.
+- **Fix: update notice that never went away on Linux** — after updating, the app relaunched the old version, so the "new version available" card kept coming back. It now relaunches the new one.
+
+## What's new in v0.4.9
 
 - **TikTok-style karaoke subtitles** — the whole line is visible and the word being spoken is highlighted (5 colors, plus an optional "pop" jump). Works with Whisper word timings, manual subtitles, SRT and generated voice.
 - **Voice styles for text to speech** — squirrel, young, deep, giant, robot, radio and echo, applied locally with FFmpeg.
@@ -64,7 +70,8 @@ Get the latest build from the [**Releases page**](https://github.com/Aitor2010ai
 | Windows (x64) | `cupcraft-windows-x86_64.exe` | Portable executable. |
 | macOS (Apple Silicon) | `cupcraft-macos-aarch64.tar.gz` | |
 | macOS (Intel) | `cupcraft-macos-x86_64.tar.gz` | |
-| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | |
+| Linux (x64) | `cupcraft-linux-x86_64.deb` | Installer for Debian / Ubuntu / Linux Mint (double-click, or `sudo apt install ./cupcraft-linux-x86_64.deb`). Adds cupcraft to the app menu. |
+| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | Portable: extract and run `./cupcraft`. |
 
 > [!WARNING]
 > The macOS and Linux builds are **experimental**. Some tools (Whisper subtitles, Piper voices and CapCut draft import) still rely on Windows components and are not available there yet.

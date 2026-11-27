@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=cupcraft
+GenericName=Video editor
+Comment=Video editor
+Exec=cupcraft
+Icon=cupcraft
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+StartupWMClass=cupcraft

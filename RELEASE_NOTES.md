@@ -1,6 +1,5 @@
-## What's new in v0.4.9
+## What's new in v0.4.10
 
-- **TikTok-style karaoke subtitles**: the whole line is visible and the word being spoken is highlighted (5 colors, plus an optional "pop" jump). Works with Whisper word timings, manual subtitles, SRT and generated voice.
-- **Voice styles for text to speech**: squirrel, young, deep, giant, robot, radio and echo, applied locally with FFmpeg.
-- **More voices**: download extra Piper voices (Spanish and English) from the Voice panel, only when you click the button.
-- **Auto captions for generated voice**: text to speech can add karaoke subtitles in the same step.
+- **Linux installer (.deb)**: a package for Debian, Ubuntu and Linux Mint. Double-click it and cupcraft is installed system-wide, with its icon in the app menu.
+- **Updates on Linux ask for permission**: when cupcraft is installed in `/usr/bin`, the in-app updater shows the system password prompt (`pkexec`) to replace the program. If you cancel, nothing changes.
+- **Fix: update notice that never went away on Linux**: after updating, the app relaunched the old version, so the "new version available" card kept coming back. It now relaunches the new one.

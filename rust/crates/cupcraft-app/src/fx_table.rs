@@ -79,7 +79,7 @@ pub const TABLE: &[(&str, Op, Second)] = &[
     ("mov_autoshake", Shake, De), ("mov_randdisp", Shake, De), ("mov_randjitter", Jitter, De),
     ("mov_oscillate", Oscillate, De), ("mov_swing", Swing, No), ("mov_spin", Spin, No),
     ("mov_pulsesize", PulseSize, No), ("mov_stretchaxis", StretchAxis, De), ("mov_offset", Offset, De),
-    ("mov_rastertransform", Raster, No), ("mov_alongpath", MovePath, No), ("mov_scaleassist", ScaleAssist, De),
+    ("mov_rastertransform", Raster, No), ("mov_alongpath", MovePath, No),
     ("mov_truemotionblur", Motion, An), ("mov_pulseopacity", PulseOpacity, De), ("mov_echokeys", Echo, De),
     // Ritmo
     ("bet_zoom", BeatZoom, No), ("bet_shake", Shake, De), ("bet_flash", Flash, No),

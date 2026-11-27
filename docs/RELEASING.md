@@ -6,7 +6,8 @@ Releases are built by [`.github/workflows/release.yml`](../.github/workflows/rel
 
 1. Bump `version` in `rust/Cargo.toml` (for example `0.4.7`).
 2. Commit and push.
-3. Create and push the tag:
+3. Write the release notes in `RELEASE_NOTES.md` (the workflow publishes them as the release description).
+4. Create and push the tag:
    ```sh
    git tag v0.4.7
    git push origin v0.4.7

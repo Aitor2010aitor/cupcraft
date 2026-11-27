@@ -143,7 +143,8 @@ jobs:
               if key.endswith(".exe"):
                   key = key[:-4]
               assets[key] = {"file": name, "sha256": digest}
-          notes = os.environ.get("RELEASE_NOTES", "")
+          notes = open("RELEASE_NOTES.md", encoding="utf-8").read() if os.path.exists("RELEASE_NOTES.md") else ""
+          notes = notes or os.environ.get("RELEASE_NOTES", "")
           json.dump({"version": os.environ["VERSION"], "notes": notes, "assets": assets},
                     open("artifacts/version.json", "w"), indent=2)
           print(open("artifacts/version.json").read())

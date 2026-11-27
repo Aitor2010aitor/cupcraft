@@ -553,7 +553,7 @@
         <div class="span-2 footer__col"><h3>Editor</h3><ul><li><a href="#editor">La ventana</a></li><li><a href="#exportar">Exportar</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Funciones</h3><ul><li><a href="#herramientas">Herramientas</a></li><li><a href="#cifras">Cifras</a></li></ul></div>
         <div class="span-2 footer__col"><h3>Historia</h3><ul><li><a href="#historia">Cómo nació</a></li></ul></div>
-        <div class="span-2 footer__col"><h3>Preguntas</h3><ul><li><a href="#faq">Dudas</a></li><li><a href="https://discord.gg/N2kfVGjeZ7" rel="noopener">Discord</a></li><li><a href="https://github.com/Aitor2010aitor/cupcraft" rel="noopener">GitHub</a></li></ul></div>
+        <div class="span-2 footer__col"><h3>Preguntas</h3><ul><li><a href="#faq">Dudas</a></li><li><a href="https://discord.gg/N2kfVGjeZ7" rel="noopener">Discord</a></li><li><a href="https://github.com/Aitor2010aitor/cupcraft" rel="noopener">GitHub</a></li><li><a class="js-bug" href="https://github.com/Aitor2010aitor/cupcraft/issues/new?labels=bug" rel="noopener">Reportar un bug</a></li></ul></div>
       </div>
       <div class="footer__legal">
         <span>&copy; 2026 AITOR2010 · Licencia MIT · Programado con Claude (Anthropic)</span>
@@ -755,5 +755,75 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
 <script type="module" src="assets/motion/motion.js"></script>
 <script type="module" src="assets/layout/layout.js"></script>
 <script type="module" src="assets/diagrams/mount.js"></script>
+<!-- boton de reportar bugs: abre un issue nuevo en GitHub con plantilla, igual que en la app -->
+<style>
+.bug-fab { position: fixed; right: 20px; bottom: 20px; z-index: 55; display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border-radius: 999px; font: 600 14px/1 var(--font-text, system-ui); color: var(--ink); background: var(--card, var(--surface, var(--bg))); border: 1px solid color-mix(in oklab, var(--ink) 16%, transparent); box-shadow: 0 10px 30px -10px rgb(0 0 0 / .45); text-decoration: none; transition: transform .25s cubic-bezier(.2,.9,.3,1.3), background-color .25s, border-color .25s; }
+.bug-fab svg { width: 18px; height: 18px; flex: none; }
+@media (hover: hover) { .bug-fab:hover { transform: translateY(-3px); border-color: var(--accent); } }
+.bug-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 560px) { .bug-fab { right: 14px; bottom: 14px; padding: 12px; } .bug-fab span { display: none; } }
+</style>
+<a class="bug-fab js-bug" href="https://github.com/Aitor2010aitor/cupcraft/issues/new?labels=bug" rel="noopener" target="_blank" title="Reportar un bug en GitHub">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7a4 4 0 0 1 8 0"/><rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 11v9M3 12h4M17 12h4M4 19l3-2M20 19l-3-2M4 5l3 2M20 5l-3 2"/></svg>
+  <span>Reportar un bug</span>
+</a>
+<script>
+(function () {
+  var T = {
+    es: { title: '[Bug] ', body: `## ¿Qué pasó?
+(Describe el problema)
+
+## ¿Cómo reproducirlo?
+1. 
+2. 
+3. 
+
+## ¿Qué esperabas que pasara?
+
+
+## Entorno
+` },
+    en: { title: '[Bug] ', body: `## What happened?
+(Describe the problem)
+
+## How to reproduce it?
+1. 
+2. 
+3. 
+
+## What did you expect?
+
+
+## Environment
+` },
+    fr: { title: '[Bug] ', body: `## Que s’est-il passé ?
+(Décris le problème)
+
+## Comment le reproduire ?
+1. 
+2. 
+3. 
+
+## Qu’attendais-tu ?
+
+
+## Environnement
+` }
+  };
+  function url() {
+    var t = T[document.documentElement.lang] || T.es;
+    var body = t.body + `- Web: ${location.href.split('#')[0]}
+- Navegador / Browser: ${navigator.userAgent}
+- Pantalla / Screen: ${screen.width}x${screen.height}
+`;
+    return 'https://github.com/Aitor2010aitor/cupcraft/issues/new?labels=bug&title=' + encodeURIComponent(t.title) + '&body=' + encodeURIComponent(body);
+  }
+  document.querySelectorAll('.js-bug').forEach(function (a) {
+    a.addEventListener('click', function () { a.href = url(); });
+    a.addEventListener('focus', function () { a.href = url(); });
+    a.addEventListener('mouseenter', function () { a.href = url(); });
+  });
+})();
+</script>
 </body>
 </html>

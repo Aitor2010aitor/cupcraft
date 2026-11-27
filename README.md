@@ -40,7 +40,12 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
-## 🆕 What's new in v0.4.10.1
+## 🆕 What's new in v0.4.11
+
+- **Linux: subtitles (Whisper) now install** — pressing install shows the system password prompt (`pkexec`) to add what is missing (compiler, cmake and FFmpeg), then builds the Whisper engine on your PC. It takes a few minutes the first time.
+- **Linux: FFmpeg is detected** — cupcraft now finds `ffmpeg` on your system (`/usr/bin`, `PATH`), so exporting works after `sudo apt install ffmpeg`.
+
+## What's new in v0.4.10.1
 
 - **"What's new" after updating** — when you press Update and cupcraft restarts, a window shows the version you just installed and what changed. Close it with the X and carry on.
 
@@ -78,7 +83,7 @@ Get the latest build from the [**Releases page**](https://github.com/Aitor2010ai
 | Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | Portable: extract and run `./cupcraft`. |
 
 > [!WARNING]
-> The macOS and Linux builds are **experimental**. Some tools (Whisper subtitles, Piper voices and CapCut draft import) still rely on Windows components and are not available there yet.
+> The macOS and Linux builds are **experimental**. Some tools (Piper voices and CapCut draft import) still rely on Windows components and are not available there yet.
 
 > [!IMPORTANT]
 > The binaries are not code-signed yet. On Windows, SmartScreen may show a warning (**More info → Run anyway**). On macOS, remove the quarantine flag once:

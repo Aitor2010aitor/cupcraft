@@ -1,3 +1,4 @@
-## What's new in v0.4.10.1
+## What's new in v0.4.11
 
-- **"What's new" after updating**: when you press Update and cupcraft restarts, a window shows the version you just installed and what changed. Close it with the X and carry on.
+- **Linux: subtitles (Whisper) now install**: the app asks for administrator permission to add what is missing (compiler, cmake and FFmpeg), then builds the Whisper engine on your PC (a few minutes the first time).
+- **Linux: FFmpeg is detected**: cupcraft finds `ffmpeg` on your system, so exporting works.

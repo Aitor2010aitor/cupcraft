@@ -15,6 +15,8 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 const ENGINE_URL: &str = "https://github.com/ggml-org/whisper.cpp/releases/download/b5907/whisper-bin-x64.zip";
+#[cfg(unix)]
+const SOURCE_URL: &str = "https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.7.6.tar.gz";
 const MODEL_URL: &str = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin";
 const MODEL_FILE: &str = "ggml-tiny.bin";
 
@@ -35,6 +37,11 @@ pub fn dir() -> PathBuf {
             d = cur.parent().map(Path::to_path_buf);
         }
     }
+    #[cfg(not(windows))]
+    {
+        return crate::app::app_dir().join("whisper");
+    }
+    #[cfg(windows)]
     cwd
 }
 
@@ -45,7 +52,7 @@ fn find_cli(root: &Path) -> Option<PathBuf> {
             let p = e.path();
             if p.is_dir() {
                 stack.push(p);
-            } else if p.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("whisper-cli.exe")).unwrap_or(false) {
+            } else if p.file_name().and_then(|n| n.to_str()).map(|n| n.eq_ignore_ascii_case("whisper-cli.exe") || n == "whisper-cli").unwrap_or(false) {
                 return Some(p);
             }
         }
@@ -81,25 +88,150 @@ pub(crate) fn download(url: &str, dest: &Path, label: &str, base: f32, span: f32
     fs::rename(&tmp, dest).map_err(|e| e.to_string())
 }
 
+#[cfg(not(unix))]
+fn install_engine(d: &Path, progress: &dyn Fn(String, f32)) -> Result<(), String> {
+    let zip = d.join("whisper-engine.zip");
+    download(ENGINE_URL, &zip, "motor Whisper", 0.0, 0.2, progress)?;
+    progress("Instalando motor…".into(), 0.2);
+    let st = command("powershell")
+        .args(["-NoProfile", "-NonInteractive", "-Command"])
+        .arg(format!("Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force", zip.display(), d.display()))
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|e| format!("no se pudo descomprimir: {e}"))?;
+    let _ = fs::remove_file(&zip);
+    if !st.success() || find_cli(d).is_none() {
+        return Err("el paquete descargado no contiene whisper-cli.exe".into());
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn have(cmd: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|p| std::env::split_paths(&p).any(|d| d.join(cmd).is_file()))
+        .unwrap_or(false)
+        || ["/usr/bin", "/usr/local/bin", "/bin"].iter().any(|d| Path::new(d).join(cmd).is_file())
+}
+
+/// Instala con permiso de administrador (`pkexec`, ventana de contraseña del
+/// sistema) los paquetes que falten: compilador, cmake y FFmpeg.
+#[cfg(unix)]
+pub fn install_system_deps(need_build: bool, progress: &dyn Fn(String, f32)) -> Result<(), String> {
+    let mut pkgs: Vec<&str> = Vec::new();
+    if need_build {
+        if !have("cmake") {
+            pkgs.push("cmake");
+        }
+        if !have("make") || !(have("g++") || have("c++")) {
+            pkgs.push("build-essential");
+        }
+    }
+    if cupcraft_media::FfmpegLocation::refresh().is_none() {
+        pkgs.push("ffmpeg");
+    }
+    if pkgs.is_empty() {
+        return Ok(());
+    }
+    if !have("apt-get") {
+        return Err(format!("instala estos paquetes con tu gestor de paquetes y vuelve a intentarlo: {}", pkgs.join(", ")));
+    }
+    if !have("pkexec") {
+        return Err(format!("falta pkexec; ejecuta en una terminal: sudo apt-get install {}", pkgs.join(" ")));
+    }
+    progress(format!("Pidiendo permiso de administrador para instalar {}…", pkgs.join(", ")), 0.02);
+    let st = command("pkexec")
+        .args(["env", "DEBIAN_FRONTEND=noninteractive", "apt-get", "install", "-y"])
+        .args(&pkgs)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|e| format!("no se pudo pedir permiso: {e}"))?;
+    match st.code() {
+        Some(0) => {}
+        Some(126) | Some(127) => return Err("permiso de administrador denegado o cancelado".into()),
+        _ => return Err(format!("apt-get no pudo instalar {} (¿hay conexión a internet?)", pkgs.join(", "))),
+    }
+    cupcraft_media::FfmpegLocation::refresh();
+    Ok(())
+}
+
+/// Linux: instala dependencias (pkexec) y compila whisper.cpp desde su código.
+#[cfg(unix)]
+fn install_engine(d: &Path, progress: &dyn Fn(String, f32)) -> Result<(), String> {
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::fs::PermissionsExt;
+    install_system_deps(true, progress)?;
+    let tgz = d.join("whisper-src.tar.gz");
+    download(SOURCE_URL, &tgz, "código del motor Whisper", 0.05, 0.05, progress)?;
+    let src = d.join("src");
+    let _ = fs::remove_dir_all(&src);
+    fs::create_dir_all(&src).map_err(|e| e.to_string())?;
+    let st = command("tar")
+        .arg("-xzf")
+        .arg(&tgz)
+        .arg("-C")
+        .arg(&src)
+        .arg("--strip-components=1")
+        .status()
+        .map_err(|e| format!("no se pudo descomprimir: {e}"))?;
+    let _ = fs::remove_file(&tgz);
+    if !st.success() {
+        return Err("no se pudo descomprimir el código del motor".into());
+    }
+    progress("Compilando el motor Whisper (puede tardar varios minutos)…".into(), 0.1);
+    let build = src.join("build");
+    let st = command("cmake")
+        .arg("-S")
+        .arg(&src)
+        .arg("-B")
+        .arg(&build)
+        .args(["-DCMAKE_BUILD_TYPE=Release", "-DBUILD_SHARED_LIBS=OFF", "-DWHISPER_BUILD_TESTS=OFF", "-DGGML_NATIVE=OFF"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|e| format!("cmake: {e}"))?;
+    if !st.success() {
+        let _ = fs::remove_dir_all(&src);
+        return Err("cmake no pudo preparar la compilación".into());
+    }
+    let jobs = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(2).to_string();
+    let mut child = command("cmake")
+        .arg("--build")
+        .arg(&build)
+        .args(["--config", "Release", "--target", "whisper-cli", "-j", &jobs])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("cmake: {e}"))?;
+    if let Some(out) = child.stdout.take() {
+        for line in BufReader::new(out).lines().map_while(Result::ok) {
+            // Líneas de make: "[ 45%] Building CXX object …"
+            if let Some(pct) = line.trim_start().strip_prefix('[').and_then(|r| r.split('%').next()).and_then(|n| n.trim().parse::<f32>().ok()) {
+                progress("Compilando el motor Whisper (puede tardar varios minutos)…".into(), 0.1 + 0.1 * pct / 100.0);
+            }
+        }
+    }
+    let ok = child.wait().map(|s| s.success()).unwrap_or(false);
+    let bin = build.join("bin").join("whisper-cli");
+    if !ok || !bin.is_file() {
+        let _ = fs::remove_dir_all(&src);
+        return Err("la compilación del motor Whisper falló".into());
+    }
+    let dest = d.join("whisper-cli");
+    fs::copy(&bin, &dest).map_err(|e| e.to_string())?;
+    let _ = fs::set_permissions(&dest, fs::Permissions::from_mode(0o755));
+    let _ = fs::remove_dir_all(&src);
+    Ok(())
+}
+
 /// Descarga e instala motor + modelo en `tools\whisper`.
 pub fn install(progress: &dyn Fn(String, f32)) -> Result<(), String> {
     let d = dir();
     fs::create_dir_all(&d).map_err(|e| e.to_string())?;
     if find_cli(&d).is_none() {
-        let zip = d.join("whisper-engine.zip");
-        download(ENGINE_URL, &zip, "motor Whisper", 0.0, 0.2, progress)?;
-        progress("Instalando motor…".into(), 0.2);
-        let st = command("powershell")
-            .args(["-NoProfile", "-NonInteractive", "-Command"])
-            .arg(format!("Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force", zip.display(), d.display()))
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .map_err(|e| format!("no se pudo descomprimir: {e}"))?;
-        let _ = fs::remove_file(&zip);
-        if !st.success() || find_cli(&d).is_none() {
-            return Err("el paquete descargado no contiene whisper-cli.exe".into());
-        }
+        install_engine(&d, progress)?;
     }
     if !d.join(MODEL_FILE).is_file() {
         download(MODEL_URL, &d.join(MODEL_FILE), "modelo Whisper (~78 MB)", 0.2, 0.8, progress)?;

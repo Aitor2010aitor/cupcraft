@@ -1055,7 +1055,11 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                 hint(ui, &format!("Duración del proyecto: {}", format_time(dur)));
                 if cupcraft_media::FfmpegLocation::find().is_none() {
                     ui.add_space(6.0);
-                    note(ui, "No se encontró FFmpeg. Instálalo para tu usuario (winget install Gyan.FFmpeg) o coloca ffmpeg.exe junto a cupcraft.exe.");
+                    note(ui, if cfg!(windows) {
+                        "No se encontró FFmpeg. Instálalo para tu usuario (winget install Gyan.FFmpeg) o coloca ffmpeg.exe junto a cupcraft.exe."
+                    } else {
+                        "No se encontró FFmpeg. Instálalo con: sudo apt install ffmpeg (o usa Subtítulos automáticos, que lo instala pidiendo permiso de administrador)."
+                    });
                 }
                 let mut go = false;
                 let mut cancel = false;

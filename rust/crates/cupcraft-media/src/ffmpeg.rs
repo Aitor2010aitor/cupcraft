@@ -18,11 +18,30 @@ pub struct FfmpegLocation {
 impl FfmpegLocation {
     /// Detects FFmpeg binary on the system (resultado cacheado durante la sesión).
     pub fn find() -> Option<Self> {
-        static CACHE: std::sync::OnceLock<Option<FfmpegLocation>> = std::sync::OnceLock::new();
-        CACHE.get_or_init(Self::find_uncached).clone()
+        let mut cache = cache().lock().unwrap_or_else(|e| e.into_inner());
+        if cache.is_none() {
+            *cache = Some(Self::find_uncached());
+        }
+        cache.clone().flatten()
+    }
+
+    /// Olvida el resultado cacheado (p. ej. tras instalar FFmpeg con el permiso de administrador).
+    pub fn refresh() -> Option<Self> {
+        *cache().lock().unwrap_or_else(|e| e.into_inner()) = None;
+        Self::find()
     }
 
     fn find_uncached() -> Option<Self> {
+        #[cfg(unix)]
+        {
+            return find_unix();
+        }
+        #[cfg(not(unix))]
+        Self::find_windows()
+    }
+
+    #[cfg(not(unix))]
+    fn find_windows() -> Option<Self> {
         // 0. Junto al ejecutable: <exe>	oolsfmpegfmpeg.exe o carpetas padre (instalación portable)
         if let Ok(exe) = std::env::current_exe() {
             let mut dir = exe.parent().map(|d| d.to_path_buf());
@@ -97,6 +116,28 @@ impl FfmpegLocation {
             HwAccel::Cpu
         }
     }
+}
+
+fn cache() -> &'static std::sync::Mutex<Option<Option<FfmpegLocation>>> {
+    static CACHE: std::sync::OnceLock<std::sync::Mutex<Option<Option<FfmpegLocation>>>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Linux/macOS: busca `ffmpeg` en el PATH y en las rutas habituales.
+#[cfg(unix)]
+fn find_unix() -> Option<FfmpegLocation> {
+    let mut dirs: Vec<PathBuf> = std::env::var_os("PATH").map(|p| std::env::split_paths(&p).collect()).unwrap_or_default();
+    for extra in ["/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", "/snap/bin"] {
+        dirs.push(PathBuf::from(extra));
+    }
+    for d in dirs {
+        let p = d.join("ffmpeg");
+        if p.is_file() {
+            let probe = d.join("ffprobe");
+            return Some(FfmpegLocation { ffmpeg_path: p, ffprobe_path: if probe.is_file() { Some(probe) } else { None } });
+        }
+    }
+    None
 }
 
 /// Crea un `Command` que en Windows no abre ventana de consola (CREATE_NO_WINDOW).

@@ -88,7 +88,11 @@ pub fn start(job: ExportJob, ctx: eframe::egui::Context) -> ExportHandle {
 
 fn run(job: ExportJob, h: &ExportHandle, ctx: &eframe::egui::Context) -> Result<Option<PathBuf>, String> {
     if cupcraft_media::FfmpegLocation::find().is_none() {
-        return Err("No se encontró FFmpeg. Instálalo (winget install Gyan.FFmpeg) o colócalo junto a cupcraft.exe.".into());
+        return Err(if cfg!(windows) {
+            "No se encontró FFmpeg. Instálalo (winget install Gyan.FFmpeg) o colócalo junto a cupcraft.exe.".into()
+        } else {
+            "No se encontró FFmpeg. Instálalo con: sudo apt install ffmpeg".into()
+        });
     }
     let duration = job.project.duration();
     if duration <= 0.0 {

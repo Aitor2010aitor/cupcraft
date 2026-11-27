@@ -40,7 +40,14 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
-## 🆕 What's new in v0.4.8.1
+## 🆕 What's new in v0.4.9
+
+- **TikTok-style karaoke subtitles** — the whole line is visible and the word being spoken is highlighted (5 colors, plus an optional "pop" jump). Works with Whisper word timings, manual subtitles, SRT and generated voice.
+- **Voice styles for text to speech** — squirrel, young, deep, giant, robot, radio and echo, applied locally with FFmpeg.
+- **More voices** — download extra Piper voices (Spanish and English) from the Voice panel, only when you click the button.
+- **Auto captions for generated voice** — text to speech can add karaoke subtitles in the same step.
+
+## What's new in v0.4.8.1
 
 - **Right-click menu on clips** — Copy, Cut, Paste, Duplicate, Delete, Split at the playhead and Extract audio, right on the timeline.
 - **Move clips to any layer** — drag any clip (video, audio, text, stickers…) up or down to any track. Dragging above the top track creates a new layer.

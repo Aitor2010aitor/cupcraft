@@ -375,9 +375,63 @@ pub fn render_text(text: &Value, scale: f32) -> Option<Pixmap> {
             draw_glyphs(&mut pm, &g, ox + dx * r, oy + dy * r, c);
         }
     }
-    let fill = parse_color(st(text, "color", "#ffffff"), num(text, "opacity", 1.0) as f32);
-    draw_glyphs_color(&mut pm, &g, ox, oy, fill);
+    let opacity = num(text, "opacity", 1.0) as f32;
+    let fill = parse_color(st(text, "color", "#ffffff"), opacity);
+    // Karaoke (`karaoke::apply`): la palabra activa lleva otro color y, si se
+    // pide, crece un poco; el resto del párrafo se queda como está.
+    let kara = text.get("_karaoke").filter(|_| text.get("_glyphFx").is_none());
+    let word_of = kara.and_then(|_| word_indices(&body, g.items.len()));
+    match (kara, word_of) {
+        (Some(k), Some(word_of)) => {
+            let active = k.get("idx").and_then(Value::as_u64).unwrap_or(0) as usize;
+            let pop = k.get("pop").and_then(Value::as_bool).unwrap_or(false);
+            let hot = parse_color(k.get("color").and_then(Value::as_str).unwrap_or("#ffe600"), opacity);
+            let (mut rest, mut lit) = (Vec::new(), Vec::new());
+            for (item, w) in g.items.iter().zip(&word_of) {
+                if *w == active {
+                    let mut it = item.clone();
+                    if pop {
+                        it.1.scale = PxScale { x: it.1.scale.x * 1.12, y: it.1.scale.y * 1.12 };
+                        it.1.position.y -= px * 0.05;
+                    }
+                    lit.push(it);
+                } else {
+                    rest.push(item.clone());
+                }
+            }
+            draw_glyphs_color(&mut pm, &Glyphs { items: rest, width: g.width, height: g.height }, ox, oy, fill);
+            draw_glyphs_color(&mut pm, &Glyphs { items: lit, width: g.width, height: g.height }, ox, oy, hot);
+        }
+        _ => draw_glyphs_color(&mut pm, &g, ox, oy, fill),
+    }
     Some(pm)
+}
+
+/// Palabra (por orden) a la que pertenece cada glifo que `layout` coloca, o
+/// `usize::MAX` para espacios. `None` si no cuadra con los glifos reales.
+fn word_indices(body: &str, glyph_count: usize) -> Option<Vec<usize>> {
+    let mut out = Vec::with_capacity(glyph_count);
+    let (mut next, mut cur) = (0usize, None::<usize>);
+    for ch in body.chars() {
+        if is_invisible_joiner(ch) {
+            continue;
+        }
+        if ch == '\n' {
+            cur = None;
+            continue;
+        }
+        if ch.is_whitespace() {
+            cur = None;
+            out.push(usize::MAX);
+        } else {
+            let w = *cur.get_or_insert_with(|| {
+                next += 1;
+                next - 1
+            });
+            out.push(w);
+        }
+    }
+    (out.len() == glyph_count).then_some(out)
 }
 
 /// Rasteriza un sticker de emoji/texto con las capas de color COLR/CPAL de

@@ -21,6 +21,7 @@ mod fx_table;
 mod home;
 mod icon_data;
 mod icons;
+mod karaoke;
 mod inspector;
 mod inspector_clip;
 mod inspector_text;

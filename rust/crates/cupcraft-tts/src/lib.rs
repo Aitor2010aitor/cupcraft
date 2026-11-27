@@ -30,6 +30,11 @@ fn find_piper_dir(root: &Path) -> Option<PathBuf> {
     None
 }
 
+/// Carpeta donde viven los modelos de voz (`tools/piper/models`).
+pub fn models_dir(root: &Path) -> Option<PathBuf> {
+    find_piper_dir(root).map(|d| d.join("models"))
+}
+
 pub fn is_available(root: &Path) -> bool {
     find_piper_dir(root).is_some()
 }
@@ -53,13 +58,19 @@ pub fn list_voices(root: &Path) -> Value {
                     .to_string();
 
                 let (label, gender, quality) = if stem.contains("davefx") {
-                    ("Davefx (Español)", "Masculina", "Alta calidad")
+                    ("Davefx (Español)".to_string(), "Masculina", "Alta calidad")
                 } else if stem.contains("sharvard") {
-                    ("Sharvard (Español)", "Neutral", "Alta calidad")
+                    ("Sharvard (Español)".to_string(), "Neutral", "Alta calidad")
                 } else if stem.contains("carlfm") {
-                    ("Carlfm (Español)", "Femenina", "Ultrarrápida")
+                    ("Carlfm (Español)".to_string(), "Femenina", "Ultrarrápida")
                 } else {
-                    (stem.as_str(), "Voz", "Estándar")
+                    // `es_MX-claude-high` → «Claude (es_MX)».
+                    let mut p = stem.split('-');
+                    let region = p.next().unwrap_or("");
+                    let who = p.next().unwrap_or(stem.as_str());
+                    let nice: String = who.chars().enumerate().map(|(i, c)| if i == 0 { c.to_ascii_uppercase() } else { c }).collect();
+                    let quality = if p.next() == Some("high") { "Alta calidad" } else { "Estándar" };
+                    (format!("{nice} ({region})"), "Voz", quality)
                 };
 
                 voices.push(json!({
@@ -67,7 +78,7 @@ pub fn list_voices(root: &Path) -> Value {
                     "name": format!("{} · {}", label, gender),
                     "description": quality,
                     "gender": gender,
-                    "lang": if stem.starts_with("es_") { "es" } else { "en" }
+                    "lang": if stem.starts_with("es_") { "es" } else { stem.split('_').next().unwrap_or("en") }
                 }));
             }
         }

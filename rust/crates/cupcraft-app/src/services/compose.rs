@@ -4025,6 +4025,7 @@ impl Compositor {
                     };
                     let Some(val) = val else { return };
                     let val = if is_text { crate::fx_text::apply(&val, &clip, local).unwrap_or(val) } else { val };
+                    let val = if is_text { crate::karaoke::apply(&val, local) } else { val };
                     // Transición de entrada del clip (opacidad × geometría × barrido).
                     let tanim = if with_transition { transition_state(&clip, tl) } else { None };
                     let anim = if is_text { raster::text_anim(&val, local, clip.duration) } else { None };

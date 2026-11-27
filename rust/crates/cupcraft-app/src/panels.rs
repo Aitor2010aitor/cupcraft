@@ -607,6 +607,11 @@ fn audio_panel(ui: &mut egui::Ui, app: &mut CupApp) {
 
 static VOICES: Mutex<Option<Value>> = Mutex::new(None);
 
+/// Vuelve a leer las voces instaladas (tras descargar una nueva).
+pub fn refresh_voices() {
+    voices(true);
+}
+
 fn voices(refresh: bool) -> Value {
     let mut g = VOICES.lock().unwrap_or_else(|e| e.into_inner());
     if refresh || g.is_none() {
@@ -874,6 +879,17 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.label(egui::RichText::new("Velocidad").color(theme::MUTED));
         ui.add(egui::Slider::new(&mut app.tts_speed, 0.5..=2.0).step_by(0.05).suffix("×"));
     });
+    section(ui, "Estilo de voz");
+    hint(ui, "Cambia el tono como en los vídeos de TikTok (ardilla, grave, robot…). Se aplica con FFmpeg, sin internet.");
+    ui.horizontal_wrapped(|ui| {
+        for s in crate::services::voices::STYLES {
+            if chip(ui, s.label, app.tts_style == s.id).clicked() {
+                app.tts_style = s.id.to_string();
+            }
+        }
+    });
+    ui.add_space(4.0);
+    ui.checkbox(&mut app.tts_captions, "Añadir subtítulos con karaoke");
     ui.add_space(6.0);
     ui.add_enabled_ui(!app.tts_busy && !app.tts_text.trim().is_empty(), |ui| {
         if primary_button(ui, if app.tts_busy { "Generando…" } else { "Generar voz y añadir" }).clicked() {
@@ -882,6 +898,29 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     });
     if app.tts_busy {
         ui.spinner();
+    }
+
+    section(ui, "Más voces");
+    hint(ui, "Voces de la colección pública de Piper (Hugging Face). Solo se descargan cuando pulsas el botón.");
+    let models = cupcraft_tts::models_dir(&CupApp::tts_root());
+    let mut to_install = None;
+    for cv in crate::services::voices::CATALOG {
+        let have = models.as_deref().map(|m| crate::services::voices::installed(m, cv.id)).unwrap_or(false);
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(cv.label).color(theme::TEXT));
+            ui.label(egui::RichText::new(cv.size).color(theme::MUTED));
+            if have {
+                ui.label(egui::RichText::new("Instalada").color(theme::MUTED));
+            } else if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar")).clicked() {
+                to_install = Some(cv.id);
+            }
+        });
+    }
+    if let Some((msg, p)) = &app.voice_busy {
+        ui.add(egui::ProgressBar::new(*p).text(msg.clone()));
+    }
+    if let Some(id) = to_install {
+        app.install_voice(id);
     }
 }
 
@@ -1158,7 +1197,22 @@ pub fn apply_captions(app: &mut CupApp, items: Vec<Value>, replace: bool) {
         .find(|s| paint::str_of(s, "id", "") == app.caption_style)
         .cloned()
         .unwrap_or(json!({}));
-    let patch = caption_patch(&style);
+    let mut patch = caption_patch(&style);
+    let mut items = items;
+    if app.caption_karaoke {
+        // Karaoke: cada subtítulo guarda los tiempos de sus palabras (los de
+        // Whisper si los hay; si no, repartidos por longitud).
+        patch["karaoke"] = json!({ "color": app.caption_karaoke_color, "mode": app.caption_karaoke_mode });
+        for it in &mut items {
+            if it.get("words").is_some() {
+                continue;
+            }
+            let start = it.get("start").and_then(Value::as_f64).unwrap_or(0.0);
+            let dur = it.get("duration").and_then(Value::as_f64).or_else(|| it.get("end").and_then(Value::as_f64).map(|e| e - start)).unwrap_or(2.0);
+            let text = it.get("text").and_then(Value::as_str).unwrap_or("").to_string();
+            it["words"] = json!(crate::karaoke::even_words(&text, dur.max(0.4)));
+        }
+    }
     let sid = app.caption_style.clone();
     let n = app
         .mutate_project(|p| {
@@ -1214,6 +1268,25 @@ fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
             }
         }
     });
+    section(ui, "Efecto karaoke (estilo TikTok)");
+    hint(ui, "El párrafo se ve entero y la palabra que se dice cambia de color a medida que avanza.");
+    ui.checkbox(&mut app.caption_karaoke, "Resaltar la palabra que se está diciendo");
+    if app.caption_karaoke {
+        ui.horizontal_wrapped(|ui| {
+            for (hex, label) in crate::karaoke::COLORS {
+                if chip(ui, label, app.caption_karaoke_color == *hex).clicked() {
+                    app.caption_karaoke_color = hex.to_string();
+                }
+            }
+        });
+        ui.horizontal_wrapped(|ui| {
+            for (id, label) in crate::karaoke::MODES {
+                if chip(ui, label, app.caption_karaoke_mode == *id).clicked() {
+                    app.caption_karaoke_mode = id.to_string();
+                }
+            }
+        });
+    }
     section(ui, "Subtítulos manuales");
     hint(ui, "Una línea por subtítulo. Se colocan uno tras otro desde el cursor.");
     ui.add(egui::TextEdit::multiline(&mut app.caption_text).hint_text("Escribe tus subtítulos…").desired_rows(5).desired_width(f32::INFINITY));

@@ -58,7 +58,7 @@ pub fn ready() -> bool {
     find_cli(&d).is_some() && d.join(MODEL_FILE).is_file()
 }
 
-fn download(url: &str, dest: &Path, label: &str, base: f32, span: f32, progress: &dyn Fn(String, f32)) -> Result<(), String> {
+pub(crate) fn download(url: &str, dest: &Path, label: &str, base: f32, span: f32, progress: &dyn Fn(String, f32)) -> Result<(), String> {
     let resp = ureq::get(url).call().map_err(|e| format!("descarga fallida ({label}): {e}"))?;
     let total = resp.header("Content-Length").and_then(|v| v.parse::<u64>().ok()).unwrap_or(0);
     let mut reader = resp.into_reader();
@@ -110,7 +110,9 @@ pub fn install(progress: &dyn Fn(String, f32)) -> Result<(), String> {
 
 /// Transcribe `[in_point, in_point+duration]` del medio. Tiempos devueltos
 /// relativos al inicio del tramo (segundos). `lang`: "auto", "es", "en"…
-pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str) -> Result<Vec<Value>, String> {
+/// Con `words`, whisper devuelve una palabra por segmento y se agrupan en
+/// líneas de pocas palabras con sus tiempos (`words`) para el karaoke.
+pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str, words: bool) -> Result<Vec<Value>, String> {
     let d = dir();
     let cli = find_cli(&d).ok_or("falta el motor Whisper")?;
     let model = d.join(MODEL_FILE);
@@ -133,14 +135,12 @@ pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str) -> Res
         return Err("no se pudo extraer el audio (¿el clip tiene sonido?)".into());
     }
     let base = std::env::temp_dir().join(format!("cupcraft-stt-{stamp}"));
-    let out = command(&cli)
-        .arg("-m")
-        .arg(&model)
-        .arg("-f")
-        .arg(&wav)
-        .args(["-l", lang, "-osrt", "-of"])
-        .arg(&base)
-        .args(["-np"])
+    let mut cmd = command(&cli);
+    cmd.arg("-m").arg(&model).arg("-f").arg(&wav).args(["-l", lang, "-osrt", "-of"]).arg(&base).args(["-np"]);
+    if words {
+        cmd.args(["-ml", "1", "-sow"]);
+    }
+    let out = cmd
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .output()
@@ -150,5 +150,6 @@ pub fn transcribe(media: &Path, in_point: f64, duration: f64, lang: &str) -> Res
     let text = fs::read_to_string(&srt_path);
     let _ = fs::remove_file(&srt_path);
     let text = text.map_err(|_| format!("Whisper no produjo subtítulos: {}", String::from_utf8_lossy(&out.stderr).lines().last().unwrap_or("")))?;
-    Ok(crate::panels::parse_srt(&text))
+    let items = crate::panels::parse_srt(&text);
+    Ok(if words { crate::karaoke::group_words(&items, 4) } else { items })
 }

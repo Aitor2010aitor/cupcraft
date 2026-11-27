@@ -181,6 +181,8 @@ pub enum JobMsg {
     Tts(Result<Media, String>),
     WhisperProgress(String, f32),
     WhisperInstalled(Result<(), String>),
+    VoiceProgress(String, f32),
+    VoiceInstalled(Result<(), String>),
     /// (subtítulos con tiempos del tramo, inicio del clip en la línea de tiempo)
     Transcribed(Result<(Vec<Value>, f64), String>),
 }
@@ -285,10 +287,22 @@ pub struct CupApp {
     pub caption_style: String,
     pub caption_text: String,
     pub caption_duration: f64,
+    /// Resaltar la palabra que se está diciendo (estilo TikTok).
+    pub caption_karaoke: bool,
+    pub caption_karaoke_color: String,
+    pub caption_karaoke_mode: String,
     pub tts_text: String,
     pub tts_voice: String,
     pub tts_speed: f32,
     pub tts_busy: bool,
+    /// Estilo de voz (`services::voices::STYLES`).
+    pub tts_style: String,
+    /// Crear también los subtítulos de lo que dice la voz.
+    pub tts_captions: bool,
+    /// Texto cuya voz se está generando, para subtitularlo al terminar.
+    pub tts_pending_captions: Option<String>,
+    /// Descarga de voces: (estado, progreso).
+    pub voice_busy: Option<(String, f32)>,
     /// Subtítulos automáticos: (estado, progreso) mientras instala/transcribe.
     pub whisper_busy: Option<(String, f32)>,
     pub whisper_lang: String,
@@ -373,10 +387,17 @@ impl CupApp {
             caption_style: "classic".to_string(),
             caption_text: String::new(),
             caption_duration: 2.5,
+            caption_karaoke: true,
+            caption_karaoke_color: "#ffe600".to_string(),
+            caption_karaoke_mode: "pop".to_string(),
             tts_text: String::new(),
             tts_voice: String::new(),
             tts_speed: 1.0,
             tts_busy: false,
+            tts_style: "none".to_string(),
+            tts_captions: true,
+            tts_pending_captions: None,
+            voice_busy: None,
             whisper_busy: None,
             whisper_lang: "auto".to_string(),
             home_sort: HomeSort::Recent,
@@ -950,12 +971,30 @@ impl CupApp {
                         Err(e) => self.toast_error(format!("Transcripción: {e}")),
                     }
                 }
+                JobMsg::VoiceProgress(msg, p) => self.voice_busy = Some((msg, p)),
+                JobMsg::VoiceInstalled(res) => {
+                    self.voice_busy = None;
+                    match res {
+                        Ok(()) => {
+                            crate::panels::refresh_voices();
+                            self.toast("Voz instalada");
+                        }
+                        Err(e) => self.toast_error(format!("Voz: {e}")),
+                    }
+                }
                 JobMsg::Tts(res) => {
                     self.tts_busy = false;
+                    let caption_text = self.tts_pending_captions.take();
                     match res {
                         Ok(m) => {
                             let pid = self.editor.project().map(|p| p.id.clone()).unwrap_or_default();
+                            let (start, dur) = (self.playhead, m.duration.unwrap_or(0.0));
                             self.on_media_imported(m, true, &pid);
+                            // Subtítulos de lo que dice la voz, justo sobre su clip.
+                            if let Some(text) = caption_text.filter(|_| dur > 0.1) {
+                                let items = crate::karaoke::chunk_text(&text, 4, start, dur);
+                                crate::panels::apply_captions(self, items, false);
+                            }
                         }
                         Err(e) => self.toast_error(format!("Texto a voz: {e}")),
                     }
@@ -1152,17 +1191,41 @@ impl CupApp {
             return;
         }
         self.tts_busy = true;
+        self.tts_pending_captions = self.tts_captions.then(|| text.clone());
         let tx = self.jobs_tx.clone();
         let voice = self.tts_voice.clone();
         let speed = self.tts_speed;
+        let style = self.tts_style.clone();
         let store_path = self.store_path.clone();
         std::thread::spawn(move || {
-            let res = cupcraft_tts::generate(&Self::tts_root(), &text, &voice, speed).and_then(|wav| {
+            let res = cupcraft_tts::generate(&Self::tts_root(), &text, &voice, speed)
+                .and_then(|wav| services::voices::apply_style(wav, &style))
+                .and_then(|wav| {
                 let mut store = Store::open(&store_path).ok();
                 let short: String = text.chars().take(24).collect();
                 media::import_bytes(store.as_mut(), &format!("Voz - {short}.wav"), "wav", wav)
             });
             let _ = tx.send(JobMsg::Tts(res));
+        });
+    }
+
+    /// Descarga una voz extra de Piper (acción explícita del usuario).
+    pub fn install_voice(&mut self, voice_id: &str) {
+        if self.voice_busy.is_some() {
+            return;
+        }
+        let Some(v) = services::voices::CATALOG.iter().find(|v| v.id == voice_id) else { return };
+        let Some(models) = cupcraft_tts::models_dir(&Self::tts_root()) else {
+            return self.toast_error("No se encuentra la carpeta de Piper (tools\\piper)");
+        };
+        self.voice_busy = Some(("Preparando descarga…".into(), 0.0));
+        let tx = self.jobs_tx.clone();
+        std::thread::spawn(move || {
+            let tx2 = tx.clone();
+            let res = services::voices::install_voice(&models, v, &move |m, p| {
+                let _ = tx2.send(JobMsg::VoiceProgress(m, p));
+            });
+            let _ = tx.send(JobMsg::VoiceInstalled(res));
         });
     }
 
@@ -1197,15 +1260,25 @@ impl CupApp {
         };
         let (in_point, dur, start, speed) = (clip.in_point, clip.duration, clip.start, clip.speed.max(0.01));
         let lang = self.whisper_lang.clone();
+        let words = self.caption_karaoke;
         self.whisper_busy = Some(("Transcribiendo… (puede tardar)".into(), -1.0));
         let tx = self.jobs_tx.clone();
         std::thread::spawn(move || {
-            let res = services::whisper::transcribe(&path, in_point, dur * speed, &lang).map(|mut items| {
+            let res = services::whisper::transcribe(&path, in_point, dur * speed, &lang, words).map(|mut items| {
                 // Tiempo del medio → tiempo del clip (velocidad).
                 for it in &mut items {
                     for k in ["start", "end"] {
                         if let Some(v) = it.get(k).and_then(Value::as_f64) {
                             it[k] = json!(v / speed);
+                        }
+                    }
+                    if let Some(ws) = it.get_mut("words").and_then(Value::as_array_mut) {
+                        for w in ws {
+                            for k in ["s", "e"] {
+                                if let Some(v) = w.get(k).and_then(Value::as_f64) {
+                                    w[k] = json!(v / speed);
+                                }
+                            }
                         }
                     }
                 }

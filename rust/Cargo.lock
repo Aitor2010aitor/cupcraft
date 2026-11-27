@@ -1361,7 +1361,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-app"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "ab_glyph",
  "bytemuck",
@@ -1388,7 +1388,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-audio"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "cpal",
  "cupcraft-core",
@@ -1400,7 +1400,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-bridge"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "axum",
  "cupcraft-core",
@@ -1416,7 +1416,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-capcut"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "base64 0.22.1",
  "cupcraft-core",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-core"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "serde",
  "serde_json",
@@ -1435,7 +1435,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-desktop"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "cupcraft-server",
  "tao",
@@ -1445,7 +1445,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-media"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "cupcraft-audio",
  "cupcraft-core",
@@ -1457,7 +1457,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-persist"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "base64 0.22.1",
  "cupcraft-core",
@@ -1468,7 +1468,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-render"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -1482,7 +1482,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-server"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "base64 0.22.1",
  "percent-encoding",
@@ -1497,7 +1497,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-tts"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "serde",
  "serde_json",
@@ -1505,7 +1505,7 @@ dependencies = [
 
 [[package]]
 name = "cupcraft-ui"
-version = "0.4.8-1"
+version = "0.4.9"
 dependencies = [
  "slint",
  "slint-build",

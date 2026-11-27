@@ -21,4 +21,5 @@ pub mod media;
 pub mod raster;
 pub mod updater;
 pub mod video;
+pub mod voices;
 pub mod whisper;

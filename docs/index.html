@@ -42,6 +42,13 @@
   .shot { border-radius: var(--r-lg, 14px); overflow: hidden; background: #0d1117; box-shadow: 0 1px 2px rgb(0 0 0 / .08), 0 24px 60px -20px rgb(0 0 0 / .35); }
   .shot img { display: block; width: 100%; height: auto; }
   .shot--hero { align-self: center; }
+  .gal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-6, 32px) var(--s-5, 24px); margin-top: var(--s-7, 48px); }
+  .gal__item { margin: 0; }
+  .gal__item .shot { display: block; }
+  .gal__item figcaption { margin-top: 12px; }
+  .gal__item figcaption b { display: block; font: 600 18px/1.25 var(--font-display); color: var(--ink, inherit); }
+  .gal__item figcaption b + span { display: block; margin-top: 2px; color: var(--muted, #6b6b6b); font-size: 15px; }
+  @media (max-width: 720px) { .gal { grid-template-columns: 1fr; } }
   .shot--editor { margin-top: var(--s-7, 48px); }
   .tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5, 24px); margin-top: var(--s-7, 48px); }
   .tools__group { background: var(--surface); border-radius: var(--r-lg, 14px); padding: var(--s-6, 32px); }
@@ -307,6 +314,27 @@
         </div>
       </div>
       <div class="shot shot--editor"><img src="img/editor.jpg" alt="El editor de cupcraft: archivos multimedia a la izquierda, reproductor en el centro, propiedades del proyecto a la derecha y la línea de tiempo con pistas de texto, vídeo y audio" width="1920" height="1080" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="section" id="capturas" aria-labelledby="capturas-h">
+    <div class="wrap">
+      <div class="grid">
+        <h2 class="span-5" id="capturas-h">Así se ve cupcraft</h2>
+        <div class="span-6 start-7 stack-4"><p>Capturas reales de la versión 0.4.12. Pulsa una para verla en grande.</p></div>
+      </div>
+      <div class="gal">
+        <figure class="gal__item"><a class="shot" href="img/capturas/plantillas.jpg" target="_blank" rel="noopener"><img src="img/capturas/plantillas.jpg" alt="Ventana de plantillas de cupcraft" width="1600" height="900" loading="lazy"></a><figcaption><b>Plantillas</b><span>Empieza desde un formato ya montado.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/nuevo-proyecto.jpg" target="_blank" rel="noopener"><img src="img/capturas/nuevo-proyecto.jpg" alt="Diálogo de nuevo proyecto" width="1600" height="900" loading="lazy"></a><figcaption><b>Nuevo proyecto</b><span>Elige resolución, formato y FPS.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/texto.jpg" target="_blank" rel="noopener"><img src="img/capturas/texto.jpg" alt="Pestaña de texto con estilos de título" width="1600" height="900" loading="lazy"></a><figcaption><b>Texto</b><span>Estilos de título listos para usar.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/efectos.jpg" target="_blank" rel="noopener"><img src="img/capturas/efectos.jpg" alt="Pestaña de efectos" width="1600" height="900" loading="lazy"></a><figcaption><b>Efectos</b><span>Desenfoque, luz, grano, 3D y más.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/transiciones.jpg" target="_blank" rel="noopener"><img src="img/capturas/transiciones.jpg" alt="Pestaña de transiciones" width="1600" height="900" loading="lazy"></a><figcaption><b>Transiciones</b><span>Entre dos clips de la misma pista.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/subtitulos.jpg" target="_blank" rel="noopener"><img src="img/capturas/subtitulos.jpg" alt="Pestaña de subtítulos" width="1600" height="900" loading="lazy"></a><figcaption><b>Subtítulos</b><span>Genéralos solos con IA, en tu equipo.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/filtros.jpg" target="_blank" rel="noopener"><img src="img/capturas/filtros.jpg" alt="Pestaña de filtros de color" width="1600" height="900" loading="lazy"></a><figcaption><b>Filtros</b><span>Familias de color y LUT.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/propiedades-clip.jpg" target="_blank" rel="noopener"><img src="img/capturas/propiedades-clip.jpg" alt="Panel de propiedades de un clip seleccionado" width="1600" height="900" loading="lazy"></a><figcaption><b>Ajustes del clip</b><span>Escala, posición, opacidad y más.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/menu.jpg" target="_blank" rel="noopener"><img src="img/capturas/menu.jpg" alt="Menú principal de cupcraft" width="1600" height="900" loading="lazy"></a><figcaption><b>Menú</b><span>Proyecto, edición, vista y ayuda.</span></figcaption></figure>
+        <figure class="gal__item"><a class="shot" href="img/capturas/exportar.jpg" target="_blank" rel="noopener"><img src="img/capturas/exportar.jpg" alt="Diálogo de exportar" width="1600" height="900" loading="lazy"></a><figcaption><b>Exportar</b><span>MP4 o WebM, hasta 4K.</span></figcaption></figure>
+      </div>
     </div>
   </section>
 

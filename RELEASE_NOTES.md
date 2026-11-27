@@ -1,3 +1,7 @@
+## What's new in v0.4.12.3
+
+- **Version in Settings**: Settings > Preferences now shows the installed version.
+
 ## What's new in v0.4.12.2
 
 - **Complete translations**: panels, dialogs, inspector, timeline tooltips, toasts and effect/transition names follow the chosen language (English fallback for anything a pack does not cover).

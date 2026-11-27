@@ -545,6 +545,7 @@ fn settings(ctx: &egui::Context, app: &mut CupApp) -> bool {
         kv(ui, "Proyectos", &projects.to_string());
         kv(ui, "Espacio usado", &format_bytes(used));
         panels::section(ui, "Preferencias");
+        kv(ui, "Versión", env!("CARGO_PKG_VERSION"));
         kv(ui, "Tema", "Oscuro");
         ui.horizontal(|ui| {
             ui.label(RichText::new(crate::i18n::tr("Idioma de la app")).color(theme::MUTED).size(12.5));

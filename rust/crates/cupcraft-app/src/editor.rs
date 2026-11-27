@@ -1099,6 +1099,9 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 let scale = (ph as f32 / 1080.0) * k * ppp;
                 let fxv = if *text { crate::fx_text::apply(val, clip, *local) } else { None };
                 let val = fxv.as_ref().unwrap_or(val);
+                // Karaoke: la palabra activa en su color (igual que la exportación).
+                let kv = if *text { Some(crate::karaoke::apply(val, *local)) } else { None };
+                let val = kv.as_ref().unwrap_or(val);
                 let anim = if *text { raster::text_anim(val, *local, clip.duration) } else { None };
                 let shown = match anim {
                     Some(a) if a.reveal < 0.999 => raster::reveal_text(val, a.reveal),

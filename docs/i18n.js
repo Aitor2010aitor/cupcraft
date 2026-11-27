@@ -391,7 +391,7 @@
   }
 
   var saved; try { saved = localStorage.getItem('lang'); } catch (e) {}
-  var start = saved || (navigator.language || 'es').slice(0, 2);
+  var start = saved || 'es';
   if (LANGS.indexOf(start) < 0) start = 'es';
 
   function init() {

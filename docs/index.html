@@ -525,9 +525,24 @@ html.rv-on .rv.is-in { opacity: 1; transform: none; filter: none; }
       if (e.isIntersecting) { el.classList.add('is-in'); clearTimeout(el.__rvT); el.__rvT = setTimeout(function () { el.style.setProperty('--rv-d', '0ms'); }, 1000 + (el.__rvD || 0)); }
       else { clearTimeout(el.__rvT); el.style.setProperty('--rv-d', (el.__rvD || 0) + 'ms'); el.classList.remove('is-in'); el.classList.toggle('rv--up', e.boundingClientRect.top < 0); }
     });
-  }, { rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
+  }, { rootMargin: '0px 0px -6% 0px', threshold: 0 });
   els.forEach(function (el) { if (hero.indexOf(el) < 0) io.observe(el); });
   setTimeout(function () { hero.forEach(function (el) { io.observe(el); }); }, 1400);
+  // red de seguridad (pantallas pequenas, PCs lentos): lo que se ve en pantalla nunca se queda oculto
+  var swT = false;
+  function sweep() {
+    swT = false;
+    var vh = innerHeight;
+    els.forEach(function (el) {
+      if (el.classList.contains('is-in')) return;
+      var r = el.getBoundingClientRect();
+      if (r.top < vh * 0.94 && r.bottom > 0) el.classList.add('is-in');
+    });
+  }
+  function askSweep() { if (!swT) { swT = true; setTimeout(sweep, 120); } }
+  addEventListener('scroll', askSweep, { passive: true });
+  addEventListener('resize', askSweep);
+  var swN = 0, swI = setInterval(function () { sweep(); if (++swN > 20) clearInterval(swI); }, 1000);
 })();
 </script>
 <!-- raton encima de una herramienta: esa se acerca, las demas se alejan; fotos que crecen y se van con el scroll -->

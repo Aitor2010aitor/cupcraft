@@ -25,16 +25,16 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp) {
 
 fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).color(theme::MUTED).size(11.0));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).color(theme::MUTED).size(11.0));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(value).color(theme::TEXT).size(11.0));
+            ui.label(egui::RichText::new(crate::i18n::tr(&value)).color(theme::TEXT).size(11.0));
         });
     });
 }
 
 // ---------------- Proyecto (sin selección) ----------------
 fn project_inspector(ui: &mut egui::Ui, app: &mut CupApp) {
-    ui.label(egui::RichText::new("Proyecto").color(theme::TEXT).strong());
+    ui.label(egui::RichText::new(crate::i18n::tr("Proyecto")).color(theme::TEXT).strong());
     ui.add_space(6.0);
 
     let snapshot = app.editor.project().map(|p| {
@@ -51,7 +51,7 @@ fn project_inspector(ui: &mut egui::Ui, app: &mut CupApp) {
     });
 
     if let Some((name0, ratio, resolution, fps, duration, media_count, track_count, clip_count)) = snapshot {
-        ui.label(egui::RichText::new("Nombre").color(theme::MUTED).size(11.0));
+        ui.label(egui::RichText::new(crate::i18n::tr("Nombre")).color(theme::MUTED).size(11.0));
         let mut name = name0.clone();
         if ui.text_edit_singleline(&mut name).changed() && name != name0 {
             if let Some(p) = app.editor.project_mut() {
@@ -70,14 +70,14 @@ fn project_inspector(ui: &mut egui::Ui, app: &mut CupApp) {
         info_row(ui, "Pistas", &track_count.to_string());
         info_row(ui, "Clips", &clip_count.to_string());
     } else {
-        ui.label(egui::RichText::new("Sin proyecto abierto.").color(theme::MUTED).size(11.0));
+        ui.label(egui::RichText::new(crate::i18n::tr("Sin proyecto abierto.")).color(theme::MUTED).size(11.0));
     }
 
     ui.add_space(14.0);
     ui.separator();
     ui.add_space(8.0);
     ui.label(
-        egui::RichText::new("Selecciona un clip en la línea de tiempo para ver y editar sus propiedades aquí.")
+        egui::RichText::new(crate::i18n::tr("Selecciona un clip en la línea de tiempo para ver y editar sus propiedades aquí."))
             .color(theme::MUTED2)
             .size(11.0),
     );

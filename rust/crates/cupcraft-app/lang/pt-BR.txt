@@ -1,0 +1,173 @@
+Arquivos
+Arquivos de mídia
+Filtros
+Modelos
+Legendas
+Legendas
+Transições
+Transições
+Ajustar
+Stickers
+Texto para fala (Beta)
+Em teste: pode falhar ou soar estranho.
++ Adicionar texto padrão
++ Importar
++ Importar áudio
+Abrir
+Abrir pasta
+Abrir pasta de dados
+Abrir projeto de um arquivo
+Afinar
+Isolar voz
+Ajustar
+Ajuste manual
+Configurações
+Armazenamento
+Animação
+Aplicar a tudo
+Arraste os clipes para movê-los, use as alças das pontas para cortar e pressione B para dividir no cursor.
+Atalhos
+Atalhos de teclado
+Voltar
+Áudio
+Áudio do projeto
+Adicionar legendas
+Ainda não há áudio. Importe música ou efeitos sonoros do seu computador.
+Biblioteca de efeitos
+Buscar áudio
+Buscar categorias de stickers
+Buscar efeitos
+Buscar nas suas mídias
+Buscar estilos
+Buscar filtros
+Buscar transições
+Básico
+Muda o tom como nos vídeos do TikTok (esquilo, grave, robô…). Aplicado com FFmpeg, sem internet.
+Cancelar
+Fechar
+Cor do destaque
+Preencher canal
+Dica: segure Alt ao arrastar um clipe para desativar temporariamente o ímã.
+Conteúdo
+Continuar
+Copiar
+Decidir depois
+Baixar .txt
+Baixar mecanismo e modelo
+Descartar
+Dentes
+Efeito das legendas
+Efeito karaokê (estilo TikTok)
+Efeitos
+Efeitos de vídeo
+Efeitos aplicados ao texto selecionado.
+O efeito é adicionado como camada no cursor e afeta tudo que está abaixo.
+O filtro de voz é aplicado ao áudio do clipe na pré-visualização e na exportação.
+O parágrafo aparece inteiro e a palavra falada muda de cor conforme avança.
+Escolha a cor e depois ajuste a intensidade.
+Escolha um balão: ele é aplicado ao texto selecionado.
+Entendi
+Este efeito não tem propriedades configuráveis.
+Estilo
+Estilo CapCut
+Estilo de voz
+Estilo predefinido
+Padrão
+Exportar
+Exportar vídeo
+Gerando…
+Ótimo
+Gravar narração
+Salvar
+Salvar como predefinição
+Salvar projeto como arquivo
+Salvar e sair
+É preciso baixar o mecanismo e o modelo uma única vez (~140 MB).
+Hora em UTC.
+Idioma
+Idioma do app
+Idioma da voz
+Importar SRT/VTT
+Integrações
+A exportação anterior foi cancelada.
+A gravação é inserida no cursor como um clipe de áudio.
+As curvas de velocidade criam acelerações graduais dentro do clipe.
+Concluído
+Local · sem conta
+Os ajustes de cor se aplicam a clipes de vídeo ou imagem.
+Os efeitos se aplicam a clipes de vídeo, imagem, texto ou sticker.
+Os projetos e mídias são salvos em %LOCALAPPDATA%\openCUP. A exportação usa FFmpeg se estiver disponível no computador.
+Os projetos, mídias e configurações são salvos em %LOCALAPPDATA%\openCUP. Não são necessárias permissões de administrador.
+Melhorar voz
+Modo
+Mais vozes
+Sem entradas.
+Sem novas notificações. O cupcraft funciona offline.
+Ainda não há outros projetos. Crie um pelo menu ou volte ao início.
+Nenhuma voz instalada. Baixe uma em “Mais vozes”, abaixo.
+Olhos
+Faixas
+Preferências
+Processando…
+Propriedades
+Projeto do CapCut
+Projetos
+Projetos secundários
+Ponte de IA
+Remover filtro
+Remover fundo
+Remover todas as legendas
+Remover transição
+Cortar com uma máscara
+Reduzir ruído
+Reportar no GitHub
+Reportar um problema
+Redefinir
+Retoque
+Usa-se o Piper, um mecanismo local (~25 MB + uma voz). Nada é enviado à internet. Baixado uma única vez.
+Selecione um clipe com áudio para ajustar o volume.
+Selecione um clipe de vídeo ou imagem para ajustá-lo.
+Se escolher “Não”, o projeto não é salvo e as alterações desta sessão são perdidas.
+Desativado, o áudio mantém o tom ao mudar a velocidade.
+Sem animação
+Legendas automáticas
+Legendas manuais
+Sim, salvar
+Tema
+Texto
+Texto do clipe
+Tipo de rastreamento
+Tipografia
+Todos os recursos desta versão estão disponíveis sem assinatura. Seus arquivos nunca saem do seu computador.
+Todos
+Tradutor de vídeos
+Uma linha por legenda. Elas são colocadas uma após a outra a partir do cursor.
+Esvaziar
+Ver
+Vídeo, imagem ou áudio do seu computador
+Vozes da coleção pública do Piper (Hugging Face). Só são baixadas quando você pressiona o botão.
+Buscar de novo
+Tentar de novo
+Voz
+Vídeo / áudio para transcrever
+Área a remover
+↺ Redefinir estilo do texto
+↺ Redefinir mistura
+↺ Redefinir propriedades
+↺ Redefinir transformação
+↺ Sem animação
+⊘ Sem estilo
+✨ Gerar legendas com IA…
+✨ Iniciar geração
+🎙 Gravar com o microfone
+🎤 Abrir Texto para fala completo
+🗑 Remover
+Remover quadro-chave aqui
+Adicionar quadro-chave neste instante
+Animar: criar quadro-chave neste instante
+Exportar modelo de idioma
+Importar idioma…
+Seu idioma não está aqui? Exporte o modelo, traduza-o (à mão ou com uma IA) e importe de volta.
+Modelo salvo
+Idioma importado
+O arquivo não é um modelo de idioma válido

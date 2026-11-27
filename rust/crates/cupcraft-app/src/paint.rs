@@ -915,6 +915,8 @@ pub enum WarpKind {
     Pixelate,
     Mirror,
     Kaleidoscope,
+    /// Asistente de escala: estira ancho/alto (`Warp::sx`, `Warp::sy`).
+    ScaleAssist,
     /// Operación del motor `fx_engine` (índice en `fx_table::TABLE`).
     Engine,
 }
@@ -937,6 +939,9 @@ pub struct Warp {
     pub dur: f32,
     /// Pulsaciones por minuto de los efectos de ritmo (0 = no es de ritmo).
     pub bpm: f32,
+    /// Factores de escala X/Y (solo `ScaleAssist`; 1 en el resto).
+    pub sx: f32,
+    pub sy: f32,
 }
 
 impl Warp {
@@ -952,10 +957,29 @@ impl Warp {
             && crate::fx_engine::op_at(self.engine).is_some_and(crate::fx_engine::animated);
         let tq = if anim || self.bpm > 0.0 { ((self.time * 1000.0).round() as i64 as u64).wrapping_mul(0x27D4EB2F165667C5) } else { 0 };
         let k = k ^ tq;
+        let sx = (self.sx * 1000.0).round() as i64 as u64;
+        let sy = (self.sy * 1000.0).round() as i64 as u64;
+        let k = k ^ sx.wrapping_mul(0x85EBCA6B27D4EB2F) ^ sy.wrapping_mul(0xD6E8FEB86659FD93);
         k.wrapping_mul(0x9E3779B97F4A7C15)
             ^ a.wrapping_mul(0xC2B2AE3D27D4EB4F)
             ^ d.wrapping_mul(0x165667B19E3779F9)
     }
+}
+
+/// Factores (X, Y) del Asistente de escala. `axis`: 0 = X, 1 = Y, 2 = X,Y,
+/// 3 = X,-Y. `scale` y `damping` en %. Con 100 % de escala no cambia nada; en
+/// X,Y la altura es escala × amortiguación y en X,-Y encoge `damping` veces lo
+/// que crece el ancho.
+pub fn scale_assist_factors(axis: i32, scale: f32, damping: f32) -> (f32, f32) {
+    let s = (scale as f64 / 100.0).max(0.001) as f32;
+    let d = damping / 100.0;
+    let (sx, sy) = match axis {
+        0 => (s, 1.0),
+        1 => (1.0, s),
+        2 => (s, s * d),
+        _ => (s, 1.0 - d * (s - 1.0)),
+    };
+    (sx.max(0.001), sy.max(0.001))
 }
 
 /// Mapea un id de efecto a su deformación, leyendo `amount`/`detail` de los
@@ -969,6 +993,13 @@ pub fn warp_for(id: &str, params: Option<&Value>) -> Option<Warp> {
             .map(|v| v as f32)
             .unwrap_or(def)
     };
+    if id == "mov_scaleassist" {
+        let (sx, sy) = scale_assist_factors(get("axis", 3.0) as i32, get("scale", 100.0), get("damping", 100.0));
+        if (sx - 1.0).abs() < 0.0005 && (sy - 1.0).abs() < 0.0005 {
+            return None;
+        }
+        return Some(Warp { kind: WarpKind::ScaleAssist, amount: 1.0, detail: 1.0, engine: u16::MAX, time: 0.0, dur: 0.0, bpm: 0.0, sx, sy });
+    }
     // amount del slider llega en 0..100 (%) → 0..1.
     let amount = (get("amount", 50.0) / 100.0).clamp(0.0, 1.0);
     if let Some(i) = crate::fx_engine::index_of(id) {
@@ -983,9 +1014,9 @@ pub fn warp_for(id: &str, params: Option<&Value>) -> Option<Warp> {
         // Ritmo: el segundo parámetro es el tempo (BPM) y el motor recibe el
         // detalle por defecto; la cantidad late con la envolvente del pulso.
         if id.starts_with("bet_") {
-            return Some(Warp { kind: WarpKind::Engine, amount, detail: 8.0, engine: i, time: 0.0, dur: 0.0, bpm: get("bpm", 120.0).max(20.0) });
+            return Some(Warp { kind: WarpKind::Engine, amount, detail: 8.0, engine: i, time: 0.0, dur: 0.0, bpm: get("bpm", 120.0).max(20.0), sx: 1.0, sy: 1.0 });
         }
-        return Some(Warp { kind: WarpKind::Engine, amount, detail: get("detail", def), engine: i, time: 0.0, dur: 0.0, bpm: 0.0 });
+        return Some(Warp { kind: WarpKind::Engine, amount, detail: get("detail", def), engine: i, time: 0.0, dur: 0.0, bpm: 0.0, sx: 1.0, sy: 1.0 });
     }
     let detail = get("detail", 8.0).max(1.0);
     let kind = match id {
@@ -1002,7 +1033,7 @@ pub fn warp_for(id: &str, params: Option<&Value>) -> Option<Warp> {
     if amount <= 0.0005 {
         return None;
     }
-    Some(Warp { kind, amount, detail, engine: u16::MAX, time: 0.0, dur: 0.0, bpm: 0.0 })
+    Some(Warp { kind, amount, detail, engine: u16::MAX, time: 0.0, dur: 0.0, bpm: 0.0, sx: 1.0, sy: 1.0 })
 }
 
 /// Deformación activa de un clip, si su efecto es geométrico real.
@@ -1168,6 +1199,7 @@ pub fn warp_rgba(src: &[u8], w: usize, h: usize, warp: &Warp) -> Vec<u8> {
                         let ty = cy + r * ang.sin();
                         (xf + (tx - xf) * amt, yf + (ty - yf) * amt)
                     }
+                    WarpKind::ScaleAssist => (cx + (xf - cx) / warp.sx, cy + (yf - cy) / warp.sy),
                     // Atendido arriba (retorno temprano); identidad por completitud.
                     WarpKind::Engine => (xf, yf),
                 };
@@ -1177,4 +1209,20 @@ pub fn warp_rgba(src: &[u8], w: usize, h: usize, warp: &Warp) -> Vec<u8> {
             }
         });
     dst
+}
+
+#[cfg(test)]
+mod scale_assist_tests {
+    use super::*;
+
+    #[test]
+    fn factores_del_asistente_de_escala() {
+        assert_eq!(scale_assist_factors(3, 100.0, 100.0), (1.0, 1.0));
+        assert_eq!(scale_assist_factors(0, 200.0, 100.0), (2.0, 1.0));
+        assert_eq!(scale_assist_factors(1, 150.0, 100.0), (1.0, 1.5));
+        assert_eq!(scale_assist_factors(2, 200.0, 50.0), (2.0, 1.0));
+        let (sx, sy) = scale_assist_factors(3, 150.0, 100.0);
+        assert!((sx - 1.5).abs() < 1e-6 && (sy - 0.5).abs() < 1e-6);
+        assert!(warp_for("mov_scaleassist", None).is_none());
+    }
 }

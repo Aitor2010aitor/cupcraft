@@ -1,213 +1,260 @@
-//! Idioma de la interfaz (español / inglés).
+//! Idioma de la interfaz.
 //!
-//! `tr("texto en español")` devuelve la traducción si el idioma activo es el
-//! inglés y el texto está en el diccionario; si no, devuelve el original. Así
-//! las cadenas sin traducir siguen viéndose (en español) en vez de romperse.
+//! `tr("texto en español")` devuelve la traducción del idioma activo si existe;
+//! si no, devuelve el original. Así lo que aún no está traducido sigue viéndose
+//! (en español) en vez de romperse.
+//!
+//! Idiomas incluidos: archivos `lang/<código>.txt` con una traducción por línea,
+//! en el mismo orden que `lang/es.txt` (las claves). Idiomas propios: plantilla
+//! JSON que se exporta desde Ajustes, se traduce a mano o con una IA y se vuelve
+//! a importar; se guarda en `<carpeta de datos>/langs/<código>.json`.
 //! La elección se guarda en `lang.txt` dentro de la carpeta de datos.
 
+use serde_json::{json, Value};
 use std::borrow::Cow;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
+use std::sync::RwLock;
 
-static ENGLISH: AtomicBool = AtomicBool::new(false);
+/// Claves: los textos originales en español, uno por línea.
+const KEYS: &str = include_str!("../lang/es.txt");
 
-pub fn is_english() -> bool {
-    ENGLISH.load(Ordering::Relaxed)
+/// (código, nombre en su idioma, traducciones alineadas con `KEYS`).
+const BUILTIN: &[(&str, &str, &str)] = &[
+    ("es", "Español", KEYS),
+    ("en", "English", include_str!("../lang/en.txt")),
+    ("fr", "Français", include_str!("../lang/fr.txt")),
+    ("de", "Deutsch", include_str!("../lang/de.txt")),
+    ("pt-BR", "Português (Brasil)", include_str!("../lang/pt-BR.txt")),
+    ("ru", "Русский", include_str!("../lang/ru.txt")),
+    ("ja", "日本語", include_str!("../lang/ja.txt")),
+    ("zh-CN", "简体中文", include_str!("../lang/zh-CN.txt")),
+];
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LangInfo {
+    pub code: String,
+    pub name: String,
+    pub builtin: bool,
 }
 
-pub fn set_english(on: bool) {
-    ENGLISH.store(on, Ordering::Relaxed);
+struct State {
+    code: String,
+    map: Option<HashMap<String, &'static str>>,
+}
+
+static ACTIVE: RwLock<State> = RwLock::new(State { code: String::new(), map: None });
+
+fn langs_dir() -> std::path::PathBuf {
+    crate::app::app_dir().join("langs")
+}
+
+/// Código del idioma activo (`es` si no se ha elegido otro).
+pub fn current_code() -> String {
+    ACTIVE.read().map(|s| if s.code.is_empty() { "es".to_string() } else { s.code.clone() }).unwrap_or_else(|_| "es".into())
+}
+
+pub fn is_english() -> bool {
+    current_code() == "en"
+}
+
+/// Idiomas disponibles: los incluidos y los importados por el usuario.
+pub fn languages() -> Vec<LangInfo> {
+    let mut out: Vec<LangInfo> = BUILTIN.iter().map(|(c, n, _)| LangInfo { code: (*c).into(), name: (*n).into(), builtin: true }).collect();
+    if let Ok(rd) = std::fs::read_dir(langs_dir()) {
+        let mut users: Vec<LangInfo> = rd
+            .flatten()
+            .filter_map(|e| {
+                let p = e.path();
+                if p.extension().and_then(|x| x.to_str()) != Some("json") {
+                    return None;
+                }
+                let code = p.file_stem()?.to_str()?.to_string();
+                let v: Value = serde_json::from_str(&std::fs::read_to_string(&p).ok()?).ok()?;
+                let name = v.get("name").and_then(Value::as_str).filter(|s| !s.trim().is_empty()).unwrap_or(&code).to_string();
+                Some(LangInfo { code, name, builtin: false })
+            })
+            .collect();
+        users.sort_by_key(|a| a.name.to_lowercase());
+        out.extend(users);
+    }
+    out
+}
+
+/// Textos extra (paneles, catalogos…) que solo existen en ingles: se usan como
+/// respaldo en todos los idiomas distintos del español.
+fn add_english_fallback(m: &mut HashMap<String, &'static str>) {
+    for (k, v) in crate::i18n_extra::all() {
+        m.entry((*k).to_string()).or_insert(v);
+    }
+}
+
+fn leak(s: &str) -> &'static str {
+    Box::leak(s.to_string().into_boxed_str())
+}
+
+fn builtin_map(code: &str) -> Option<HashMap<String, &'static str>> {
+    let (_, _, pack) = BUILTIN.iter().find(|(c, _, _)| *c == code)?;
+    if code == "es" {
+        return None;
+    }
+    let mut m: HashMap<String, &'static str> = KEYS.lines().zip(pack.lines()).filter(|(_, v)| !v.trim().is_empty()).map(|(k, v)| (k.to_string(), leak(v))).collect();
+    add_english_fallback(&mut m);
+    Some(m)
+}
+
+fn user_map(code: &str) -> Option<HashMap<String, &'static str>> {
+    let text = std::fs::read_to_string(langs_dir().join(format!("{code}.json"))).ok()?;
+    let v: Value = serde_json::from_str(&text).ok()?;
+    let mut m: HashMap<String, &'static str> = strings_of(&v)?.into_iter().map(|(k, v)| (k, leak(&v))).collect();
+    add_english_fallback(&mut m);
+    Some(m)
+}
+
+/// Pares (clave, traducción) no vacíos de una plantilla.
+fn strings_of(v: &Value) -> Option<Vec<(String, String)>> {
+    let o = v.get("strings")?.as_object()?;
+    Some(o.iter().filter_map(|(k, v)| v.as_str().filter(|s| !s.trim().is_empty()).map(|s| (k.clone(), s.to_string()))).collect())
+}
+
+fn activate(code: &str) -> bool {
+    let builtin = BUILTIN.iter().any(|(c, _, _)| *c == code);
+    let map = if builtin { builtin_map(code) } else { user_map(code) };
+    if map.is_none() && !builtin {
+        return false;
+    }
+    if let Ok(mut s) = ACTIVE.write() {
+        s.code = code.to_string();
+        s.map = map;
+    }
+    true
+}
+
+/// Cambia el idioma y lo guarda. `false` si el código no existe.
+pub fn set_language(code: &str) -> bool {
+    if !activate(code) {
+        return false;
+    }
     let _ = std::fs::create_dir_all(crate::app::app_dir());
-    let _ = std::fs::write(crate::app::app_dir().join("lang.txt"), if on { "en" } else { "es" });
+    let _ = std::fs::write(crate::app::app_dir().join("lang.txt"), code);
+    true
 }
 
 /// Lee el idioma guardado (se llama al arrancar).
 pub fn load() {
-    let on = std::fs::read_to_string(crate::app::app_dir().join("lang.txt")).map(|s| s.trim() == "en").unwrap_or(false);
-    ENGLISH.store(on, Ordering::Relaxed);
+    let code = std::fs::read_to_string(crate::app::app_dir().join("lang.txt")).map(|s| s.trim().to_string()).unwrap_or_default();
+    if code.is_empty() || !activate(&code) {
+        activate("es");
+    }
 }
 
 /// Traduce `es` al idioma activo.
 pub fn tr(es: &str) -> Cow<'_, str> {
-    if !is_english() {
-        return Cow::Borrowed(es);
+    if let Ok(s) = ACTIVE.read() {
+        if let Some(t) = s.map.as_ref().and_then(|m| m.get(es)) {
+            return Cow::Borrowed(*t);
+        }
     }
-    DICT.iter().find(|(k, _)| *k == es).map(|(_, v)| Cow::Borrowed(*v)).unwrap_or(Cow::Borrowed(es))
+    Cow::Borrowed(es)
 }
 
-const DICT: &[(&str, &str)] = &[
-    ("Archivos", "Files"),
-    ("Archivos multimedia", "Media files"),
-    ("Filtros", "Filters"),
-    ("Plantillas", "Templates"),
-    ("Subtít.", "Subs"),
-    ("Subtítulos", "Subtitles"),
-    ("Transic.", "Trans."),
-    ("Transiciones", "Transitions"),
-    ("Ajuste", "Adjust"),
-    ("Stickers", "Stickers"),
-    ("Texto a voz (Beta)", "Text to speech (Beta)"),
-    ("En pruebas: puede fallar o sonar raro.", "Testing: it may fail or sound odd."),
-    ("+ Añadir texto predeterminado", "+ Add default text"),
-    ("+ Importar", "+ Import"),
-    ("+ Importar audio", "+ Import audio"),
-    ("Abrir", "Open"),
-    ("Abrir carpeta", "Open folder"),
-    ("Abrir carpeta de datos", "Open data folder"),
-    ("Abrir proyecto desde archivo", "Open project from file"),
-    ("Adelgazar", "Slim"),
-    ("Aislar voz", "Isolate voice"),
-    ("Ajustar", "Adjust"),
-    ("Ajuste manual", "Manual adjustment"),
-    ("Ajustes", "Settings"),
-    ("Almacenamiento", "Storage"),
-    ("Animación", "Animation"),
-    ("Aplicar a todo", "Apply to all"),
-    ("Arrastra los clips para moverlos, usa los tiradores de los extremos para recortar y pulsa B para dividir en el cursor.", "Drag clips to move them, use the end handles to trim and press B to split at the cursor."),
-    ("Atajos", "Shortcuts"),
-    ("Atajos de teclado", "Keyboard shortcuts"),
-    ("Atrás", "Back"),
-    ("Audio", "Audio"),
-    ("Audio del proyecto", "Project audio"),
-    ("Añadir subtítulos", "Add subtitles"),
-    ("Aún no hay audio. Importa música o efectos de sonido desde tu equipo.", "No audio yet. Import music or sound effects from your computer."),
-    ("Biblioteca de efectos", "Effects library"),
-    ("Buscar audio", "Search audio"),
-    ("Buscar categorías de stickers", "Search sticker categories"),
-    ("Buscar efectos", "Search effects"),
-    ("Buscar en tus medios", "Search your media"),
-    ("Buscar estilos", "Search styles"),
-    ("Buscar filtros", "Search filters"),
-    ("Buscar transiciones", "Search transitions"),
-    ("Básico", "Basic"),
-    ("Cambia el tono como en los vídeos de TikTok (ardilla, grave, robot…). Se aplica con FFmpeg, sin internet.", "Change the pitch like in TikTok videos (chipmunk, deep, robot…). Applied with FFmpeg, offline."),
-    ("Cancelar", "Cancel"),
-    ("Cerrar", "Close"),
-    ("Color del resalte", "Highlight color"),
-    ("Completar canal", "Fill channel"),
-    ("Consejo: mantén Alt al arrastrar un clip para desactivar temporalmente el imán.", "Tip: hold Alt while dragging a clip to temporarily disable snapping."),
-    ("Contenido", "Content"),
-    ("Continuar", "Continue"),
-    ("Copiar", "Copy"),
-    ("Decidir más tarde", "Decide later"),
-    ("Descargar .txt", "Download .txt"),
-    ("Descargar motor y modelo", "Download engine and model"),
-    ("Descartar", "Discard"),
-    ("Dientes", "Teeth"),
-    ("Efecto de los subtítulos", "Subtitle effect"),
-    ("Efecto karaoke (estilo TikTok)", "Karaoke effect (TikTok style)"),
-    ("Efectos", "Effects"),
-    ("Efectos de video", "Video effects"),
-    ("Efectos que se aplican al texto seleccionado.", "Effects applied to the selected text."),
-    ("El efecto se añade como capa en el cursor y afecta a todo lo que hay debajo.", "The effect is added as a layer at the cursor and affects everything below it."),
-    ("El filtro de voz se aplica al audio del clip en la vista previa y en la exportación.", "The voice filter is applied to the clip audio in the preview and in the export."),
-    ("El párrafo se ve entero y la palabra que se dice cambia de color a medida que avanza.", "The whole paragraph is visible and the spoken word changes color as it goes."),
-    ("Elige el color y, luego, ajusta la intensidad.", "Pick the color, then adjust the intensity."),
-    ("Elige una burbuja: se aplica al texto seleccionado.", "Pick a bubble: it is applied to the selected text."),
-    ("Entendido", "Got it"),
-    ("Este efecto no tiene propiedades configurables.", "This effect has no configurable properties."),
-    ("Estilo", "Style"),
-    ("Estilo CapCut", "CapCut style"),
-    ("Estilo de voz", "Voice style"),
-    ("Estilo preestablecido", "Preset style"),
-    ("Estándar", "Standard"),
-    ("Exportar", "Export"),
-    ("Exportar video", "Export video"),
-    ("Generando…", "Generating…"),
-    ("Genial", "Great"),
-    ("Grabar voz en off", "Record voiceover"),
-    ("Guardar", "Save"),
-    ("Guardar como ajuste", "Save as preset"),
-    ("Guardar proyecto como archivo", "Save project as file"),
-    ("Guardar y salir", "Save and quit"),
-    ("Hay que descargar el motor y el modelo una sola vez (~140 MB).", "The engine and model must be downloaded once (~140 MB)."),
-    ("Hora en UTC.", "Time in UTC."),
-    ("Idioma", "Language"),
-    ("Idioma de la app", "App language"),
-    ("Idioma de la voz", "Voice language"),
-    ("Importar SRT/VTT", "Import SRT/VTT"),
-    ("Integraciones", "Integrations"),
-    ("La exportación anterior se canceló.", "The previous export was cancelled."),
-    ("La grabación se inserta en el cursor como un clip de audio.", "The recording is inserted at the cursor as an audio clip."),
-    ("Las curvas de velocidad marcan aceleraciones progresivas dentro del clip.", "Speed curves create gradual accelerations inside the clip."),
-    ("Listo", "Done"),
-    ("Local · sin cuenta", "Local · no account"),
-    ("Los ajustes de color se aplican a clips de video o imagen.", "Color adjustments apply to video or image clips."),
-    ("Los efectos se aplican a clips de video, imagen, texto o sticker.", "Effects apply to video, image, text or sticker clips."),
-    ("Los proyectos y medios se guardan en %LOCALAPPDATA%\\openCUP. La exportación usa FFmpeg si está disponible en el equipo.", "Projects and media are stored in %LOCALAPPDATA%\\openCUP. Export uses FFmpeg if it is available on this computer."),
-    ("Los proyectos, medios y ajustes se guardan en %LOCALAPPDATA%\\openCUP. No se necesitan permisos de administrador.", "Projects, media and settings are stored in %LOCALAPPDATA%\\openCUP. No administrator permissions are needed."),
-    ("Mejorar voz", "Enhance voice"),
-    ("Modo", "Mode"),
-    ("Más voces", "More voices"),
-    ("No hay entradas.", "No entries."),
-    ("No hay notificaciones nuevas. cupcraft funciona sin conexión.", "No new notifications. cupcraft works offline."),
-    ("No hay otros proyectos todavía. Crea uno nuevo desde el menú o vuelve al inicio.", "There are no other projects yet. Create a new one from the menu or go back home."),
-    ("No hay voces instaladas. Descarga una en «Más voces», abajo.", "No voices installed. Download one in “More voices”, below."),
-    ("Ojos", "Eyes"),
-    ("Pistas", "Tracks"),
-    ("Preferencias", "Preferences"),
-    ("Procesando…", "Processing…"),
-    ("Propiedades", "Properties"),
-    ("Proyecto de CapCut", "CapCut project"),
-    ("Proyectos", "Projects"),
-    ("Proyectos secundarios", "Secondary projects"),
-    ("Puente IA", "AI bridge"),
-    ("Quitar filtro", "Remove filter"),
-    ("Quitar fondo", "Remove background"),
-    ("Quitar todos los subtítulos", "Remove all subtitles"),
-    ("Quitar transición", "Remove transition"),
-    ("Recortar con una máscara", "Crop with a mask"),
-    ("Reducir el ruido", "Reduce noise"),
-    ("Reportar en GitHub", "Report on GitHub"),
-    ("Reportar problema", "Report a problem"),
-    ("Restablecer", "Reset"),
-    ("Retoque", "Retouch"),
-    ("Se usa Piper, un motor local (~25 MB + una voz). No se envía nada a internet. Se descarga una sola vez.", "Piper is used, a local engine (~25 MB + one voice). Nothing is sent to the internet. Downloaded only once."),
-    ("Selecciona un clip con audio para ajustar su volumen.", "Select a clip with audio to adjust its volume."),
-    ("Selecciona un clip de video o imagen para ajustarlo.", "Select a video or image clip to adjust it."),
-    ("Si eliges «No», el proyecto no se guarda y se pierden los cambios de esta sesión.", "If you choose “No”, the project is not saved and this session's changes are lost."),
-    ("Si se desactiva, el audio mantiene su tono al cambiar la velocidad.", "When off, the audio keeps its pitch when the speed changes."),
-    ("Sin animación", "No animation"),
-    ("Subtítulos automáticos", "Automatic subtitles"),
-    ("Subtítulos manuales", "Manual subtitles"),
-    ("Sí, guardar", "Yes, save"),
-    ("Tema", "Theme"),
-    ("Texto", "Text"),
-    ("Texto del clip", "Clip text"),
-    ("Tipo de seguimiento", "Tracking type"),
-    ("Tipografía", "Typography"),
-    ("Todas las funciones de esta versión están disponibles sin suscripción. Tus archivos nunca salen de tu equipo.", "All features in this version are available without a subscription. Your files never leave your computer."),
-    ("Todos", "All"),
-    ("Traductor de videos", "Video translator"),
-    ("Una línea por subtítulo. Se colocan uno tras otro desde el cursor.", "One line per subtitle. They are placed one after another from the cursor."),
-    ("Vaciar", "Clear"),
-    ("Ver", "View"),
-    ("Video, imagen o audio desde tu equipo", "Video, image or audio from your computer"),
-    ("Voces de la colección pública de Piper (Hugging Face). Solo se descargan cuando pulsas el botón.", "Voices from the public Piper collection (Hugging Face). They are only downloaded when you press the button."),
-    ("Volver a buscar", "Search again"),
-    ("Volver a intentarlo", "Try again"),
-    ("Voz", "Voice"),
-    ("Vídeo / Audio a transcribir", "Video / audio to transcribe"),
-    ("Zona a eliminar", "Area to remove"),
-    ("↺ Restablecer estilo de texto", "↺ Reset text style"),
-    ("↺ Restablecer mezcla", "↺ Reset mix"),
-    ("↺ Restablecer propiedades", "↺ Reset properties"),
-    ("↺ Restablecer transformación", "↺ Reset transform"),
-    ("↺ Sin animación", "↺ No animation"),
-    ("⊘ Sin estilo", "⊘ No style"),
-    ("✨ Generar subtítulos con IA…", "✨ Generate subtitles with AI…"),
-    ("✨ Iniciar generación", "✨ Start generation"),
-    ("🎙 Grabar con el micrófono", "🎙 Record with microphone"),
-    ("🎤 Abrir Texto a voz completo", "🎤 Open full Text to speech"),
-    ("🗑 Quitar", "🗑 Remove"),
-];
+/// Traduce mensajes ya formateados ("Estilo aplicado: Neón"): primero exacto; si
+/// no, prueba plantillas "Prefijo: {label}" y "Prefijo {e}" traduciendo el resto.
+pub fn tr_dyn(msg: &str) -> String {
+    if let Ok(s) = ACTIVE.read() {
+        let Some(m) = s.map.as_ref() else { return msg.to_string() };
+        if let Some(t) = m.get(msg) {
+            return (*t).to_string();
+        }
+        if let Some((a, b)) = msg.split_once(": ") {
+            for ph in ["{label}", "{name}", "{e}", "{}"] {
+                if let Some(t) = m.get(format!("{a}: {ph}").as_str()) {
+                    let rest = m.get(b).copied().unwrap_or(b);
+                    return t.replace(ph, rest);
+                }
+            }
+        }
+        if let Some((a, b)) = msg.rsplit_once(' ') {
+            for ph in ["{e}", "{}", "{name}"] {
+                if let Some(t) = m.get(format!("{a} {ph}").as_str()) {
+                    return t.replace(ph, b);
+                }
+            }
+        }
+    }
+    msg.to_string()
+}
+
+fn quote(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into())
+}
+
+/// Plantilla JSON para traducir: cada texto de la app (clave = original en
+/// español, en el orden en que se definieron) con el inglés como punto de partida.
+pub fn export_template() -> String {
+    let en = BUILTIN.iter().find(|(c, _, _)| *c == "en").map(|(_, _, p)| *p).unwrap_or("");
+    let help = "Translate ONLY the values inside \"strings\" into your language: the key on the left is the original Spanish text and must NOT be changed, and the value on the right starts in English. Also set \"code\" (for example \"it\", \"ko\", \"tr\") and \"name\" (the language name written in that language). Keep emoji and symbols (↺ ✨ 🎙 …), punctuation such as … and any placeholders untouched. Leave a value empty to keep the Spanish original. Then import the file from Settings > App language > Import language. / Traduce SOLO los valores de \"strings\"; no cambies las claves. Rellena tambien \"code\" y \"name\".";
+    let mut out = String::from("{\n");
+    out.push_str(&format!("  \"_instructions\": {},\n", quote(help)));
+    out.push_str("  \"code\": \"xx\",\n  \"name\": \"Language name\",\n  \"strings\": {\n");
+    let pairs: Vec<(&str, &str)> = KEYS.lines().zip(en.lines()).collect();
+    for (i, (k, v)) in pairs.iter().enumerate() {
+        out.push_str(&format!("    {}: {}{}\n", quote(k), quote(v), if i + 1 < pairs.len() { "," } else { "" }));
+    }
+    out.push_str("  }\n}\n");
+    out
+}
+
+/// Importa una plantilla traducida, la guarda y la activa.
+pub fn import_template(text: &str) -> Result<LangInfo, String> {
+    let v: Value = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    let pairs = strings_of(&v).ok_or("falta \"strings\"")?;
+    if pairs.is_empty() {
+        return Err("no hay traducciones".into());
+    }
+    let raw_code = v.get("code").and_then(Value::as_str).unwrap_or("").trim();
+    let mut code: String = raw_code.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-' || *c == '_').take(16).collect();
+    if code.is_empty() || code.eq_ignore_ascii_case("xx") {
+        return Err("falta el campo \"code\" (por ejemplo \"it\")".into());
+    }
+    if BUILTIN.iter().any(|(c, _, _)| c.eq_ignore_ascii_case(&code)) {
+        code.push_str("-custom");
+    }
+    let name = v.get("name").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty() && *s != "Language name").unwrap_or(&code).to_string();
+    let strings: serde_json::Map<String, Value> = pairs.into_iter().map(|(k, v)| (k, Value::String(v))).collect();
+    let file = json!({ "code": code, "name": name, "strings": strings });
+    std::fs::create_dir_all(langs_dir()).map_err(|e| e.to_string())?;
+    std::fs::write(langs_dir().join(format!("{code}.json")), serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    if !set_language(&code) {
+        return Err("no se pudo activar".into());
+    }
+    Ok(LangInfo { code, name, builtin: false })
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn en_espanol_devuelve_el_original() {
-        ENGLISH.store(false, Ordering::Relaxed);
+    fn los_paquetes_estan_alineados_con_las_claves() {
+        let n = KEYS.lines().count();
+        for (code, _, pack) in BUILTIN {
+            assert_eq!(pack.lines().count(), n, "{code} no tiene el mismo numero de lineas que es.txt");
+        }
+    }
+
+    #[test]
+    fn traduce_y_vuelve_al_original() {
+        assert!(activate("en"));
+        assert_eq!(tr("Cancelar"), "Cancel");
+        assert_eq!(tr("texto que no existe"), "texto que no existe");
+        assert!(activate("es"));
         assert_eq!(tr("Cancelar"), "Cancelar");
+    }
+
+    #[test]
+    fn la_plantilla_exportada_es_json_valido_y_completa() {
+        let v: Value = serde_json::from_str(&export_template()).unwrap();
+        assert_eq!(v["strings"].as_object().unwrap().len(), KEYS.lines().count());
+        assert_eq!(v["strings"]["Cancelar"], "Cancel");
     }
 }

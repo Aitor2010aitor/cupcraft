@@ -11,6 +11,7 @@ use crate::services::compose::{active_layers, clip_alpha};
 use crate::services::{media, raster, video};
 use crate::theme;
 use crate::timeline as tl;
+use cupcraft_core::keyframes as kf;
 use cupcraft_core::ClipKind;
 use eframe::egui::{self, Color32, CornerRadius, Pos2, Rect, RichText, Sense, Stroke, StrokeKind, Vec2};
 use std::collections::HashMap;
@@ -218,13 +219,13 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
         // Logotipo → inicio
         let (lr, lresp) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
         icons::paint_logo(ui.painter(), lr, Color32::WHITE);
-        if lresp.on_hover_text("Volver al inicio").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+        if lresp.on_hover_text(crate::i18n::tr("Volver al inicio")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
             app.back_home();
             return;
         }
         ui.add_space(4.0);
         main_menu(ui, app);
-        if text_button(ui, "Registro", false).on_hover_text("Ver el registro de actividad").clicked() {
+        if text_button(ui, "Registro", false).on_hover_text(crate::i18n::tr("Ver el registro de actividad")).clicked() {
             app.modal = Some(Modal::Log { filter: String::new(), only_errors: false });
         }
 
@@ -233,12 +234,12 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
             ui.add_space(8.0);
             ui.spacing_mut().item_spacing.x = 8.0;
             let export = ui.add(
-                egui::Button::new(RichText::new("Exportar").color(theme::ACCENT_INK).strong().size(12.5))
+                egui::Button::new(RichText::new(crate::i18n::tr("Exportar")).color(theme::ACCENT_INK).strong().size(12.5))
                     .fill(theme::ACCENT)
                     .corner_radius(CornerRadius::from(6))
                     .min_size(Vec2::new(84.0, 28.0)),
             );
-            if export.on_hover_text("Exportar video (MP4 / WebM)").clicked() {
+            if export.on_hover_text(crate::i18n::tr("Exportar video (MP4 / WebM)")).clicked() {
                 app.export_handle = app.export_handle.take().filter(|h| h.is_running());
                 app.modal = Some(Modal::Export);
             }
@@ -265,7 +266,7 @@ fn titlebar(ui: &mut egui::Ui, app: &mut CupApp) {
 }
 
 fn text_button(ui: &mut egui::Ui, label: &str, framed: bool) -> egui::Response {
-    let b = egui::Button::new(RichText::new(label).color(theme::TEXT).size(12.5)).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(0.0, 28.0));
+    let b = egui::Button::new(RichText::new(crate::i18n::tr(&label)).color(theme::TEXT).size(12.5)).corner_radius(CornerRadius::from(6)).min_size(Vec2::new(0.0, 28.0));
     let b = if framed { b.fill(theme::PANEL3) } else { b.frame(false) };
     ui.add(b).on_hover_cursor(egui::CursorIcon::PointingHand)
 }
@@ -288,7 +289,7 @@ fn title_field(ui: &mut egui::Ui, app: &mut CupApp) {
             .text_color(theme::TEXT)
             .desired_width(w),
     );
-    let resp = resp.on_hover_text("Cambiar el nombre del proyecto");
+    let resp = resp.on_hover_text(crate::i18n::tr("Cambiar el nombre del proyecto"));
     if resp.lost_focus() {
         let name = app.title_buf.trim().to_string();
         if !name.is_empty() && name != pname {
@@ -322,7 +323,7 @@ fn style_menu(ui: &mut egui::Ui) {
 }
 
 fn main_menu(ui: &mut egui::Ui, app: &mut CupApp) {
-    let btn = egui::Button::new(RichText::new("Menú ▾").color(theme::TEXT).size(12.5)).frame(false).min_size(Vec2::new(0.0, 28.0));
+    let btn = egui::Button::new(RichText::new(crate::i18n::tr("Menú ▾")).color(theme::TEXT).size(12.5)).frame(false).min_size(Vec2::new(0.0, 28.0));
     egui::containers::menu::MenuButton::from_button(btn).ui(ui, |ui| {
         style_menu(ui);
         if menu_item(ui, "plus", "Nuevo proyecto", "") {
@@ -373,7 +374,7 @@ fn settings_menu(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.painter().rect_filled(r, 4.0, Color32::from_rgb(0x2f, 0x2f, 0x2f));
     }
     icons::paint(ui.painter(), "settings", r.center(), 16.0, if resp.hovered() { Color32::WHITE } else { theme::MUTED });
-    let resp = resp.on_hover_text("Ajustes");
+    let resp = resp.on_hover_text(crate::i18n::tr("Ajustes"));
     egui::Popup::menu(&resp).show(|ui| {
         style_menu(ui);
         if menu_item(ui, "settings", "Preferencias", "") {
@@ -477,7 +478,7 @@ fn rail(ui: &mut egui::Ui, app: &mut CupApp) {
         icons::paint(p, "chevronUp", ir.right_center() - Vec2::new(12.0, 0.0), 12.0, theme::ACCENT2);
     }
     let imp = imp.on_hover_cursor(egui::CursorIcon::PointingHand);
-    if imp.on_hover_text("Importar videos, imágenes o audio (Ctrl+I)").clicked() {
+    if imp.on_hover_text(crate::i18n::tr("Importar videos, imágenes o audio (Ctrl+I)")).clicked() {
         app.import_media_dialog();
     }
     ui.add_space(8.0);
@@ -559,7 +560,7 @@ fn rail(ui: &mut egui::Ui, app: &mut CupApp) {
 fn view_head(ui: &mut egui::Ui, app: &mut CupApp, title: &str) {
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        ui.label(RichText::new(title).size(14.0).strong().color(theme::TEXT));
+        ui.label(RichText::new(crate::i18n::tr(&title)).size(14.0).strong().color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if icons::icon_button(ui, "info", 15.0, theme::MUTED, "Ayuda").clicked() {
                 app.modal = Some(Modal::Shortcuts);
@@ -615,12 +616,12 @@ fn timeline_view(ui: &mut egui::Ui, app: &mut CupApp) {
                     };
                     icons::icon(ui, ic, 14.0, theme::MUTED);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(name).size(12.5).strong().color(theme::TEXT));
+                        ui.label(RichText::new(crate::i18n::tr(&name)).size(12.5).strong().color(theme::TEXT));
                         ui.label(RichText::new(format!("{n} clip{}", if *n == 1 { "" } else { "s" })).size(11.0).color(theme::MUTED));
                     });
                     if *hidden {
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(RichText::new("Oculta").size(11.0).color(theme::MUTED2));
+                            ui.label(RichText::new(crate::i18n::tr("Oculta")).size(11.0).color(theme::MUTED2));
                         });
                     }
                 });
@@ -667,7 +668,7 @@ fn secondary_view(ui: &mut egui::Ui, app: &mut CupApp) {
                 egui::FontId::proportional(11.0),
                 theme::MUTED,
             );
-            if resp.on_hover_text("Abrir este proyecto").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            if resp.on_hover_text(crate::i18n::tr("Abrir este proyecto")).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 open = Some(p.id.clone());
             }
             ui.add_space(4.0);
@@ -826,7 +827,8 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
         if let Some(pt) = origin {
             let mut state: Option<DragState> = None;
             if let (Some(h), Some((corner, rotp))) = (sel_hit, handles) {
-                let (cx, cy) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (c.scale, c.rotate))).unwrap_or((1.0, 0.0));
+                let ph_t = app.playhead;
+                let (cx, cy) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (kf::value_at(c, "scale", ph_t), kf::value_at(c, "rotate", ph_t)))).unwrap_or((1.0, 0.0));
                 if pt.distance(rotp) < 12.0 {
                     state = Some(DragState { id: h.id.clone(), kind: DragKind::Rotate { a0: angle_of(h.center, pt), r0: cy } });
                 } else if pt.distance(corner) < 12.0 {
@@ -837,7 +839,8 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                 // Objeto superior bajo el puntero (el último pintado está encima).
                 let top = hits.iter().rev().find(|h| contains(h, pt));
                 if let Some(h) = top {
-                    let (x0, y0) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (c.x, c.y))).unwrap_or((0.0, 0.0));
+                    let ph_t = app.playhead;
+                    let (x0, y0) = app.editor.project().and_then(|pj| pj.find_clip(&h.id).map(|(_, c)| (kf::value_at(c, "x", ph_t), kf::value_at(c, "y", ph_t)))).unwrap_or((0.0, 0.0));
                     state = Some(DragState { id: h.id.clone(), kind: DragKind::Move { mouse0: pt, x0, y0 } });
                 }
             }
@@ -857,6 +860,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                 let shift = ui.input(|i| i.modifiers.shift);
                 let center = h.center;
                 let id = st.id.clone();
+                let ph_t = app.playhead;
                 match st.kind {
                     DragKind::Move { mouse0, x0, y0 } => {
                         let d = pt - mouse0;
@@ -873,8 +877,9 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         let (nx, ny) = (nx.clamp(-150.0, 150.0), ny.clamp(-150.0, 150.0));
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.x = nx;
-                                c.y = ny;
+                                // Con fotogramas clave, arrastrar crea/actualiza el del cursor.
+                                kf::write_value(c, "x", ph_t, nx);
+                                kf::write_value(c, "y", ph_t, ny);
                             }
                         });
                     }
@@ -882,7 +887,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         let ns = (s0 * (pt.distance(center) / d0) as f64).clamp(0.05, 8.0);
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.scale = ns;
+                                kf::write_value(c, "scale", ph_t, ns);
                             }
                         });
                     }
@@ -898,7 +903,7 @@ fn stage_interaction(ui: &mut egui::Ui, app: &mut CupApp, p: &egui::Painter, sta
                         }
                         app.editor.mutate_silent(|pj| {
                             if let Some(c) = pj.find_clip_mut(&id) {
-                                c.rotate = nr;
+                                kf::write_value(c, "rotate", ph_t, nr);
                             }
                         });
                     }
@@ -1075,14 +1080,16 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 // Dimensiones reales del medio (la textura puede venir reducida).
                 let (mw, mh) = dims.map(|(w, h)| (w as f32, h as f32)).unwrap_or((size.x, size.y));
                 let fit = (pw as f32 / mw).min(ph as f32 / mh);
-                let mut sz = Vec2::new(mw * fit * k, mh * fit * k) * clip.scale as f32;
+                // Posición, escala, giro con fotogramas clave en este instante.
+                let tr = crate::services::compose::transform_at(clip, clip.start + *local);
+                let mut sz = Vec2::new(mw * fit * k * tr.scale_x as f32, mh * fit * k * tr.scale_y as f32);
                 if flag(clip, "flipH") {
                     sz.x = -sz.x;
                 }
                 if flag(clip, "flipV") {
                     sz.y = -sz.y;
                 }
-                let center = stage.center() + Vec2::new(clip.x as f32 / 100.0 * sw, clip.y as f32 / 100.0 * sh);
+                let center = stage.center() + Vec2::new(tr.x as f32 / 100.0 * sw, tr.y as f32 / 100.0 * sh);
                 // El color ya va horneado en los píxeles cuando `fx_active`; solo
                 // queda la opacidad del clip. Sin cadena, tinte blanco = idéntico.
                 let ca = crate::clip_anim::eval(clip, *local);
@@ -1090,8 +1097,8 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 let sz = sz * ca.scale;
                 let tint = Color32::from_white_alpha((alpha * ca.alpha * 255.0) as u8);
                 let neg = Vec2::new(sz.x.signum(), sz.y.signum());
-                hits.push(Hit { id: clip.id.clone(), center, half: sz.abs() / 2.0, rot: clip.rotate as f32 });
-                draw_quad(&painter, tex, center, Vec2::new(sz.x.abs(), sz.y.abs()) * neg, clip.rotate as f32 + ca.rot, tint);
+                hits.push(Hit { id: clip.id.clone(), center, half: sz.abs() / 2.0, rot: tr.rotate as f32 });
+                draw_quad(&painter, tex, center, Vec2::new(sz.x.abs(), sz.y.abs()) * neg, tr.rotate as f32 + ca.rot, tint);
             }
             Layer::Graphic { val, text, clip, alpha, local } => {
                 // Misma escala que el compositor: alto del lienzo / 1080,
@@ -1115,13 +1122,14 @@ fn player(ui: &mut egui::Ui, app: &mut CupApp) {
                 let vx = val.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
                 let vy = val.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
                 let vrot = if *text { 0.0 } else { val.get("rotate").and_then(|v| v.as_f64()).unwrap_or(0.0) };
-                let mut center = stage.center() + Vec2::new((clip.x + vx) as f32 / 100.0 * sw, (clip.y + vy) as f32 / 100.0 * sh);
-                let mut sz = size / ppp * clip.scale as f32;
-                let mut rot = (clip.rotate + vrot) as f32;
+                let tr = crate::services::compose::transform_at(clip, clip.start + *local);
+                let mut center = stage.center() + Vec2::new((tr.x + vx) as f32 / 100.0 * sw, (tr.y + vy) as f32 / 100.0 * sh);
+                let mut sz = size / ppp * tr.scale_x as f32;
+                let mut rot = (tr.rotate + vrot) as f32;
                 hits.push(Hit { id: clip.id.clone(), center, half: sz / 2.0, rot });
                 if let Some(a) = anim {
                     // Desplazamiento en tamaños de fuente, girado con el clip (igual que el canvas).
-                    let fpx = raster::text_font_px(val, scale) / ppp * clip.scale as f32 * a.scale;
+                    let fpx = raster::text_font_px(val, scale) / ppp * tr.scale_x as f32 * a.scale;
                     let (sn, cs) = rot.to_radians().sin_cos();
                     let (ox, oy) = (a.dx * fpx, a.dy * fpx);
                     center += Vec2::new(ox * cs - oy * sn, ox * sn + oy * cs);
@@ -1311,7 +1319,7 @@ pub fn custom_ratio_dialog(ctx: &egui::Context, app: &mut CupApp) {
             ui.label(":");
             ui.add(egui::DragValue::new(&mut h).range(0.1..=100.0).speed(0.1));
         });
-        if ui.button("Aplicar").clicked() {
+        if ui.button(crate::i18n::tr("Aplicar")).clicked() {
             apply = true;
         }
     });

@@ -332,7 +332,7 @@ fn zoom_slider(ui: &mut egui::Ui, app: &mut CupApp) {
             app.zoom = (npx / PX_BASE) as f64;
         }
     }
-    resp.on_hover_text("Zoom de la línea de tiempo");
+    resp.on_hover_text(crate::i18n::tr("Zoom de la línea de tiempo"));
 }
 
 fn set_px(app: &mut CupApp, px: f32) {
@@ -1808,7 +1808,7 @@ fn filter_editor(ctx: &egui::Context, app: &mut CupApp, st: &mut TlState) {
                             }
                         });
                     }
-                    if ui.add(egui::Button::new(egui::RichText::new("Quitar filtro").size(10.5)).fill(c("#3a3a3a"))).clicked() {
+                    if ui.add(egui::Button::new(egui::RichText::new(crate::i18n::tr("Quitar filtro")).size(10.5)).fill(c("#3a3a3a"))).clicked() {
                         clear = true;
                     }
                 });

@@ -78,7 +78,7 @@ pub struct Tr {
     pub scale_y: f64,
 }
 
-fn transform_at(clip: &Clip, time: f64) -> Tr {
+pub fn transform_at(clip: &Clip, time: f64) -> Tr {
     let uniform = clip.extra.get("uniform").and_then(Value::as_bool) != Some(false);
     let base = clip.scale;
     let (scale_x, scale_y) = if uniform {

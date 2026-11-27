@@ -138,7 +138,7 @@ fn note(ui: &mut egui::Ui, text: &str) {
 }
 
 fn para(ui: &mut egui::Ui, text: &str) {
-    ui.add(egui::Label::new(RichText::new(text).size(13.0).color(theme::TEXT)).wrap());
+    ui.add(egui::Label::new(RichText::new(crate::i18n::tr(&text)).size(13.0).color(theme::TEXT)).wrap());
 }
 
 fn footer(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
@@ -148,7 +148,7 @@ fn footer(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
 
 fn danger_button(ui: &mut egui::Ui, label: &str) -> egui::Response {
     ui.add(
-        egui::Button::new(RichText::new(label).color(Color32::WHITE).strong().size(12.5))
+        egui::Button::new(RichText::new(crate::i18n::tr(&label)).color(Color32::WHITE).strong().size(12.5))
             .fill(theme::DANGER)
             .corner_radius(CornerRadius::from(6))
             .min_size(Vec2::new(0.0, 28.0)),
@@ -210,7 +210,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
                 let (r, _) = ui.allocate_exact_size(Vec2::splat(48.0), Sense::hover());
                 icons::paint_logo(ui.painter(), r, Color32::WHITE);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new("cupcraft").size(18.0).strong().color(theme::TEXT));
+                    ui.label(RichText::new(crate::i18n::tr("cupcraft")).size(18.0).strong().color(theme::TEXT));
                     ui.label(RichText::new(format!("Versión {}", env!("CARGO_PKG_VERSION"))).color(theme::MUTED));
                 });
             });
@@ -225,7 +225,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
         Modal::Notifications => dialog(ctx, "notif", "Novedades", 420.0, |ui| {
             ui.vertical_centered(|ui| {
                 icons::icon(ui, "bell", 30.0, theme::MUTED2);
-                ui.label(RichText::new("Estás al día").size(15.0).strong().color(theme::TEXT));
+                ui.label(RichText::new(crate::i18n::tr("Estás al día")).size(15.0).strong().color(theme::TEXT));
                 hint(ui, "No hay notificaciones nuevas. cupcraft funciona sin conexión.");
             });
             let mut close = false;
@@ -233,7 +233,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
             !close
         }),
         Modal::WhatsNew { version, notes } => dialog(ctx, "whatsnew", &format!("cupcraft {version}"), 460.0, |ui| {
-            ui.label(RichText::new("¡Actualización instalada! Novedades de esta versión:").size(13.0).color(theme::MUTED));
+            ui.label(RichText::new(crate::i18n::tr("¡Actualización instalada! Novedades de esta versión:")).size(13.0).color(theme::MUTED));
             ui.add_space(8.0);
             egui::ScrollArea::vertical().max_height(320.0).auto_shrink([false, true]).show(ui, |ui| {
                 if notes.trim().is_empty() {
@@ -326,7 +326,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
         Modal::Rename { id, name } => {
             let id = id.clone();
             dialog(ctx, "rename", "Renombrar proyecto", 420.0, |ui| {
-                ui.label(RichText::new("Nombre del proyecto").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Nombre del proyecto")).color(theme::MUTED).size(12.0));
                 let r = ui.add(egui::TextEdit::singleline(name).char_limit(80).desired_width(f32::INFINITY));
                 r.request_focus();
                 let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -366,7 +366,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
                     }
                     !(cancel || no)
                 } else {
-                    ui.label(RichText::new("Ponle un nombre a tu proyecto").color(theme::MUTED).size(12.0));
+                    ui.label(RichText::new(crate::i18n::tr("Ponle un nombre a tu proyecto")).color(theme::MUTED).size(12.0));
                     let r = ui.add(egui::TextEdit::singleline(name).char_limit(80).desired_width(f32::INFINITY));
                     r.request_focus();
                     let enter = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -435,7 +435,7 @@ pub fn show(ctx: &egui::Context, app: &mut CupApp) {
         Modal::Export => export(ctx, app),
         Modal::SaveAdjust { name } => {
             dialog(ctx, "save-adjust", "Guardar ajuste", 400.0, |ui| {
-                ui.label(RichText::new("Nombre del ajuste").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Nombre del ajuste")).color(theme::MUTED).size(12.0));
                 let r = ui.add(egui::TextEdit::singleline(name).char_limit(40).desired_width(f32::INFINITY));
                 r.request_focus();
                 let mut save = r.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -549,24 +549,50 @@ fn settings(ctx: &egui::Context, app: &mut CupApp) -> bool {
         ui.horizontal(|ui| {
             ui.label(RichText::new(crate::i18n::tr("Idioma de la app")).color(theme::MUTED).size(12.5));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let en = crate::i18n::is_english();
-                if panels::chip(ui, "English", en).clicked() && !en {
-                    crate::i18n::set_english(true);
-                }
-                if panels::chip(ui, "Español", !en).clicked() && en {
-                    crate::i18n::set_english(false);
-                }
+                let langs = crate::i18n::languages();
+                let cur = crate::i18n::current_code();
+                let cur_name = langs.iter().find(|l| l.code == cur).map(|l| l.name.clone()).unwrap_or_else(|| cur.clone());
+                egui::ComboBox::from_id_salt("app-language").selected_text(cur_name).width(190.0).show_ui(ui, |ui| {
+                    for l in &langs {
+                        if ui.selectable_label(l.code == cur, &l.name).clicked() && l.code != cur {
+                            crate::i18n::set_language(&l.code);
+                        }
+                    }
+                });
             });
         });
+        let (mut export_tpl, mut import_tpl) = (false, false);
+        ui.horizontal(|ui| {
+            export_tpl = secondary_button(ui, "Exportar plantilla de idioma").clicked();
+            import_tpl = secondary_button(ui, "Importar idioma…").clicked();
+        });
+        note(ui, "¿Falta tu idioma? Exporta la plantilla, tradúcela (a mano o con una IA) y vuelve a importarla.");
+        if export_tpl {
+            if let Some(path) = rfd::FileDialog::new().set_file_name("cupcraft-idioma.json").add_filter("JSON", &["json"]).save_file() {
+                match std::fs::write(&path, crate::i18n::export_template()) {
+                    Ok(()) => app.toast(crate::i18n::tr("Plantilla guardada").to_string()),
+                    Err(e) => app.toast_error(e.to_string()),
+                }
+            }
+        }
+        if import_tpl {
+            if let Some(path) = rfd::FileDialog::new().add_filter("JSON", &["json"]).pick_file() {
+                let res = std::fs::read_to_string(&path).map_err(|e| e.to_string()).and_then(|t| crate::i18n::import_template(&t));
+                match res {
+                    Ok(info) => app.toast(format!("{}: {}", crate::i18n::tr("Idioma importado"), info.name)),
+                    Err(e) => app.toast_error(format!("{} ({e})", crate::i18n::tr("El archivo no es una plantilla de idioma válida"))),
+                }
+            }
+        }
         panels::section(ui, "Integraciones");
         let mut capcut = false;
         let mut bridge = false;
         ui.horizontal(|ui| {
-            ui.label(RichText::new("CapCut").color(theme::MUTED).size(12.5));
+            ui.label(RichText::new(crate::i18n::tr("CapCut")).color(theme::MUTED).size(12.5));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| capcut = secondary_button(ui, "Abrir").clicked());
         });
         ui.horizontal(|ui| {
-            ui.label(RichText::new("Puente IA").color(theme::MUTED).size(12.5));
+            ui.label(RichText::new(crate::i18n::tr("Puente IA")).color(theme::MUTED).size(12.5));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| bridge = secondary_button(ui, "Ver").clicked());
         });
         ui.add_space(8.0);
@@ -608,8 +634,8 @@ fn log_dialog(ctx: &egui::Context, app: &mut CupApp, filter: &mut String, only_e
     let title = format!("Registro ({n})");
     dialog(ctx, "log", &title, 680.0, |ui| {
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(filter).hint_text("Filtrar…").desired_width(260.0));
-            ui.checkbox(only_errors, "Solo errores");
+            ui.add(egui::TextEdit::singleline(filter).hint_text(crate::i18n::tr("Filtrar…")).desired_width(260.0));
+            ui.checkbox(only_errors, crate::i18n::tr("Solo errores"));
         });
         ui.add_space(6.0);
         let q = filter.to_lowercase();
@@ -635,7 +661,7 @@ fn log_dialog(ctx: &egui::Context, app: &mut CupApp, filter: &mut String, only_e
                 }
                 for r in &rows {
                     let color = if r.contains("ERROR") { theme::DANGER } else if r.contains("AVISO") { theme::WARN } else { theme::MUTED };
-                    ui.label(RichText::new(r).family(egui::FontFamily::Monospace).size(11.5).color(color));
+                    ui.label(RichText::new(crate::i18n::tr(&r)).family(egui::FontFamily::Monospace).size(11.5).color(color));
                 }
             });
         });
@@ -711,7 +737,7 @@ fn new_project(
             // Categorías
             ui.vertical(|ui| {
                 ui.set_width(150.0);
-                ui.label(RichText::new("Elegir diseño").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Elegir diseño")).color(theme::MUTED).size(12.0));
                 ui.add_space(4.0);
                 for (i, (c, _)) in DESIGN_CATS.iter().enumerate() {
                     let active = *cat == i;
@@ -735,7 +761,7 @@ fn new_project(
             // Plantillas
             ui.vertical(|ui| {
                 ui.set_width(220.0);
-                ui.label(RichText::new("Plantilla").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Plantilla")).color(theme::MUTED).size(12.0));
                 ui.add_space(4.0);
                 for (i, d) in DESIGN_CATS[*cat].1.iter().enumerate() {
                     let active = *tpl == i;
@@ -770,7 +796,7 @@ fn new_project(
             // Calidad, fps y vista previa
             ui.vertical(|ui| {
                 let d = &DESIGN_CATS[*cat].1[*tpl];
-                ui.label(RichText::new("Calidad").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Calidad")).color(theme::MUTED).size(12.0));
                 ui.horizontal(|ui| {
                     for (i, (l, _)) in QUALITIES.iter().enumerate() {
                         if chip(ui, l, *quality == i).clicked() {
@@ -779,7 +805,7 @@ fn new_project(
                     }
                 });
                 ui.add_space(8.0);
-                ui.label(RichText::new("Fotogramas por segundo").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Fotogramas por segundo")).color(theme::MUTED).size(12.0));
                 ui.horizontal(|ui| {
                     for (i, f) in FPS_OPTS.iter().enumerate() {
                         if chip(ui, &format!("{f} fps"), *fps == i).clicked() {
@@ -788,13 +814,13 @@ fn new_project(
                     }
                 });
                 ui.add_space(8.0);
-                ui.label(RichText::new("Vista previa").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Vista previa")).color(theme::MUTED).size(12.0));
                 let (w, h) = scaled(d, QUALITIES[*quality].1);
                 ratio_preview(ui, w, h, d.ratio);
                 ui.label(RichText::new(format!("{w}×{h} · {}", d.ratio)).color(theme::TEXT).size(12.5));
                 hint(ui, "La vista previa muestra la relación de aspecto del lienzo");
                 ui.add_space(8.0);
-                ui.label(RichText::new("Nombre").color(theme::MUTED).size(12.0));
+                ui.label(RichText::new(crate::i18n::tr("Nombre")).color(theme::MUTED).size(12.0));
                 ui.add(egui::TextEdit::singleline(name).char_limit(80).desired_width(248.0));
             });
         });
@@ -840,8 +866,8 @@ fn capcut(ctx: &egui::Context, app: &mut CupApp) -> bool {
         if let Some((title, msg)) = app.capcut.error.clone() {
             egui::Frame::NONE.fill(Color32::from_rgb(0x3a, 0x1c, 0x1c)).corner_radius(CornerRadius::from(8)).inner_margin(10).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(RichText::new(title).strong().color(theme::DANGER));
-                ui.add(egui::Label::new(RichText::new(msg).size(12.0).color(theme::TEXT)).wrap());
+                ui.label(RichText::new(crate::i18n::tr(&title)).strong().color(theme::DANGER));
+                ui.add(egui::Label::new(RichText::new(crate::i18n::tr(&msg)).size(12.0).color(theme::TEXT)).wrap());
             });
             ui.add_space(8.0);
         }
@@ -852,13 +878,13 @@ fn capcut(ctx: &egui::Context, app: &mut CupApp) -> bool {
         } else if app.capcut.scanning {
             ui.horizontal(|ui| {
                 ui.spinner();
-                ui.label(RichText::new("Buscando borradores de CapCut…").color(theme::MUTED));
+                ui.label(RichText::new(crate::i18n::tr("Buscando borradores de CapCut…")).color(theme::MUTED));
             });
         } else if app.capcut.list.is_empty() {
             ui.add_space(20.0);
             ui.vertical_centered(|ui| {
                 icons::icon(ui, "folderOpen", 32.0, theme::MUTED2);
-                ui.label(RichText::new("No hay proyectos de CapCut").size(15.0).strong().color(theme::TEXT));
+                ui.label(RichText::new(crate::i18n::tr("No hay proyectos de CapCut")).size(15.0).strong().color(theme::TEXT));
                 hint(ui, "Abre CapCut y guarda un borrador, o define la variable de entorno openCUP_CAPCUT_ROOT con la carpeta de borradores.");
             });
             ui.add_space(20.0);
@@ -948,7 +974,7 @@ fn capcut_card(ui: &mut egui::Ui, app: &mut CupApp, it: &Value, w: f32) -> Optio
         ui.add_space(4.0);
         let font = egui::FontId::proportional(13.0);
         let t = paint::ellipsize(ui.painter(), &name, &font, w - 20.0);
-        ui.label(RichText::new(t).strong().color(theme::TEXT));
+        ui.label(RichText::new(crate::i18n::tr(&t)).strong().color(theme::TEXT));
         hint(ui, &format!("{} · {} clip(s) · {} archivo(s)", format_time(dur), clips, files));
         hint(ui, &format!("{width} × {height} · {fps} fps"));
         if modified > 0 {
@@ -974,7 +1000,7 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
     dialog(ctx, "export", "Exportar", 460.0, |ui| {
         match status.clone() {
             Some((ExportStatus::Running(msg), prog)) => {
-                ui.label(RichText::new("Exportando video…").strong().color(theme::TEXT));
+                ui.label(RichText::new(crate::i18n::tr("Exportando video…")).strong().color(theme::TEXT));
                 ui.add_space(6.0);
                 ui.add(egui::ProgressBar::new(prog).fill(theme::ACCENT).show_percentage());
                 hint(ui, &msg);
@@ -992,7 +1018,7 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
             Some((ExportStatus::Done(path), _)) => {
                 ui.vertical_centered(|ui| {
                     icons::icon(ui, "check", 32.0, theme::ACCENT);
-                    ui.label(RichText::new("Exportación completada").size(15.0).strong().color(theme::TEXT));
+                    ui.label(RichText::new(crate::i18n::tr("Exportación completada")).size(15.0).strong().color(theme::TEXT));
                     hint(ui, &path.display().to_string());
                 });
                 let mut close = false;
@@ -1010,8 +1036,8 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                 !close
             }
             Some((ExportStatus::Failed(e), _)) => {
-                ui.label(RichText::new("La exportación falló").strong().color(theme::DANGER));
-                ui.add(egui::Label::new(RichText::new(e).size(12.0).color(theme::TEXT)).wrap());
+                ui.label(RichText::new(crate::i18n::tr("La exportación falló")).strong().color(theme::DANGER));
+                ui.add(egui::Label::new(RichText::new(crate::i18n::tr(&e)).size(12.0).color(theme::TEXT)).wrap());
                 let mut close = false;
                 let mut retry = false;
                 footer(ui, |ui| {
@@ -1030,7 +1056,7 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                 }
                 let e = &mut app.export;
                 egui::Grid::new("export-grid").num_columns(2).spacing([16.0, 10.0]).show(ui, |ui| {
-                    ui.label(RichText::new("Formato").color(theme::MUTED));
+                    ui.label(RichText::new(crate::i18n::tr("Formato")).color(theme::MUTED));
                     ui.horizontal(|ui| {
                         for (i, l) in ["MP4 (H.264)", "MP4 (H.265)", "WebM (VP9)"].iter().enumerate() {
                             if chip(ui, l, e.format == i as u8).clicked() {
@@ -1039,7 +1065,7 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                         }
                     });
                     ui.end_row();
-                    ui.label(RichText::new("Resolución").color(theme::MUTED));
+                    ui.label(RichText::new(crate::i18n::tr("Resolución")).color(theme::MUTED));
                     ui.horizontal(|ui| {
                         for (i, l) in ["1080p", "720p", "4K"].iter().enumerate() {
                             if chip(ui, l, e.resolution == i as u8).clicked() {
@@ -1048,7 +1074,7 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                         }
                     });
                     ui.end_row();
-                    ui.label(RichText::new("Fotogramas").color(theme::MUTED));
+                    ui.label(RichText::new(crate::i18n::tr("Fotogramas")).color(theme::MUTED));
                     ui.horizontal(|ui| {
                         for (i, l) in ["24 fps", "30 fps", "60 fps"].iter().enumerate() {
                             if chip(ui, l, e.fps == i as u8).clicked() {
@@ -1057,8 +1083,8 @@ fn export(ctx: &egui::Context, app: &mut CupApp) -> bool {
                         }
                     });
                     ui.end_row();
-                    ui.label(RichText::new("Aceleración").color(theme::MUTED));
-                    ui.checkbox(&mut e.use_gpu, "Usar GPU si está disponible");
+                    ui.label(RichText::new(crate::i18n::tr("Aceleración")).color(theme::MUTED));
+                    ui.checkbox(&mut e.use_gpu, crate::i18n::tr("Usar GPU si está disponible"));
                     ui.end_row();
                 });
                 let dur = app.editor.project().map(|p| p.duration()).unwrap_or(0.0);

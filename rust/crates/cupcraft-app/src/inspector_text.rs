@@ -107,7 +107,7 @@ pub(crate) fn apply(app: &mut CupApp, id: &str, e: Edit) {
     if e.silent {
         // Solo lo que afecta al audio obliga a clonar el proyecto al motor.
         let audio = patch.as_object().is_some_and(|o| {
-            o.keys().any(|k| !matches!(k.as_str(), "text" | "x" | "y" | "scale" | "rotate" | "opacity" | "fadeIn" | "fadeOut" | "filter" | "adjust" | "extra" | "transition" | "transitionDuration" | "blend"))
+            o.keys().any(|k| !matches!(k.as_str(), "text" | "x" | "y" | "scale" | "rotate" | "opacity" | "fadeIn" | "fadeOut" | "filter" | "adjust" | "extra" | "keyframes" | "transition" | "transitionDuration" | "blend"))
         });
         app.editor.mutate_silent(|p| p.update_clip(id, patch));
         if audio {
@@ -140,9 +140,52 @@ pub(crate) fn to_hex(c: Color32) -> String {
 /// guardado es `mostrado * factor`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn range(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min: f64, max: f64, step: f64, factor: f64, unit: &str) -> Option<f64> {
+    range_ex(ui, e, label, cur, min, max, step, factor, unit, None).0
+}
+
+/// Estado del rombo de fotogramas clave de un control.
+#[derive(Clone, Copy)]
+pub(crate) struct KfState {
+    /// La propiedad tiene fotogramas clave (está animada).
+    pub animated: bool,
+    /// Hay un fotograma clave justo en el cursor de reproducción.
+    pub on_key: bool,
+}
+
+/// Rombo de fotogramas clave: relleno = hay uno aquí, contorno = animada,
+/// gris = fija. Devuelve `true` si se pulsó.
+fn kf_diamond(ui: &mut egui::Ui, st: KfState) -> bool {
+    let (rect, r) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
+    let c = rect.center();
+    let hot = r.hovered();
+    let rad = if hot { 6.5 } else { 5.5 };
+    let pts = vec![egui::pos2(c.x, c.y - rad), egui::pos2(c.x + rad, c.y), egui::pos2(c.x, c.y + rad), egui::pos2(c.x - rad, c.y)];
+    let col = if st.animated { theme::ACCENT } else if hot { theme::TEXT } else { theme::MUTED };
+    let fill = if st.on_key { col } else { Color32::TRANSPARENT };
+    ui.painter().add(egui::Shape::convex_polygon(pts, fill, Stroke::new(1.4, col)));
+    let tip = if st.on_key {
+        crate::i18n::tr("Quitar fotograma clave aquí")
+    } else if st.animated {
+        crate::i18n::tr("Añadir fotograma clave en este instante")
+    } else {
+        crate::i18n::tr("Animar: crear fotograma clave en este instante")
+    };
+    r.on_hover_text(tip.to_string()).clicked()
+}
+
+/// Como `range`, con el rombo de fotogramas clave junto a la etiqueta.
+/// Devuelve (nuevo valor, rombo pulsado).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn range_ex(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min: f64, max: f64, step: f64, factor: f64, unit: &str, kf: Option<KfState>) -> (Option<f64>, bool) {
     let mut shown = cur / factor;
+    let mut diamond = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(11.5).color(theme::MUTED));
+        if let Some(st) = kf {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                diamond = kf_diamond(ui, st);
+            });
+        }
     });
     let r = ui.add(
         egui::Slider::new(&mut shown, min..=max)
@@ -150,7 +193,7 @@ pub(crate) fn range(ui: &mut egui::Ui, e: &mut Edit, label: &str, cur: f64, min:
             .suffix(unit)
             .fixed_decimals(if step < 1.0 { 2 } else { 0 }),
     );
-    e.track(&r).then_some(shown * factor)
+    (e.track(&r).then_some(shown * factor), diamond)
 }
 
 fn text_range(ui: &mut egui::Ui, e: &mut Edit, t: &Value, label: &str, key: &str, min: f64, max: f64, step: f64, factor: f64, unit: &str) {
@@ -165,9 +208,9 @@ fn color_row(ui: &mut egui::Ui, e: &mut Edit, label: &str, key: &str, cur: &str)
         if ui.color_edit_button_srgba(&mut c).changed() {
             e.set(key, json!(to_hex(c)));
         }
-        ui.label(egui::RichText::new(label).size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(11.5).color(theme::MUTED));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(cur).size(11.0).color(theme::TEXT).monospace());
+            ui.label(egui::RichText::new(crate::i18n::tr(&cur)).size(11.0).color(theme::TEXT).monospace());
         });
     });
 }
@@ -175,7 +218,7 @@ fn color_row(ui: &mut egui::Ui, e: &mut Edit, label: &str, key: &str, cur: &str)
 pub(crate) fn switch_row(ui: &mut egui::Ui, label: &str, on: bool) -> bool {
     let mut clicked = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).size(12.0).color(theme::TEXT));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(12.0).color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let (rect, r) = ui.allocate_exact_size(Vec2::new(30.0, 16.0), Sense::click());
             let p = ui.painter();
@@ -190,7 +233,7 @@ pub(crate) fn switch_row(ui: &mut egui::Ui, label: &str, on: bool) -> bool {
 
 /// Grupo plegable (`<details class="tx-group">`).
 pub(crate) fn group(ui: &mut egui::Ui, title: &str, open: bool, body: impl FnOnce(&mut egui::Ui)) {
-    egui::CollapsingHeader::new(egui::RichText::new(title).size(12.5).color(theme::TEXT).strong())
+    egui::CollapsingHeader::new(egui::RichText::new(crate::i18n::tr(&title)).size(12.5).color(theme::TEXT).strong())
         .id_salt(("tx-group", title))
         .default_open(open)
         .show(ui, body);
@@ -233,12 +276,12 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp, clip: &Clip) {
         let (r, _) = ui.allocate_exact_size(Vec2::splat(8.0), Sense::hover());
         ui.painter().circle_filled(r.center(), 3.5, theme::ACCENT);
         let name = if clip.name.is_empty() { "Texto" } else { clip.name.as_str() };
-        ui.label(egui::RichText::new(name).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr(&name)).color(theme::TEXT).strong());
         egui::Frame::NONE
             .fill(theme::PANEL3)
             .corner_radius(CornerRadius::from(4))
             .inner_margin(egui::Margin::symmetric(6, 1))
-            .show(ui, |ui| ui.label(egui::RichText::new("Texto").size(10.5).color(theme::MUTED)));
+            .show(ui, |ui| ui.label(egui::RichText::new(crate::i18n::tr("Texto")).size(10.5).color(theme::MUTED)));
     });
     ui.add_space(4.0);
 
@@ -302,13 +345,13 @@ fn basic_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, t: &Value) {
             }
         });
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Tamaño").size(11.5).color(theme::MUTED));
+            ui.label(egui::RichText::new(crate::i18n::tr("Tamaño")).size(11.5).color(theme::MUTED));
             let mut size = n(t, "size").round();
             let r = ui.add(egui::DragValue::new(&mut size).range(8.0..=400.0).speed(1.0));
             if e.track(&r) {
                 e.set("size", json!(size));
             }
-            ui.label(egui::RichText::new("Grosor").size(11.5).color(theme::MUTED));
+            ui.label(egui::RichText::new(crate::i18n::tr("Grosor")).size(11.5).color(theme::MUTED));
             let weight = n(t, "weight") as i64;
             let wl = cat::text_weights()
                 .iter()
@@ -369,7 +412,7 @@ fn basic_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, t: &Value) {
     });
 
     group(ui, "Estilo preestablecido", true, |ui| {
-        if secondary_button(ui, "⊘ Sin estilo").on_hover_text("Sin estilo (restablecer color, trazo y fondo)").clicked() {
+        if secondary_button(ui, "⊘ Sin estilo").on_hover_text(crate::i18n::tr("Sin estilo (restablecer color, trazo y fondo)")).clicked() {
             let d = defaults();
             for k in ["color", "strokeColor", "strokeWidth", "background", "backgroundBorderWidth", "glow", "shadow"] {
                 e.set(k, d[k].clone());
@@ -408,7 +451,7 @@ fn basic_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, t: &Value) {
         text_range(ui, e, t, "Grosor", "strokeWidth", 0.0, 25.0, 1.0, 0.01, "");
         let mode = s(t, "strokeMode", "outer");
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Posición").size(11.5).color(theme::MUTED));
+            ui.label(egui::RichText::new(crate::i18n::tr("Posición")).size(11.5).color(theme::MUTED));
             for (v, l) in [("outer", "Fuera"), ("center", "Centro"), ("inside", "Dentro")] {
                 if chip(ui, l, mode == v).clicked() {
                     e.set("strokeMode", json!(v));
@@ -434,7 +477,7 @@ fn basic_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, t: &Value) {
         text_range(ui, e, t, "Margen", "backgroundPadding", 0.0, 60.0, 1.0, 0.01, "");
         let style = s(t, "backgroundStyle", "rounded");
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Estilo").size(11.5).color(theme::MUTED));
+            ui.label(egui::RichText::new(crate::i18n::tr("Estilo")).size(11.5).color(theme::MUTED));
             for (v, l) in [("rounded", "Redondeado"), ("square", "Recto"), ("pill", "Píldora")] {
                 if chip(ui, l, style == v).clicked() {
                     e.set("backgroundStyle", json!(v));
@@ -479,7 +522,7 @@ fn basic_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, t: &Value) {
             .map(|a| format!("{} · {}", phase_label(s(a, "phase", "in")), s(a, "label", "")))
             .unwrap_or_else(|| "Sin animación".into());
         egui::ComboBox::from_id_salt("tx-anim").width(ui.available_width() - 8.0).selected_text(cur_label).show_ui(ui, |ui| {
-            if ui.selectable_label(cur == "none", "Sin animación").clicked() {
+            if ui.selectable_label(cur == "none", crate::i18n::tr("Sin animación")).clicked() {
                 e.merge(&json!({ "animation": "none" }));
             }
             for a in cat::text_animations() {

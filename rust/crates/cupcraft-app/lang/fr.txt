@@ -1,0 +1,173 @@
+Fichiers
+Fichiers multimédias
+Filtres
+Modèles
+Sous-tit.
+Sous-titres
+Trans.
+Transitions
+Ajuster
+Stickers
+Synthèse vocale (bêta)
+En test : peut échouer ou sonner bizarrement.
++ Ajouter un texte par défaut
++ Importer
++ Importer un audio
+Ouvrir
+Ouvrir le dossier
+Ouvrir le dossier de données
+Ouvrir un projet depuis un fichier
+Amincir
+Isoler la voix
+Ajuster
+Réglage manuel
+Réglages
+Stockage
+Animation
+Appliquer à tout
+Faites glisser les clips pour les déplacer, utilisez les poignées des extrémités pour rogner et appuyez sur B pour diviser au curseur.
+Raccourcis
+Raccourcis clavier
+Retour
+Audio
+Audio du projet
+Ajouter des sous-titres
+Pas encore d'audio. Importez de la musique ou des effets sonores depuis votre ordinateur.
+Bibliothèque d'effets
+Rechercher un audio
+Rechercher des catégories de stickers
+Rechercher des effets
+Rechercher dans vos médias
+Rechercher des styles
+Rechercher des filtres
+Rechercher des transitions
+Base
+Change la hauteur comme dans les vidéos TikTok (écureuil, grave, robot…). Appliqué avec FFmpeg, hors ligne.
+Annuler
+Fermer
+Couleur de surbrillance
+Remplir le canal
+Astuce : maintenez Alt en faisant glisser un clip pour désactiver temporairement l'aimantation.
+Contenu
+Continuer
+Copier
+Décider plus tard
+Télécharger .txt
+Télécharger le moteur et le modèle
+Abandonner
+Dents
+Effet des sous-titres
+Effet karaoké (style TikTok)
+Effets
+Effets vidéo
+Effets appliqués au texte sélectionné.
+L'effet est ajouté comme calque au curseur et affecte tout ce qui se trouve en dessous.
+Le filtre de voix s'applique à l'audio du clip dans l'aperçu et à l'export.
+Le paragraphe est entièrement visible et le mot prononcé change de couleur au fur et à mesure.
+Choisissez la couleur, puis réglez l'intensité.
+Choisissez une bulle : elle est appliquée au texte sélectionné.
+Compris
+Cet effet n'a pas de propriétés configurables.
+Style
+Style CapCut
+Style de voix
+Style prédéfini
+Standard
+Exporter
+Exporter la vidéo
+Génération…
+Super
+Enregistrer une voix off
+Enregistrer
+Enregistrer comme préréglage
+Enregistrer le projet dans un fichier
+Enregistrer et quitter
+Le moteur et le modèle doivent être téléchargés une seule fois (~140 Mo).
+Heure en UTC.
+Langue
+Langue de l'application
+Langue de la voix
+Importer SRT/VTT
+Intégrations
+L'export précédent a été annulé.
+L'enregistrement est inséré au curseur comme un clip audio.
+Les courbes de vitesse créent des accélérations progressives dans le clip.
+Terminé
+Local · sans compte
+Les réglages de couleur s'appliquent aux clips vidéo ou image.
+Les effets s'appliquent aux clips vidéo, image, texte ou sticker.
+Les projets et médias sont enregistrés dans %LOCALAPPDATA%\openCUP. L'export utilise FFmpeg s'il est disponible sur l'ordinateur.
+Les projets, médias et réglages sont enregistrés dans %LOCALAPPDATA%\openCUP. Aucun droit d'administrateur n'est nécessaire.
+Améliorer la voix
+Mode
+Plus de voix
+Aucune entrée.
+Aucune nouvelle notification. cupcraft fonctionne hors ligne.
+Il n'y a pas encore d'autres projets. Créez-en un depuis le menu ou revenez à l'accueil.
+Aucune voix installée. Téléchargez-en une dans « Plus de voix », ci-dessous.
+Yeux
+Pistes
+Préférences
+Traitement…
+Propriétés
+Projet CapCut
+Projets
+Projets secondaires
+Pont IA
+Retirer le filtre
+Supprimer l'arrière-plan
+Supprimer tous les sous-titres
+Retirer la transition
+Rogner avec un masque
+Réduire le bruit
+Signaler sur GitHub
+Signaler un problème
+Réinitialiser
+Retouche
+Piper est utilisé, un moteur local (~25 Mo + une voix). Rien n'est envoyé sur internet. Téléchargé une seule fois.
+Sélectionnez un clip avec de l'audio pour régler son volume.
+Sélectionnez un clip vidéo ou image pour l'ajuster.
+Si vous choisissez « Non », le projet n'est pas enregistré et les modifications de cette session sont perdues.
+Désactivé, l'audio conserve sa hauteur quand la vitesse change.
+Sans animation
+Sous-titres automatiques
+Sous-titres manuels
+Oui, enregistrer
+Thème
+Texte
+Texte du clip
+Type de suivi
+Typographie
+Toutes les fonctions de cette version sont disponibles sans abonnement. Vos fichiers ne quittent jamais votre ordinateur.
+Tous
+Traducteur de vidéos
+Une ligne par sous-titre. Ils sont placés les uns après les autres à partir du curseur.
+Vider
+Affichage
+Vidéo, image ou audio depuis votre ordinateur
+Voix de la collection publique de Piper (Hugging Face). Elles ne sont téléchargées que lorsque vous appuyez sur le bouton.
+Rechercher à nouveau
+Réessayer
+Voix
+Vidéo / audio à transcrire
+Zone à supprimer
+↺ Réinitialiser le style du texte
+↺ Réinitialiser le mélange
+↺ Réinitialiser les propriétés
+↺ Réinitialiser la transformation
+↺ Sans animation
+⊘ Sans style
+✨ Générer des sous-titres avec l'IA…
+✨ Lancer la génération
+🎙 Enregistrer avec le micro
+🎤 Ouvrir la synthèse vocale complète
+🗑 Retirer
+Retirer l'image clé ici
+Ajouter une image clé à cet instant
+Animer : créer une image clé à cet instant
+Exporter le modèle de langue
+Importer une langue…
+Votre langue manque ? Exportez le modèle, traduisez-le (à la main ou avec une IA) et réimportez-le.
+Modèle enregistré
+Langue importée
+Le fichier n'est pas un modèle de langue valide

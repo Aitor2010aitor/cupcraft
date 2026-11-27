@@ -15,7 +15,7 @@
 use crate::anim_catalog::{ANIM_COMBO, ANIM_IN, ANIM_OUT};
 use crate::app::CupApp;
 use crate::format::format_time;
-use crate::inspector_text::{apply, group, range, switch_row, tab_row, to_hex, Edit};
+use crate::inspector_text::{apply, group, range, range_ex, switch_row, tab_row, to_hex, Edit, KfState};
 use crate::panels::{card, grid, hint, secondary_button, section};
 use crate::paint;
 use crate::theme;
@@ -220,7 +220,7 @@ fn badge(ui: &mut egui::Ui, text: &str) {
         .fill(theme::PANEL3)
         .corner_radius(CornerRadius::from(3))
         .inner_margin(egui::Margin::symmetric(4, 0))
-        .show(ui, |ui| ui.label(egui::RichText::new(text).size(9.5).color(theme::ACCENT)));
+        .show(ui, |ui| ui.label(egui::RichText::new(crate::i18n::tr(&text)).size(9.5).color(theme::ACCENT)));
 }
 
 /// `switchRow` sobre una clave de primer nivel del clip.
@@ -246,7 +246,7 @@ fn sw_nested(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, label: &str, key: &st
 fn locked(ui: &mut egui::Ui, e: &mut Edit, label: &str, bdg: &str, nt: &str) {
     let r = ui
         .horizontal(|ui| {
-            ui.label(egui::RichText::new(label).size(12.0).color(theme::TEXT));
+            ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(12.0).color(theme::TEXT));
             badge(ui, bdg);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label(egui::RichText::new("›").size(13.0).color(theme::MUTED));
@@ -286,9 +286,9 @@ fn nested_range(
 
 fn info_row(ui: &mut egui::Ui, label: &str, value: &str) {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).size(12.0).color(theme::TEXT));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(12.0).color(theme::TEXT));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(value).size(12.0).color(theme::TEXT).strong());
+            ui.label(egui::RichText::new(crate::i18n::tr(&value)).size(12.0).color(theme::TEXT).strong());
         });
     });
 }
@@ -300,9 +300,9 @@ fn color_pick(ui: &mut egui::Ui, label: &str, cur: &str) -> Option<String> {
         if ui.color_edit_button_srgba(&mut c).changed() {
             out = Some(to_hex(c));
         }
-        ui.label(egui::RichText::new(label).size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr(&label)).size(11.5).color(theme::MUTED));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(egui::RichText::new(cur).size(11.0).color(theme::TEXT).monospace());
+            ui.label(egui::RichText::new(crate::i18n::tr(&cur)).size(11.0).color(theme::TEXT).monospace());
         });
     });
     out
@@ -337,13 +337,13 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp, clip: &Clip, track_name: &str) 
         let (r, _) = ui.allocate_exact_size(Vec2::splat(8.0), Sense::hover());
         ui.painter().circle_filled(r.center(), 3.5, theme::ACCENT);
         let name = if clip.name.is_empty() { kind_label } else { clip.name.as_str() };
-        ui.label(egui::RichText::new(name).color(theme::TEXT).strong())
+        ui.label(egui::RichText::new(crate::i18n::tr(&name)).color(theme::TEXT).strong())
             .on_hover_text(format!("Pista: {track_name}"));
         egui::Frame::NONE
             .fill(theme::PANEL3)
             .corner_radius(CornerRadius::from(4))
             .inner_margin(egui::Margin::symmetric(6, 1))
-            .show(ui, |ui| ui.label(egui::RichText::new(kind_label).size(10.5).color(theme::MUTED)));
+            .show(ui, |ui| ui.label(egui::RichText::new(crate::i18n::tr(&kind_label)).size(10.5).color(theme::MUTED)));
     });
     ui.add_space(4.0);
 
@@ -418,33 +418,123 @@ pub fn show(ui: &mut egui::Ui, app: &mut CupApp, clip: &Clip, track_name: &str) 
 
 // ---------------- Video ----------------
 
+/// Tamaño (% del lienzo) que ocupa la capa del clip, para alinearla en el lienzo.
+fn layer_size_pct(app: &CupApp, clip: &Clip) -> (f64, f64) {
+    let project = app.editor.project();
+    let ratio = project.map(|p| p.ratio.clone()).unwrap_or_else(|| "16:9".into());
+    let aspect = ratio
+        .split_once(':')
+        .and_then(|(a, b)| Some(a.trim().parse::<f64>().ok()? / b.trim().parse::<f64>().ok()?))
+        .filter(|a| *a > 0.0)
+        .unwrap_or(16.0 / 9.0);
+    let media_aspect = project
+        .and_then(|p| p.media.iter().find(|m| Some(&m.id) == clip.media_id.as_ref()))
+        .and_then(crate::services::media::media_dims)
+        .filter(|(w, h)| *w > 0 && *h > 0)
+        .map(|(w, h)| w as f64 / h as f64)
+        .unwrap_or(aspect);
+    let s = clip.scale * 100.0;
+    if media_aspect >= aspect {
+        (s, s * aspect / media_aspect)
+    } else {
+        (s * media_aspect / aspect, s)
+    }
+}
+
+/// Barra de alineación en el lienzo (izquierda, centro, derecha, arriba, medio, abajo).
+fn align_bar(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) {
+    let (w, h) = layer_size_pct(app, clip);
+    let modes: [(&str, &str, &str); 6] = [
+        ("alignLeft", "Alinear a la izquierda", "left"),
+        ("alignCenterH", "Alinear al medio", "center"),
+        ("alignRight", "Alinear a la derecha", "right"),
+        ("alignTop", "Alinear arriba", "top"),
+        ("alignCenterV", "Alinear al centro", "middle"),
+        ("alignBottom", "Alinear abajo", "bottom"),
+    ];
+    ui.add_space(4.0);
+    ui.horizontal(|ui| {
+        for (icon, tip, mode) in modes {
+            if crate::icons::icon_button(ui, icon, 14.0, theme::MUTED, &crate::i18n::tr(tip)).clicked() {
+                let r = |v: f64| (v * 100.0).round() / 100.0;
+                match mode {
+                    "left" => cset(e, "x", json!(r(-50.0 + w / 2.0))),
+                    "center" => cset(e, "x", json!(0.0)),
+                    "right" => cset(e, "x", json!(r(50.0 - w / 2.0))),
+                    "top" => cset(e, "y", json!(r(-50.0 + h / 2.0))),
+                    "middle" => cset(e, "y", json!(0.0)),
+                    _ => cset(e, "y", json!(r(50.0 - h / 2.0))),
+                }
+            }
+        }
+    });
+}
+
+/// Copia del clip con los cambios de fotogramas clave que ya se hicieron en este
+/// fotograma (para que dos controles no se pisen).
+fn working_clip(e: &Edit, clip: &Clip) -> Clip {
+    let mut w = clip.clone();
+    if let Some(k) = e.clip.get("keyframes") {
+        w.extra.insert("keyframes".into(), k.clone());
+    }
+    w
+}
+
+/// Guarda en el parche el mapa de fotogramas clave de `w` (vacío si no queda ninguno).
+fn commit_keyframes(e: &mut Edit, w: &Clip) {
+    let v = w.extra.get("keyframes").cloned().unwrap_or_else(|| json!({}));
+    cset(e, "keyframes", v);
+}
+
+/// Deslizador animable: con rombo para crear/quitar un fotograma clave en el
+/// instante del cursor. Si la propiedad está animada, editar el valor crea o
+/// actualiza el fotograma clave de ese instante; si no, cambia el valor fijo.
+#[allow(clippy::too_many_arguments)]
+fn kf_range(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip, label: &str, prop: &str, min: f64, max: f64, factor: f64, unit: &str) {
+    use cupcraft_core::keyframes as kf;
+    let t = app.playhead.clamp(clip.start, clip.start + clip.duration);
+    let mut w = working_clip(e, clip);
+    let cur = kf::value_at(&w, prop, t);
+    let st = KfState { animated: kf::has_keyframes(&w, prop), on_key: kf::has_keyframe_at(&w, prop, t) };
+    let (val, diamond) = range_ex(ui, e, label, cur, min, max, 1.0, factor, unit, Some(st));
+    if diamond {
+        kf::toggle_keyframe(&mut w, prop, t);
+        commit_keyframes(e, &w);
+        cset(e, prop, json!(kf::base_value(&w, prop)));
+    } else if let Some(v) = val {
+        kf::write_value(&mut w, prop, t, v);
+        if kf::has_keyframes(&w, prop) {
+            commit_keyframes(e, &w);
+        } else {
+            cset(e, prop, json!(v));
+        }
+    }
+}
+
 fn video_basic(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> bool {
     group(ui, "Transformación", true, |ui| {
         if secondary_button(ui, "↺ Restablecer transformación").clicked() {
+            let mut w = working_clip(e, clip);
             for (k, v) in [("x", 0.0), ("y", 0.0), ("scale", 1.0), ("rotate", 0.0)] {
+                cupcraft_core::keyframes::clear_prop(&mut w, k);
                 cset(e, k, json!(v));
             }
+            commit_keyframes(e, &w);
         }
-        if let Some(v) = range(ui, e, "Escala", clip.scale, 10.0, 400.0, 1.0, 0.01, "%") {
-            cset(e, "scale", json!(v));
-        }
-        if let Some(v) = range(ui, e, "Posición X", clip.x, -100.0, 100.0, 1.0, 1.0, "%") {
-            cset(e, "x", json!(v));
-        }
-        if let Some(v) = range(ui, e, "Posición Y", clip.y, -100.0, 100.0, 1.0, 1.0, "%") {
-            cset(e, "y", json!(v));
-        }
-        if let Some(v) = range(ui, e, "Rotación", clip.rotate, -180.0, 180.0, 1.0, 1.0, "°") {
-            cset(e, "rotate", json!(v));
-        }
+        kf_range(ui, e, app, clip, "Escala", "scale", 10.0, 400.0, 0.01, "%");
+        kf_range(ui, e, app, clip, "Posición X", "x", -100.0, 100.0, 1.0, "%");
+        kf_range(ui, e, app, clip, "Posición Y", "y", -100.0, 100.0, 1.0, "%");
+        kf_range(ui, e, app, clip, "Rotación", "rotate", -180.0, 180.0, 1.0, "°");
+        align_bar(ui, e, app, clip);
     });
     group(ui, "Mezcla", true, |ui| {
         if secondary_button(ui, "↺ Restablecer mezcla").clicked() {
+            let mut w = working_clip(e, clip);
+            cupcraft_core::keyframes::clear_prop(&mut w, "opacity");
+            commit_keyframes(e, &w);
             cset(e, "opacity", json!(1.0));
         }
-        if let Some(v) = range(ui, e, "Opacidad", clip.opacity, 0.0, 100.0, 1.0, 0.01, "%") {
-            cset(e, "opacity", json!(v));
-        }
+        kf_range(ui, e, app, clip, "Opacidad", "opacity", 0.0, 100.0, 0.01, "%");
     });
 
     sw(ui, e, clip, "Desenfoque de zona", "aiRemove", "Difumina/borra una zona concreta del clip (funciona en local).");
@@ -471,7 +561,7 @@ fn video_basic(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> bo
     let mut all = false;
     ui.add_space(6.0);
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Lienzo").size(12.5).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr("Lienzo")).size(12.5).color(theme::TEXT).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             all = secondary_button(ui, "Aplicar a todo").clicked();
         });
@@ -531,7 +621,7 @@ fn apply_to_all(app: &mut CupApp, clip: &Clip) {
 /// Eliminar fondo. Devuelve `true` si se pulsó «Recortar con una máscara».
 fn cutout_tab(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> bool {
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Eliminación automática").size(12.0).color(theme::TEXT));
+        ui.label(egui::RichText::new(crate::i18n::tr("Eliminación automática")).size(12.0).color(theme::TEXT));
         badge(ui, "IA");
     });
     sw(ui, e, clip, "Activar", "autoCutout", "");
@@ -566,9 +656,9 @@ fn cutout_tab(ui: &mut egui::Ui, e: &mut Edit, app: &CupApp, clip: &Clip) -> boo
     let cur_bg = exs(clip, "autoCutoutBg", "");
     let cur_name = images.iter().find(|(i, _)| i == cur_bg).map(|(_, n)| n.as_str()).unwrap_or("Sin foto de fondo");
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Foto del fondo").size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("Foto del fondo")).size(11.5).color(theme::MUTED));
         egui::ComboBox::from_id_salt("cutout-bg-plate").selected_text(cur_name).show_ui(ui, |ui| {
-            if ui.selectable_label(cur_bg.is_empty(), "Sin foto de fondo").clicked() {
+            if ui.selectable_label(cur_bg.is_empty(), crate::i18n::tr("Sin foto de fondo")).clicked() {
                 cset(e, "autoCutoutBg", Value::Null);
             }
             for (mid, name) in &images {
@@ -676,7 +766,7 @@ fn mask_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip) {
     let mut m = obj(clip, "mask");
     let mut dirty = false;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Máscara").size(12.5).color(theme::TEXT).strong());
+        ui.label(egui::RichText::new(crate::i18n::tr("Máscara")).size(12.5).color(theme::TEXT).strong());
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if secondary_button(ui, "🗑 Quitar").clicked() {
                 m.insert("shape".into(), json!("none"));
@@ -923,7 +1013,10 @@ fn fx_thumb(ctx: &egui::Context, id: &str) -> egui::TextureHandle {
     }
     let (w, h) = (96usize, 60usize);
     let mut px = sample_scene(w, h);
-    if let Some(wp) = paint::warp_for(id, None) {
+    // Con sus valores por defecto algunos efectos son la identidad (p. ej. la
+    // escala al 100 %); la miniatura usa una muestra que sí se ve.
+    let demo = (id == "mov_scaleassist").then(|| json!({ "scale": 150.0 }));
+    if let Some(wp) = paint::warp_for(id, demo.as_ref()) {
         px = paint::warp_rgba(&px, w, h, &wp);
     }
     if let Some(css) = crate::fx_library::css_for(id, None) {
@@ -986,6 +1079,21 @@ fn effects_tab(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip, cat: &str) {
         let mut m = obj(clip, "effectParams");
         let mut dirty = false;
         for prm in def.params {
+            if !prm.choices.is_empty() {
+                let cur = (mn(&m, prm.key, prm.default) as usize).min(prm.choices.len() - 1);
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(crate::i18n::tr(&prm.label)).size(12.0).color(theme::TEXT));
+                    egui::ComboBox::from_id_salt(("fx-choice", prm.key)).selected_text(prm.choices[cur]).show_ui(ui, |ui| {
+                        for (n, name) in prm.choices.iter().enumerate() {
+                            if ui.selectable_label(n == cur, *name).clicked() && n != cur {
+                                m.insert(prm.key.into(), json!(n));
+                                dirty = true;
+                            }
+                        }
+                    });
+                });
+                continue;
+            }
             nested_range(ui, e, &mut m, &mut dirty, prm.label, prm.key, prm.default, prm.min, prm.max, 1.0, prm.unit);
         }
         if dirty {
@@ -1027,9 +1135,9 @@ fn adjust_basic(ui: &mut egui::Ui, e: &mut Edit, clip: &Clip) {
         .unwrap_or("Ninguno");
     let mut lut: Option<&str> = None;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("LUT").size(11.5).color(theme::MUTED));
+        ui.label(egui::RichText::new(crate::i18n::tr("LUT")).size(11.5).color(theme::MUTED));
         egui::ComboBox::from_id_salt("clip-lut").selected_text(cur).width(170.0).show_ui(ui, |ui| {
-            if ui.selectable_label(clip.filter == "none", "Ninguno").clicked() {
+            if ui.selectable_label(clip.filter == "none", crate::i18n::tr("Ninguno")).clicked() {
                 lut = Some("none");
             }
             for f in cupcraft_core::FILTERS.iter() {
@@ -1279,7 +1387,7 @@ fn footer(ui: &mut egui::Ui, _e: &mut Edit, clip: &Clip) -> bool {
     );
     ui.add_space(4.0);
     let w = ui.available_width();
-    ui.add_sized([w, 26.0], egui::Button::new(egui::RichText::new("↺ Restablecer ajustes").color(theme::TEXT)).frame(true))
+    ui.add_sized([w, 26.0], egui::Button::new(egui::RichText::new(crate::i18n::tr("↺ Restablecer ajustes")).color(theme::TEXT)).frame(true))
         .clicked()
 }
 

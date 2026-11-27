@@ -29,7 +29,7 @@ pub enum Op {
     TileShift, HexRot, HexShift, Squeeze, View360, Reorient, StretchSeg, Bend, Curl,
     Magnify, Glass, DispMap, PolarDisp, OminoGlass, LiquidGlass, PageCurl,
     Shake, Jitter, Oscillate, Swing, Spin, PulseSize, StretchAxis, Offset, Raster,
-    MovePath, ScaleAssist, Echo, RepTile, RepLinear, RepRadial, RepScatter, RepField,
+    MovePath, Echo, RepTile, RepLinear, RepRadial, RepScatter, RepField,
     RepPath, Feedback, Spherize, Tunnel, FlipLayer, BeatZoom,
     // ---- Estilizar ----
     Glitch, Cartoon, OminoDiff, HexArray, Outline, Glow, LightGlow, SoftGlow, DeepGlow,
@@ -594,10 +594,6 @@ fn remap_fn(op: Op) -> Option<MapFn> {
             // Recorre una curva en ocho a lo largo del clip.
             let u = if p.dur > 0.0 { (p.t / p.dur).clamp(0.0, 1.0) } else { 0.25 } * TAU;
             (x - p.a * 0.25 * p.w * u.sin(), y - p.a * 0.18 * p.h * (2.0 * u).sin())
-        },
-        Op::ScaleAssist => |x, y, p, _| {
-            let k = 1.0 / (1.0 + p.a * (p.d / 20.0 + 0.2));
-            (p.cx + (x - p.cx) * k, p.cy + (y - p.cy) * k)
         },
         Op::RepRadial => |x, y, p, _| {
             let n = (1.0 + p.a * p.d.max(2.0)).round().max(1.0);

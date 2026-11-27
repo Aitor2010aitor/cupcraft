@@ -1,0 +1,173 @@
+Archivos
+Archivos multimedia
+Filtros
+Plantillas
+Subtít.
+Subtítulos
+Transic.
+Transiciones
+Ajuste
+Stickers
+Texto a voz (Beta)
+En pruebas: puede fallar o sonar raro.
++ Añadir texto predeterminado
++ Importar
++ Importar audio
+Abrir
+Abrir carpeta
+Abrir carpeta de datos
+Abrir proyecto desde archivo
+Adelgazar
+Aislar voz
+Ajustar
+Ajuste manual
+Ajustes
+Almacenamiento
+Animación
+Aplicar a todo
+Arrastra los clips para moverlos, usa los tiradores de los extremos para recortar y pulsa B para dividir en el cursor.
+Atajos
+Atajos de teclado
+Atrás
+Audio
+Audio del proyecto
+Añadir subtítulos
+Aún no hay audio. Importa música o efectos de sonido desde tu equipo.
+Biblioteca de efectos
+Buscar audio
+Buscar categorías de stickers
+Buscar efectos
+Buscar en tus medios
+Buscar estilos
+Buscar filtros
+Buscar transiciones
+Básico
+Cambia el tono como en los vídeos de TikTok (ardilla, grave, robot…). Se aplica con FFmpeg, sin internet.
+Cancelar
+Cerrar
+Color del resalte
+Completar canal
+Consejo: mantén Alt al arrastrar un clip para desactivar temporalmente el imán.
+Contenido
+Continuar
+Copiar
+Decidir más tarde
+Descargar .txt
+Descargar motor y modelo
+Descartar
+Dientes
+Efecto de los subtítulos
+Efecto karaoke (estilo TikTok)
+Efectos
+Efectos de video
+Efectos que se aplican al texto seleccionado.
+El efecto se añade como capa en el cursor y afecta a todo lo que hay debajo.
+El filtro de voz se aplica al audio del clip en la vista previa y en la exportación.
+El párrafo se ve entero y la palabra que se dice cambia de color a medida que avanza.
+Elige el color y, luego, ajusta la intensidad.
+Elige una burbuja: se aplica al texto seleccionado.
+Entendido
+Este efecto no tiene propiedades configurables.
+Estilo
+Estilo CapCut
+Estilo de voz
+Estilo preestablecido
+Estándar
+Exportar
+Exportar video
+Generando…
+Genial
+Grabar voz en off
+Guardar
+Guardar como ajuste
+Guardar proyecto como archivo
+Guardar y salir
+Hay que descargar el motor y el modelo una sola vez (~140 MB).
+Hora en UTC.
+Idioma
+Idioma de la app
+Idioma de la voz
+Importar SRT/VTT
+Integraciones
+La exportación anterior se canceló.
+La grabación se inserta en el cursor como un clip de audio.
+Las curvas de velocidad marcan aceleraciones progresivas dentro del clip.
+Listo
+Local · sin cuenta
+Los ajustes de color se aplican a clips de video o imagen.
+Los efectos se aplican a clips de video, imagen, texto o sticker.
+Los proyectos y medios se guardan en %LOCALAPPDATA%\openCUP. La exportación usa FFmpeg si está disponible en el equipo.
+Los proyectos, medios y ajustes se guardan en %LOCALAPPDATA%\openCUP. No se necesitan permisos de administrador.
+Mejorar voz
+Modo
+Más voces
+No hay entradas.
+No hay notificaciones nuevas. cupcraft funciona sin conexión.
+No hay otros proyectos todavía. Crea uno nuevo desde el menú o vuelve al inicio.
+No hay voces instaladas. Descarga una en «Más voces», abajo.
+Ojos
+Pistas
+Preferencias
+Procesando…
+Propiedades
+Proyecto de CapCut
+Proyectos
+Proyectos secundarios
+Puente IA
+Quitar filtro
+Quitar fondo
+Quitar todos los subtítulos
+Quitar transición
+Recortar con una máscara
+Reducir el ruido
+Reportar en GitHub
+Reportar problema
+Restablecer
+Retoque
+Se usa Piper, un motor local (~25 MB + una voz). No se envía nada a internet. Se descarga una sola vez.
+Selecciona un clip con audio para ajustar su volumen.
+Selecciona un clip de video o imagen para ajustarlo.
+Si eliges «No», el proyecto no se guarda y se pierden los cambios de esta sesión.
+Si se desactiva, el audio mantiene su tono al cambiar la velocidad.
+Sin animación
+Subtítulos automáticos
+Subtítulos manuales
+Sí, guardar
+Tema
+Texto
+Texto del clip
+Tipo de seguimiento
+Tipografía
+Todas las funciones de esta versión están disponibles sin suscripción. Tus archivos nunca salen de tu equipo.
+Todos
+Traductor de videos
+Una línea por subtítulo. Se colocan uno tras otro desde el cursor.
+Vaciar
+Ver
+Video, imagen o audio desde tu equipo
+Voces de la colección pública de Piper (Hugging Face). Solo se descargan cuando pulsas el botón.
+Volver a buscar
+Volver a intentarlo
+Voz
+Vídeo / Audio a transcribir
+Zona a eliminar
+↺ Restablecer estilo de texto
+↺ Restablecer mezcla
+↺ Restablecer propiedades
+↺ Restablecer transformación
+↺ Sin animación
+⊘ Sin estilo
+✨ Generar subtítulos con IA…
+✨ Iniciar generación
+🎙 Grabar con el micrófono
+🎤 Abrir Texto a voz completo
+🗑 Quitar
+Quitar fotograma clave aquí
+Añadir fotograma clave en este instante
+Animar: crear fotograma clave en este instante
+Exportar plantilla de idioma
+Importar idioma…
+¿Falta tu idioma? Exporta la plantilla, tradúcela (a mano o con una IA) y vuelve a importarla.
+Plantilla guardada
+Idioma importado
+El archivo no es una plantilla de idioma válida

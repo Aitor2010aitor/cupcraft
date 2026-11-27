@@ -45,6 +45,8 @@ pub struct FxParam {
     pub default: f64,
     pub unit: &'static str,
     func: Func,
+    /// No vacío: parámetro de elección (el valor guardado es el índice).
+    pub choices: &'static [&'static str],
 }
 
 /// Definición de un efecto de la biblioteca.
@@ -67,7 +69,11 @@ const fn p(
     unit: &'static str,
     func: Func,
 ) -> FxParam {
-    FxParam { key, label, min, max, default, unit, func }
+    FxParam { key, label, min, max, default, unit, func, choices: &[] }
+}
+
+const fn pc(key: &'static str, label: &'static str, default: f64, choices: &'static [&'static str]) -> FxParam {
+    FxParam { key, label, min: 0.0, max: (choices.len() - 1) as f64, default, unit: "", func: Func::Warp, choices }
 }
 
 const fn fx(
@@ -135,6 +141,11 @@ const P_DUO: &[FxParam] = &[
 // Efectos geométricos reales (deformación de coordenadas en `paint::warp_rgba`).
 const P_WARP: &[FxParam] = &[
     p("amount", "Cantidad", 0.0, 100.0, 50.0, "%", Func::Warp),
+];
+const P_SCALEASSIST: &[FxParam] = &[
+    pc("axis", "Eje", 3.0, &["X", "Y", "X,Y", "X,-Y"]),
+    p("scale", "Escala", 0.0, 99999.0, 100.0, "%", Func::Warp),
+    p("damping", "Amortiguación", 0.0, 99999.0, 100.0, "%", Func::Warp),
 ];
 const P_WARP_DETAIL: &[FxParam] = &[
     p("amount", "Cantidad", 0.0, 100.0, 50.0, "%", Func::Warp),
@@ -396,7 +407,7 @@ pub const LIBRARY: &[FxDef] = &[
     fx("mov_offset", "Desplazamiento", "Movimiento", P_WARP_DETAIL, false),
     fx("mov_rastertransform", "Transformación ráster", "Movimiento", P_WARP, false),
     fx("mov_alongpath", "Mover a lo largo de ruta", "Movimiento", P_WARP, false),
-    fx("mov_scaleassist", "Asistente de escala", "Movimiento", P_WARP_DETAIL, false),
+    fx("mov_scaleassist", "Asistente de escala", "Movimiento", P_SCALEASSIST, false),
     fx("mov_parenting", "Asistente de vinculación", "Movimiento", P_GRADE, true),
     fx("mov_echokeys", "Eco de fotogramas", "Movimiento", P_WARP_DETAIL, false),
     fx("mov_framerate", "Tasa de fotogramas", "Movimiento", P_FPS, false),

@@ -763,66 +763,106 @@ main > section#herramientas > .wrap, main > section#versiones > .wrap, main > se
 .bug-fab:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 560px) { .bug-fab { right: 14px; bottom: 14px; padding: 12px; } .bug-fab span { display: none; } }
 </style>
-<a class="bug-fab js-bug" href="https://github.com/Aitor2010aitor/cupcraft/issues/new?labels=bug" rel="noopener" target="_blank" title="Reportar un bug en GitHub">
+<a class="bug-fab js-bug" href="#" role="button" title="Reportar un bug en GitHub">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7a4 4 0 0 1 8 0"/><rect x="7" y="7" width="10" height="13" rx="5"/><path d="M12 11v9M3 12h4M17 12h4M4 19l3-2M20 19l-3-2M4 5l3 2M20 5l-3 2"/></svg>
   <span>Reportar un bug</span>
 </a>
+<style>
+.bug-dlg { border: 1px solid color-mix(in oklab, var(--ink) 16%, transparent); border-radius: 18px; padding: 0; width: min(560px, calc(100vw - 28px)); max-height: calc(100vh - 28px); background: var(--card, var(--surface, var(--bg))); color: var(--ink); box-shadow: 0 30px 80px -20px rgb(0 0 0 / .6); }
+.bug-dlg::backdrop { background: rgb(0 0 0 / .55); backdrop-filter: blur(3px); }
+.bug-dlg form { display: grid; gap: 14px; padding: 24px; }
+.bug-dlg h2 { margin: 0; font-size: 22px; }
+.bug-dlg p.bug-sub { margin: -6px 0 0; font-size: 14px; opacity: .75; }
+.bug-dlg label { display: grid; gap: 6px; font: 600 13px/1.2 var(--font-text, system-ui); }
+.bug-dlg input, .bug-dlg select, .bug-dlg textarea { font: 400 15px/1.4 var(--font-text, system-ui); color: var(--ink); background: color-mix(in oklab, var(--ink) 6%, transparent); border: 1px solid color-mix(in oklab, var(--ink) 18%, transparent); border-radius: 10px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+.bug-dlg select option { color: #111; background: #fff; }
+.bug-dlg textarea { min-height: 84px; resize: vertical; }
+.bug-dlg input:focus, .bug-dlg select:focus, .bug-dlg textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.bug-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .bug-row { grid-template-columns: 1fr; } }
+.bug-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.bug-actions button { font: 600 14px/1 var(--font-text, system-ui); border-radius: 999px; padding: 12px 18px; cursor: pointer; border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent); background: transparent; color: var(--ink); }
+.bug-actions button.bug-go { background: var(--accent); color: #fff; border-color: transparent; }
+.bug-note { font-size: 12px; opacity: .65; margin: 0; }
+</style>
+<dialog class="bug-dlg" id="bugDlg" aria-labelledby="bugTitle">
+  <form method="dialog" id="bugForm" novalidate>
+    <h2 id="bugTitle"></h2>
+    <p class="bug-sub" id="bugSub"></p>
+    <label><span data-k="fTitle"></span><input id="bgT" type="text" maxlength="120" required></label>
+    <div class="bug-row">
+      <label><span data-k="fCat"></span><select id="bgC"></select></label>
+      <label><span data-k="fOs"></span><select id="bgO"></select></label>
+    </div>
+    <label><span data-k="fVer"></span><input id="bgV" type="text" maxlength="30" placeholder="0.4.12"></label>
+    <label><span data-k="fWhat"></span><textarea id="bgW" maxlength="1500" required></textarea></label>
+    <label><span data-k="fSteps"></span><textarea id="bgS" maxlength="1500" placeholder="1. &#10;2. &#10;3. "></textarea></label>
+    <label><span data-k="fExp"></span><textarea id="bgE" maxlength="800"></textarea></label>
+    <p class="bug-note" data-k="note"></p>
+    <div class="bug-actions">
+      <button type="button" id="bgX" data-k="cancel"></button>
+      <button type="button" class="bug-go" id="bgGo" data-k="send"></button>
+    </div>
+  </form>
+</dialog>
 <script>
 (function () {
-  var T = {
-    es: { title: '[Bug] ', body: `## ¿Qué pasó?
-(Describe el problema)
-
-## ¿Cómo reproducirlo?
-1. 
-2. 
-3. 
-
-## ¿Qué esperabas que pasara?
-
-
-## Entorno
-` },
-    en: { title: '[Bug] ', body: `## What happened?
-(Describe the problem)
-
-## How to reproduce it?
-1. 
-2. 
-3. 
-
-## What did you expect?
-
-
-## Environment
-` },
-    fr: { title: '[Bug] ', body: `## Que s’est-il passé ?
-(Décris le problème)
-
-## Comment le reproduire ?
-1. 
-2. 
-3. 
-
-## Qu’attendais-tu ?
-
-
-## Environnement
-` }
+  var REPO = 'https://github.com/Aitor2010aitor/cupcraft/issues/new';
+  var L = {
+    es: { h: 'Reportar un bug', sub: 'Rellena esto y te abrimos GitHub con el ticket ya preparado. Solo tienes que pulsar «Submit new issue» (necesitas una cuenta gratis de GitHub).',
+      fTitle: 'Título', fCat: 'Categoría', fOs: 'Sistema', fVer: 'Versión de cupcraft', fWhat: '¿Qué pasó?', fSteps: '¿Cómo se reproduce?', fExp: '¿Qué esperabas que pasara?',
+      note: 'Al enviar se abre GitHub en otra pestaña con todo rellenado.', cancel: 'Cancelar', send: 'Abrir en GitHub', err: 'Escribe un título y cuenta qué pasó.',
+      cats: ['Editor y línea de tiempo', 'Exportar vídeo', 'Subtítulos y voz (IA)', 'Efectos, filtros y transiciones', 'Instalación y actualización', 'Rendimiento o se cuelga', 'Página web', 'Otro'], env: 'Entorno' },
+    en: { h: 'Report a bug', sub: 'Fill this in and we will open GitHub with the ticket ready. You only need to press “Submit new issue” (a free GitHub account is required).',
+      fTitle: 'Title', fCat: 'Category', fOs: 'System', fVer: 'cupcraft version', fWhat: 'What happened?', fSteps: 'How to reproduce it?', fExp: 'What did you expect?',
+      note: 'GitHub opens in a new tab with everything filled in.', cancel: 'Cancel', send: 'Open on GitHub', err: 'Write a title and describe what happened.',
+      cats: ['Editor and timeline', 'Video export', 'Subtitles and voice (AI)', 'Effects, filters and transitions', 'Install and update', 'Slow or freezes', 'Website', 'Other'], env: 'Environment' },
+    fr: { h: 'Signaler un bug', sub: 'Remplis ceci et nous ouvrons GitHub avec le ticket déjà prêt. Il te reste à cliquer sur « Submit new issue » (compte GitHub gratuit requis).',
+      fTitle: 'Titre', fCat: 'Catégorie', fOs: 'Système', fVer: 'Version de cupcraft', fWhat: 'Que s’est-il passé ?', fSteps: 'Comment le reproduire ?', fExp: 'Qu’attendais-tu ?',
+      note: 'GitHub s’ouvre dans un nouvel onglet, tout est déjà rempli.', cancel: 'Annuler', send: 'Ouvrir sur GitHub', err: 'Écris un titre et décris ce qui s’est passé.',
+      cats: ['Éditeur et timeline', 'Export vidéo', 'Sous-titres et voix (IA)', 'Effets, filtres et transitions', 'Installation et mise à jour', 'Lenteur ou plantage', 'Site web', 'Autre'], env: 'Environnement' }
   };
-  function url() {
-    var t = T[document.documentElement.lang] || T.es;
-    var body = t.body + `- Web: ${location.href.split('#')[0]}
-- Navegador / Browser: ${navigator.userAgent}
-- Pantalla / Screen: ${screen.width}x${screen.height}
-`;
-    return 'https://github.com/Aitor2010aitor/cupcraft/issues/new?labels=bug&title=' + encodeURIComponent(t.title) + '&body=' + encodeURIComponent(body);
+  var OS = ['Windows', 'Linux', 'macOS'];
+  var dlg = document.getElementById('bugDlg');
+  if (!dlg || !dlg.showModal) return;
+  function $(id) { return document.getElementById(id); }
+  function lang() { var l = document.documentElement.lang; return L[l] ? l : 'es'; }
+  function render() {
+    var t = L[lang()];
+    $('bugTitle').textContent = t.h; $('bugSub').textContent = t.sub;
+    dlg.querySelectorAll('[data-k]').forEach(function (n) { n.textContent = t[n.getAttribute('data-k')]; });
+    var c = $('bgC'), keep = c.selectedIndex;
+    c.innerHTML = '';
+    t.cats.forEach(function (x) { var o = document.createElement('option'); o.textContent = x; c.appendChild(o); });
+    c.selectedIndex = keep > 0 ? keep : 0;
+    var o = $('bgO');
+    if (!o.options.length) {
+      OS.forEach(function (x) { var p = document.createElement('option'); p.textContent = x; o.appendChild(p); });
+      var ua = navigator.userAgent; o.selectedIndex = /Linux/.test(ua) && !/Android/.test(ua) ? 1 : /Mac/.test(ua) ? 2 : 0;
+    }
   }
-  document.querySelectorAll('.js-bug').forEach(function (a) {
-    a.addEventListener('click', function () { a.href = url(); });
-    a.addEventListener('focus', function () { a.href = url(); });
-    a.addEventListener('mouseenter', function () { a.href = url(); });
-  });
+  function open(e) { if (e) e.preventDefault(); render(); dlg.showModal(); $('bgT').focus(); }
+  function send() {
+    var t = L[lang()], title = $('bgT').value.trim(), what = $('bgW').value.trim();
+    if (!title || !what) { $('bgT').style.borderColor = title ? '' : '#e5484d'; $('bgW').style.borderColor = what ? '' : '#e5484d'; alert(t.err); return; }
+    var cat = $('bgC').value, nl = String.fromCharCode(10);
+    var body = '**' + t.fCat + ':** ' + cat + nl + nl
+      + '## ' + t.fWhat + nl + what + nl + nl
+      + '## ' + t.fSteps + nl + ($('bgS').value.trim() || '-') + nl + nl
+      + '## ' + t.fExp + nl + ($('bgE').value.trim() || '-') + nl + nl
+      + '## ' + t.env + nl
+      + '- cupcraft: ' + ($('bgV').value.trim() || '?') + nl
+      + '- ' + t.fOs + ': ' + $('bgO').value + nl
+      + '- Web: ' + location.href.split('#')[0] + nl
+      + '- Browser: ' + navigator.userAgent + nl;
+    var url = REPO + '?labels=bug&title=' + encodeURIComponent('[Bug] [' + cat + '] ' + title) + '&body=' + encodeURIComponent(body);
+    window.open(url, '_blank', 'noopener');
+    dlg.close();
+  }
+  document.querySelectorAll('.js-bug').forEach(function (a) { a.addEventListener('click', open); });
+  $('bgGo').addEventListener('click', send);
+  $('bgX').addEventListener('click', function () { dlg.close(); });
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
 })();
 </script>
 </body>

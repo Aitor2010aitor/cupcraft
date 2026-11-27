@@ -289,6 +289,8 @@
       'La vista previa y el arrastre en el escenario respetan los keyframes.': 'The preview and dragging on the stage follow the keyframes.',
       'Idioma de la app: español, inglés, francés, alemán, portugués, ruso, japonés y chino.': 'App language: Spanish, English, French, German, Portuguese, Russian, Japanese and Chinese.',
       '¿Falta tu idioma? Exporta una plantilla JSON, tradúcela (a mano o con una IA) e impórtala.': 'Missing your language? Export a JSON template, translate it (by hand or with an AI) and import it.',
+      'Reportar un bug': 'Report a bug',
+      'Reportar un bug en GitHub': 'Report a bug on GitHub',
     },
     fr: {
       'cupcraft: el editor de vídeo gratis y open source': 'cupcraft : l’éditeur vidéo gratuit et open source',
@@ -580,6 +582,8 @@
       'La vista previa y el arrastre en el escenario respetan los keyframes.': 'L’aperçu et le glisser sur la scène respectent les keyframes.',
       'Idioma de la app: español, inglés, francés, alemán, portugués, ruso, japonés y chino.': 'Langue de l’app : espagnol, anglais, français, allemand, portugais, russe, japonais et chinois.',
       '¿Falta tu idioma? Exporta una plantilla JSON, tradúcela (a mano o con una IA) e impórtala.': 'Ta langue manque ? Exporte un modèle JSON, traduis-le (à la main ou avec une IA) et importe-le.',
+      'Reportar un bug': 'Signaler un bug',
+      'Reportar un bug en GitHub': 'Signaler un bug sur GitHub',
     }
   };
 

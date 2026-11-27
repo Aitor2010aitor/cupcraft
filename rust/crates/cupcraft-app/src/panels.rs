@@ -1333,7 +1333,7 @@ fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
         .open(&mut open)
         .collapsible(false)
         .resizable(false)
-        .fixed_size(Vec2::new(470.0, 0.0))
+        .default_width(470.0)
         .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
         .show(ctx, |ui| {
             let t = ui.input(|i| i.time);

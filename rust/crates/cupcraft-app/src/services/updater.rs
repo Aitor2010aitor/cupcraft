@@ -69,16 +69,17 @@ fn platform_key() -> String {
     format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
 }
 
-/// Compara versiones tipo `0.4.6` / `v0.4.6` (ignora sufijos como `-beta`).
+/// Compara versiones tipo `0.4.6` / `v0.4.6` / `0.4.8.1`. Un sufijo numérico
+/// (`0.4.8-1`, la forma de Cargo de `0.4.8.1`) cuenta como un cuarto número;
+/// otros sufijos como `-beta` se ignoran.
 fn parse_version(v: &str) -> Vec<u64> {
-    v.trim()
-        .trim_start_matches('v')
-        .split(['-', '+'])
-        .next()
-        .unwrap_or("")
-        .split('.')
-        .map(|p| p.parse::<u64>().unwrap_or(0))
-        .collect()
+    let v = v.trim().trim_start_matches('v');
+    let mut parts = v.split(['-', '+']);
+    let mut out: Vec<u64> = parts.next().unwrap_or("").split('.').map(|p| p.parse::<u64>().unwrap_or(0)).collect();
+    if let Some(n) = v.split_once('-').and_then(|(_, rest)| rest.parse::<u64>().ok()) {
+        out.push(n);
+    }
+    out
 }
 
 fn is_newer(remote: &str, local: &str) -> bool {
@@ -328,5 +329,9 @@ mod tests {
         assert!(!is_newer("0.4.5", "0.4.5"));
         assert!(!is_newer("0.4.4", "0.4.5"));
         assert!(!is_newer("0.4.5-beta", "0.4.5"));
+        assert!(is_newer("0.4.8.1", "0.4.8"));
+        assert!(is_newer("0.4.8-1", "0.4.8"));
+        assert!(!is_newer("0.4.8.1", "0.4.8-1"));
+        assert!(is_newer("0.4.9", "0.4.8-1"));
     }
 }

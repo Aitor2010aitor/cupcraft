@@ -25,6 +25,8 @@ jobs:
         shell: bash
         run: |
           cargo_version=$(grep -m1 '^version' rust/Cargo.toml | sed 's/.*"\(.*\)".*/\1/')
+          # Cargo no admite 0.4.8.1: se escribe 0.4.8-1 y aquí se publica como 0.4.8.1
+          cargo_version=$(echo "$cargo_version" | sed -E 's/-([0-9]+)$/.\1/')
           echo "version=$cargo_version" >> "$GITHUB_OUTPUT"
           if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$cargo_version" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} does not match the version in rust/Cargo.toml ($cargo_version). Bump it first, otherwise the updater would loop."

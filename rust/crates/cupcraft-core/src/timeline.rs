@@ -69,10 +69,10 @@ pub fn make_clip(kind: ClipKind, name: impl Into<String>, start: f64, duration: 
     }
 }
 
-/// Pistas entre las que un clip puede cambiar de capa: del mismo tipo, o
-/// vídeo ↔ superposición.
-pub fn tracks_compatible(a: TrackType, b: TrackType) -> bool {
-    a == b || (matches!(a, TrackType::Video | TrackType::Overlay) && matches!(b, TrackType::Video | TrackType::Overlay))
+/// Un clip puede ir a cualquier pista: vídeo, audio, texto o superposición
+/// (el tipo de pista solo organiza; qué se ve u oye lo decide el clip).
+pub fn tracks_compatible(_a: TrackType, _b: TrackType) -> bool {
+    true
 }
 
 impl Project {
@@ -1059,16 +1059,16 @@ mod tests {
     }
 
     #[test]
-    fn move_clip_refuses_track_of_other_type() {
+    fn move_clip_accepts_track_of_other_type() {
         let mut p = Project::new("Demo");
         let clip = p
             .add_media_clip(None, ClipKind::Image, "x.png", 5.0, None, None)
             .unwrap();
         let audio = p.tracks[2].id.clone();
         p.move_clip(&clip, Some(0.0), Some(&audio));
-        // Sigue en la pista de vídeo.
-        assert_eq!(p.tracks[1].clips.len(), 1);
-        assert!(p.tracks[2].clips.is_empty());
+        // Cualquier clip puede ir a cualquier pista.
+        assert!(p.tracks[1].clips.is_empty());
+        assert_eq!(p.tracks[2].clips.len(), 1);
     }
 
     #[test]

@@ -576,7 +576,7 @@ html.rv-on .rv.is-in { opacity: 1; transform: none; filter: none; }
 <script>
 (function () {
   if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var sel = '.hero__text > *, .shot, main h2, main .grid > div, .tools__group, .tools__group li, .ver, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
+  var sel = '.hero__text > *, .shot, .gal__item figcaption, main h2, main .grid > div, .tools__group, .tools__group li, .ver, .stat, .faq__item, .panel, .closing__cta, .closing__links, .close__word, footer .wrap > *';
   var all = Array.prototype.slice.call(document.querySelectorAll(sel)).filter(function (el) { return !el.matches('.hero__text'); });
   var els = all.filter(function (el) {
     return !all.some(function (o) { return o !== el && o.contains(el) && !o.classList.contains('tools__group'); });
@@ -700,7 +700,7 @@ document.querySelectorAll('main h1, main h2, main h3, main p, main li > span, ma
 .vers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-5, 24px); margin-top: var(--s-7, 48px); }
 .ver { background: var(--surface); border-radius: var(--r-lg, 14px); padding: var(--s-6, 32px); display: flex; flex-direction: column; gap: 10px; }
 .ver--now { grid-column: 1 / -1; background: var(--action); color: var(--action-ink); }
-.ver--now ul, .ver--now small { color: inherit; }
+.ver.ver--now ul, .ver.ver--now small { color: inherit; }
 .ver header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ver__n { font: 500 14px/1 var(--font-mono); padding: 6px 10px; border-radius: 999px; background: color-mix(in oklab, currentColor 12%, transparent); }
 .ver small { font-size: 13px; opacity: .75; }

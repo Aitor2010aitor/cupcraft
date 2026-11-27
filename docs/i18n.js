@@ -284,6 +284,11 @@
       'Exportar': 'Export',
       'MP4 o WebM, hasta 4K.': 'MP4 or WebM, up to 4K.',
       'Diálogo de exportar': 'Export dialog',
+      'Keyframes con rombos y 8 idiomas': 'Diamond keyframes and 8 languages',
+      'Rombos de keyframes en Escala, Posición, Rotación y Opacidad: anima cualquier propiedad en el tiempo.': 'Keyframe diamonds on Scale, Position, Rotation and Opacity: animate any property over time.',
+      'La vista previa y el arrastre en el escenario respetan los keyframes.': 'The preview and dragging on the stage follow the keyframes.',
+      'Idioma de la app: español, inglés, francés, alemán, portugués, ruso, japonés y chino.': 'App language: Spanish, English, French, German, Portuguese, Russian, Japanese and Chinese.',
+      '¿Falta tu idioma? Exporta una plantilla JSON, tradúcela (a mano o con una IA) e impórtala.': 'Missing your language? Export a JSON template, translate it (by hand or with an AI) and import it.',
     },
     fr: {
       'cupcraft: el editor de vídeo gratis y open source': 'cupcraft : l’éditeur vidéo gratuit et open source',
@@ -570,6 +575,11 @@
       'Exportar': 'Exporter',
       'MP4 o WebM, hasta 4K.': 'MP4 ou WebM, jusqu’en 4K.',
       'Diálogo de exportar': 'Fenêtre d’exportation',
+      'Keyframes con rombos y 8 idiomas': 'Keyframes en losanges et 8 langues',
+      'Rombos de keyframes en Escala, Posición, Rotación y Opacidad: anima cualquier propiedad en el tiempo.': 'Losanges de keyframes sur Échelle, Position, Rotation et Opacité : anime n’importe quelle propriété dans le temps.',
+      'La vista previa y el arrastre en el escenario respetan los keyframes.': 'L’aperçu et le glisser sur la scène respectent les keyframes.',
+      'Idioma de la app: español, inglés, francés, alemán, portugués, ruso, japonés y chino.': 'Langue de l’app : espagnol, anglais, français, allemand, portugais, russe, japonais et chinois.',
+      '¿Falta tu idioma? Exporta una plantilla JSON, tradúcela (a mano o con una IA) e impórtala.': 'Ta langue manque ? Exporte un modèle JSON, traduis-le (à la main ou avec une IA) et importe-le.',
     }
   };
 

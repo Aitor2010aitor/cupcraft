@@ -842,37 +842,47 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
     let v = voices(false);
     let available = v.get("available").and_then(|b| b.as_bool()).unwrap_or(false);
     let list: Vec<Value> = v.get("voices").and_then(|a| a.as_array()).cloned().unwrap_or_default();
-    if !available || list.is_empty() {
+    let ready = available && !list.is_empty();
+    let mut do_install_piper = false;
+    if !available {
         egui::Frame::NONE.fill(theme::PANEL2).corner_radius(CornerRadius::from(6)).inner_margin(10).show(ui, |ui| {
-            ui.label(egui::RichText::new("Texto a voz sin conexión").color(theme::TEXT).strong());
-            hint(
-                ui,
-                "Se usa Piper (motor local). Coloca piper.exe y las voces .onnx en la carpeta tools\\piper junto a cupcraft.exe. No se envía nada a internet.",
-            );
-            if secondary_button(ui, "Volver a buscar voces").clicked() {
-                voices(true);
+            ui.label(egui::RichText::new("Falta el motor de voz").color(theme::TEXT).strong());
+            hint(ui, "Se usa Piper, un motor local (~25 MB + una voz). No se envía nada a internet. Se descarga una sola vez.");
+            ui.horizontal(|ui| {
+                if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar motor y voz")).clicked() {
+                    do_install_piper = true;
+                }
+                if secondary_button(ui, "Volver a buscar").clicked() {
+                    voices(true);
+                }
+            });
+            if let Some((msg, p)) = &app.voice_busy {
+                hint(ui, msg);
+                ui.add(egui::ProgressBar::new(*p).show_percentage());
             }
         });
-        return;
-    }
-    if app.tts_voice.is_empty() {
-        app.tts_voice = list[0].get("id").and_then(|s| s.as_str()).unwrap_or("").to_string();
-    }
-    section(ui, "Voz");
-    let cur_name = list
-        .iter()
-        .find(|x| paint::str_of(x, "id", "") == app.tts_voice)
-        .map(|x| paint::str_of(x, "name", "").to_string())
-        .unwrap_or_default();
-    egui::ComboBox::from_id_salt("tts-voice").width(ui.available_width() - 8.0).selected_text(cur_name).show_ui(ui, |ui| {
-        for x in &list {
-            let id = paint::str_of(x, "id", "");
-            let label = format!("{} · {}", paint::str_of(x, "name", id), paint::str_of(x, "lang", ""));
-            if ui.selectable_label(id == app.tts_voice, label).on_hover_text(paint::str_of(x, "description", "")).clicked() {
-                app.tts_voice = id.to_string();
-            }
+    } else if list.is_empty() {
+        hint(ui, "No hay voces instaladas. Descarga una en «Más voces», abajo.");
+    } else {
+        if app.tts_voice.is_empty() {
+            app.tts_voice = list[0].get("id").and_then(|s| s.as_str()).unwrap_or("").to_string();
         }
-    });
+        section(ui, "Voz");
+        let cur_name = list
+            .iter()
+            .find(|x| paint::str_of(x, "id", "") == app.tts_voice)
+            .map(|x| paint::str_of(x, "name", "").to_string())
+            .unwrap_or_default();
+        egui::ComboBox::from_id_salt("tts-voice").width(ui.available_width() - 8.0).selected_text(cur_name).show_ui(ui, |ui| {
+            for x in &list {
+                let id = paint::str_of(x, "id", "");
+                let label = format!("{} · {}", paint::str_of(x, "name", id), paint::str_of(x, "lang", ""));
+                if ui.selectable_label(id == app.tts_voice, label).on_hover_text(paint::str_of(x, "description", "")).clicked() {
+                    app.tts_voice = id.to_string();
+                }
+            }
+        });
+    }
     section(ui, "Texto");
     ui.add(egui::TextEdit::multiline(&mut app.tts_text).hint_text("Escribe lo que quieres que se lea").desired_rows(4).desired_width(f32::INFINITY));
     ui.horizontal(|ui| {
@@ -889,9 +899,9 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         }
     });
     ui.add_space(4.0);
-    ui.checkbox(&mut app.tts_captions, "Añadir subtítulos con karaoke");
+    ui.checkbox(&mut app.tts_captions, "Añadir subtítulos automáticos (karaoke)");
     ui.add_space(6.0);
-    ui.add_enabled_ui(!app.tts_busy && !app.tts_text.trim().is_empty(), |ui| {
+    ui.add_enabled_ui(ready && !app.tts_busy && !app.tts_text.trim().is_empty(), |ui| {
         if primary_button(ui, if app.tts_busy { "Generando…" } else { "Generar voz y añadir" }).clicked() {
             app.generate_tts();
         }
@@ -900,27 +910,32 @@ fn tts_panel(ui: &mut egui::Ui, app: &mut CupApp) {
         ui.spinner();
     }
 
-    section(ui, "Más voces");
-    hint(ui, "Voces de la colección pública de Piper (Hugging Face). Solo se descargan cuando pulsas el botón.");
-    let models = cupcraft_tts::models_dir(&CupApp::tts_root());
-    let mut to_install = None;
-    for cv in crate::services::voices::CATALOG {
-        let have = models.as_deref().map(|m| crate::services::voices::installed(m, cv.id)).unwrap_or(false);
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(cv.label).color(theme::TEXT));
-            ui.label(egui::RichText::new(cv.size).color(theme::MUTED));
-            if have {
-                ui.label(egui::RichText::new("Instalada").color(theme::MUTED));
-            } else if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar")).clicked() {
-                to_install = Some(cv.id);
-            }
-        });
+    if available {
+        section(ui, "Más voces");
+        hint(ui, "Voces de la colección pública de Piper (Hugging Face). Solo se descargan cuando pulsas el botón.");
+        let models = cupcraft_tts::models_dir(&CupApp::tts_root());
+        let mut to_install = None;
+        for cv in crate::services::voices::CATALOG {
+            let have = models.as_deref().map(|m| crate::services::voices::installed(m, cv.id)).unwrap_or(false);
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(cv.label).color(theme::TEXT));
+                ui.label(egui::RichText::new(cv.size).color(theme::MUTED));
+                if have {
+                    ui.label(egui::RichText::new("Instalada").color(theme::MUTED));
+                } else if ui.add_enabled(app.voice_busy.is_none(), egui::Button::new("Descargar")).clicked() {
+                    to_install = Some(cv.id);
+                }
+            });
+        }
+        if let Some((msg, p)) = &app.voice_busy {
+            ui.add(egui::ProgressBar::new(*p).text(msg.clone()));
+        }
+        if let Some(id) = to_install {
+            app.install_voice(id);
+        }
     }
-    if let Some((msg, p)) = &app.voice_busy {
-        ui.add(egui::ProgressBar::new(*p).text(msg.clone()));
-    }
-    if let Some(id) = to_install {
-        app.install_voice(id);
+    if do_install_piper {
+        app.install_piper();
     }
 }
 
@@ -1258,7 +1273,183 @@ pub fn parse_srt(text: &str) -> Vec<Value> {
     out
 }
 
+/// Vista previa animada de un efecto: «Hay una avispa» con la palabra activa resaltada.
+fn paint_fx_preview(ui: &mut egui::Ui, rect: egui::Rect, kara: bool, color: &str, pop: bool, t: f64) {
+    let p = ui.painter_at(rect);
+    p.rect_filled(rect, 6.0, Color32::from_rgb(0x1b, 0x1d, 0x24));
+    let words = ["Hay", "una", "avispa"];
+    let hot = paint::hex(color);
+    let idx = ((t / 0.6) as usize) % words.len();
+    let base = 18.0;
+    let font = |big: bool| egui::FontId::proportional(if big { base * 1.15 } else { base });
+    let gap = 6.0;
+    let galleys: Vec<_> = words
+        .iter()
+        .enumerate()
+        .map(|(i, w)| {
+            let on = kara && i == idx;
+            let c = if on { hot } else { Color32::WHITE };
+            p.layout_no_wrap(w.to_string(), font(on && pop), c)
+        })
+        .collect();
+    let total: f32 = galleys.iter().map(|g| g.size().x).sum::<f32>() + gap * 2.0;
+    let mut x = rect.center().x - total / 2.0;
+    for (i, g) in galleys.into_iter().enumerate() {
+        let lift = if kara && pop && i == idx { 3.0 } else { 0.0 };
+        let w = g.size().x;
+        let pos = egui::pos2(x, rect.center().y - g.size().y / 2.0 - lift);
+        p.galley(pos, g, Color32::WHITE);
+        x += w + gap;
+    }
+}
+
+/// Clips de vídeo/audio con medio, para elegir qué transcribir: (id, nombre, duración).
+fn transcribable_clips(app: &CupApp) -> Vec<(String, String, f64)> {
+    let Some(p) = app.editor.project() else { return Vec::new() };
+    p.tracks
+        .iter()
+        .flat_map(|t| t.clips.iter())
+        .filter(|c| matches!(c.kind, ClipKind::Video | ClipKind::Audio) && c.media_id.is_some())
+        .map(|c| (c.id.clone(), c.name.clone(), c.duration))
+        .collect()
+}
+
+fn fmt_dur(s: f64) -> String {
+    let t = s.max(0.0).round() as u64;
+    format!("{:02}:{:02}", t / 60, t % 60)
+}
+
+/// Diálogo «Generador de subtítulos con IA»: clip, idioma, efecto (con vista previa animada),
+/// estado del modelo Whisper y botón de inicio.
+fn caption_dialog(ctx: &egui::Context, app: &mut CupApp) {
+    let Some(mut clip) = app.caption_dialog.clone() else { return };
+    let clips = transcribable_clips(app);
+    let mut open = true;
+    let mut start = false;
+    let mut cancel = false;
+    let mut install = false;
+    let ready = crate::services::whisper::ready();
+    egui::Window::new("Generador de subtítulos con IA")
+        .open(&mut open)
+        .collapsible(false)
+        .resizable(false)
+        .fixed_size(Vec2::new(470.0, 0.0))
+        .anchor(egui::Align2::CENTER_CENTER, Vec2::ZERO)
+        .show(ctx, |ui| {
+            let t = ui.input(|i| i.time);
+            let w = ui.available_width();
+            section(ui, "Vídeo / Audio a transcribir");
+            let cur = clips.iter().find(|c| c.0 == clip).map(|c| format!("{} ({})", c.1, fmt_dur(c.2))).unwrap_or_else(|| "Sin clips de vídeo o audio".into());
+            egui::ComboBox::from_id_salt("cap-dlg-clip").width(w - 8.0).selected_text(cur).show_ui(ui, |ui| {
+                for (id, name, dur) in &clips {
+                    if ui.selectable_label(*id == clip, format!("{name} ({})", fmt_dur(*dur))).clicked() {
+                        clip = id.clone();
+                    }
+                }
+            });
+            section(ui, "Idioma de la voz");
+            let langs = [("auto", "Detectar"), ("es", "Español (es)"), ("en", "Inglés (en)"), ("fr", "Francés (fr)"), ("de", "Alemán (de)"), ("it", "Italiano (it)"), ("pt", "Portugués (pt)")];
+            let curl = langs.iter().find(|l| l.0 == app.whisper_lang).map(|l| l.1).unwrap_or("Detectar");
+            egui::ComboBox::from_id_salt("cap-dlg-lang").width(w - 8.0).selected_text(curl).show_ui(ui, |ui| {
+                for (id, label) in langs {
+                    ui.selectable_value(&mut app.whisper_lang, id.to_string(), label);
+                }
+            });
+            section(ui, "Efecto de los subtítulos");
+            let cw = (w - 10.0) / 2.0;
+            egui::Grid::new("fx-presets").num_columns(2).spacing([10.0, 8.0]).show(ui, |ui| {
+                for (i, (_, label, kara, color, mode)) in crate::karaoke::PRESETS.iter().enumerate() {
+                    let sel = app.caption_preset == i;
+                    let (rect, resp) = ui.allocate_exact_size(Vec2::new(cw, 62.0), Sense::click());
+                    paint_fx_preview(ui, rect, *kara, color, *mode == "pop", t);
+                    ui.painter().text(rect.left_top() + Vec2::new(8.0, 6.0), egui::Align2::LEFT_TOP, *label, egui::FontId::proportional(10.5), theme::MUTED);
+                    if sel || resp.hovered() {
+                        ui.painter().rect_stroke(rect, 6.0, egui::Stroke::new(if sel { 2.0 } else { 1.0 }, theme::ACCENT2), egui::StrokeKind::Inside);
+                    }
+                    if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+                        app.caption_preset = i;
+                    }
+                    if i % 2 == 1 {
+                        ui.end_row();
+                    }
+                }
+            });
+            ui.add_space(6.0);
+            ui.checkbox(&mut app.caption_replace, "Reemplazar subtítulos actuales en la pista de texto");
+            ui.add_space(4.0);
+            egui::Frame::NONE.fill(theme::PANEL2).corner_radius(CornerRadius::from(6)).inner_margin(10).show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                if let Some((msg, p)) = app.whisper_busy.clone() {
+                    ui.label(egui::RichText::new(msg).color(theme::TEXT));
+                    if p >= 0.0 {
+                        ui.add(egui::ProgressBar::new(p).show_percentage());
+                    } else {
+                        ui.spinner();
+                    }
+                } else if ready {
+                    ui.label(egui::RichText::new("✓ Modelo Whisper disponible localmente").color(theme::ACCENT2).strong());
+                    hint(ui, "Whisper Tiny ya está descargado. La transcripción se ejecutará de forma directa en tu PC.");
+                } else {
+                    ui.label(egui::RichText::new("Falta el modelo Whisper").color(theme::TEXT).strong());
+                    hint(ui, "Hay que descargar el motor y el modelo una sola vez (~80 MB).");
+                    if secondary_button(ui, "Descargar motor y modelo").clicked() {
+                        install = true;
+                    }
+                }
+            });
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let can = ready && app.whisper_busy.is_none() && !clip.is_empty();
+                    ui.add_enabled_ui(can, |ui| {
+                        if primary_button(ui, "✨ Iniciar generación").clicked() {
+                            start = true;
+                        }
+                    });
+                    if secondary_button(ui, "Cancelar").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        });
+    ctx.request_repaint_after(std::time::Duration::from_millis(50));
+    if install {
+        app.install_whisper();
+    }
+    if start {
+        let (_, _, kara, color, mode) = crate::karaoke::PRESETS[app.caption_preset.min(crate::karaoke::PRESETS.len() - 1)];
+        app.caption_karaoke = kara;
+        app.caption_karaoke_color = color.to_string();
+        app.caption_karaoke_mode = mode.to_string();
+        app.caption_dialog = None;
+        app.transcribe_selected(&clip);
+    } else if cancel || !open {
+        app.caption_dialog = None;
+    } else {
+        app.caption_dialog = Some(clip);
+    }
+}
+
 fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
+    section(ui, "Subtítulos automáticos");
+    if let Some((msg, p)) = app.whisper_busy.clone() {
+        hint(ui, &msg);
+        if p >= 0.0 {
+            ui.add(egui::ProgressBar::new(p).show_percentage());
+        } else {
+            ui.add(egui::Spinner::new());
+        }
+    } else if !crate::services::whisper::ready() {
+        hint(ui, "Transcribe la voz del clip a subtítulos, 100 % en tu PC (Whisper). La primera vez hay que descargar el motor y el modelo (~80 MB).");
+        if primary_button(ui, "Descargar motor y modelo").clicked() {
+            app.install_whisper();
+        }
+    }
+    if primary_button(ui, "✨ Generar subtítulos con IA…").clicked() {
+        let pick = selected_clip(app).filter(|(_, k)| matches!(k, ClipKind::Video | ClipKind::Audio)).map(|(id, _)| id);
+        app.caption_dialog = Some(pick.or_else(|| transcribable_clips(app).first().map(|c| c.0.clone())).unwrap_or_default());
+    }
+    caption_dialog(ui.ctx(), app);
     section(ui, "Estilo");
     ui.horizontal_wrapped(|ui| {
         for s in cat::caption_styles() {
@@ -1330,40 +1521,6 @@ fn captions_panel(ui: &mut egui::Ui, app: &mut CupApp) {
             app.toast(format!("{n} subtítulo(s) eliminado(s)"));
         }
     });
-    section(ui, "Subtítulos automáticos");
-    if let Some((msg, p)) = app.whisper_busy.clone() {
-        hint(ui, &msg);
-        if p >= 0.0 {
-            ui.add(egui::ProgressBar::new(p).show_percentage());
-        } else {
-            ui.add(egui::Spinner::new());
-        }
-    } else if !crate::services::whisper::ready() {
-        hint(ui, "Transcribe la voz del clip a subtítulos, 100 % en tu PC (Whisper). La primera vez hay que descargar el motor y el modelo (~80 MB).");
-        if primary_button(ui, "Descargar motor y modelo").clicked() {
-            app.install_whisper();
-        }
-    } else {
-        hint(ui, "Selecciona un clip de vídeo o audio en la línea de tiempo.");
-        ui.horizontal(|ui| {
-            ui.label("Idioma");
-            let langs = [("auto", "Detectar"), ("es", "Español"), ("en", "Inglés"), ("fr", "Francés"), ("de", "Alemán"), ("it", "Italiano"), ("pt", "Portugués")];
-            let cur = langs.iter().find(|l| l.0 == app.whisper_lang).map(|l| l.1).unwrap_or("Detectar");
-            egui::ComboBox::from_id_salt("whisper-lang").selected_text(cur).show_ui(ui, |ui| {
-                for (id, label) in langs {
-                    ui.selectable_value(&mut app.whisper_lang, id.to_string(), label);
-                }
-            });
-        });
-        let sel = selected_clip(app).filter(|(_, k)| matches!(k, ClipKind::Video | ClipKind::Audio));
-        ui.add_enabled_ui(sel.is_some(), |ui| {
-            if primary_button(ui, "Transcribir clip seleccionado").clicked() {
-                if let Some((id, _)) = &sel {
-                    app.transcribe_selected(id);
-                }
-            }
-        });
-    }
 }
 
 // ----------------------------------------------------------------------

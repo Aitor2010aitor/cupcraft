@@ -308,6 +308,11 @@ pub struct CupApp {
     /// Subtítulos automáticos: (estado, progreso) mientras instala/transcribe.
     pub whisper_busy: Option<(String, f32)>,
     pub whisper_lang: String,
+    /// Clip a transcribir mientras el usuario elige el efecto de los subtítulos.
+    pub caption_dialog: Option<String>,
+    /// Efecto elegido en el diálogo (`karaoke::PRESETS`) y si sustituye a los subtítulos actuales.
+    pub caption_preset: usize,
+    pub caption_replace: bool,
 
     // Inicio
     pub home_sort: HomeSort,
@@ -401,6 +406,9 @@ impl CupApp {
             tts_pending_captions: None,
             voice_busy: None,
             whisper_busy: None,
+            caption_dialog: None,
+            caption_preset: 1,
+            caption_replace: true,
             whisper_lang: "auto".to_string(),
             home_sort: HomeSort::Recent,
             home_search: String::new(),
@@ -967,7 +975,8 @@ impl CupApp {
                             if items.is_empty() {
                                 self.toast("No se detectó voz en el clip");
                             } else {
-                                crate::panels::apply_captions(self, items, false);
+                                let replace = self.caption_replace;
+                                crate::panels::apply_captions(self, items, replace);
                             }
                         }
                         Err(e) => self.toast_error(format!("Transcripción: {e}")),
@@ -1208,6 +1217,22 @@ impl CupApp {
                 media::import_bytes(store.as_mut(), &format!("Voz - {short}.wav"), "wav", wav)
             });
             let _ = tx.send(JobMsg::Tts(res));
+        });
+    }
+
+    /// Descarga el motor Piper y una voz en español (acción explícita del usuario).
+    pub fn install_piper(&mut self) {
+        if self.voice_busy.is_some() {
+            return;
+        }
+        self.voice_busy = Some(("Preparando descarga…".into(), 0.0));
+        let tx = self.jobs_tx.clone();
+        std::thread::spawn(move || {
+            let tx2 = tx.clone();
+            let res = services::voices::install_piper(&move |m, p| {
+                let _ = tx2.send(JobMsg::VoiceProgress(m, p));
+            });
+            let _ = tx.send(JobMsg::VoiceInstalled(res));
         });
     }
 

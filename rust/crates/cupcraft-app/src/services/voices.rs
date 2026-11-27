@@ -31,6 +31,38 @@ pub const CATALOG: &[CatalogVoice] = &[
     CatalogVoice { id: "en_GB-alan-medium", path: "en/en_GB/alan/medium", label: "Alan · Inglés (Reino Unido)", size: "~60 MB" },
 ];
 
+const PIPER_URL: &str = "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_windows_amd64.zip";
+
+/// Carpeta `tools` junto al ejecutable, donde Piper la busca siempre.
+fn tools_dir() -> std::path::PathBuf {
+    std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("tools"))).unwrap_or_else(|| std::path::PathBuf::from("tools"))
+}
+
+/// Descarga el motor Piper (zip de GitHub) y una primera voz en español.
+pub fn install_piper(progress: &dyn Fn(String, f32)) -> Result<(), String> {
+    let tools = tools_dir();
+    let piper = tools.join("piper");
+    fs::create_dir_all(&tools).map_err(|e| e.to_string())?;
+    if !piper.join("piper.exe").is_file() {
+        let zip = tools.join("piper-engine.zip");
+        super::whisper::download(PIPER_URL, &zip, "motor de voz Piper", 0.0, 0.25, progress)?;
+        progress("Instalando motor…".into(), 0.25);
+        let st = cupcraft_media::ffmpeg::command("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command"])
+            .arg(format!("Expand-Archive -LiteralPath '{}' -DestinationPath '{}' -Force", zip.display(), tools.display()))
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map_err(|e| format!("no se pudo descomprimir: {e}"))?;
+        let _ = fs::remove_file(&zip);
+        if !st.success() || !piper.join("piper.exe").is_file() {
+            return Err("el paquete descargado no contiene piper.exe".into());
+        }
+    }
+    let first = CATALOG.iter().find(|v| v.id == "es_MX-ald-medium").unwrap_or(&CATALOG[0]);
+    install_voice(&piper.join("models"), first, &|m, p| progress(m, 0.3 + p * 0.7))
+}
+
 /// ¿Está ya instalada esa voz de [`CATALOG`]?
 pub fn installed(models: &Path, id: &str) -> bool {
     models.join(format!("{id}.onnx")).is_file() && models.join(format!("{id}.onnx.json")).is_file()

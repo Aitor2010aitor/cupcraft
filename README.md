@@ -40,7 +40,13 @@ cupcraft is a desktop video editor inspired by the workflow and dark interface o
 - **Self-updating** — new versions published on GitHub are offered inside the app.
 - **Private** — no account, no cloud, no telemetry. The only network traffic is the update check and downloads you start yourself.
 
-## 🆕 What's new in v0.4.11
+## 🆕 What's new in v0.4.11.1
+
+- **AI subtitle generator window** — the new **Generate subtitles with AI…** button opens a window where you pick the clip, the voice language and a karaoke effect (each with an animated preview), choose whether to replace the current subtitles, and see if the Whisper model is ready.
+- **Whisper download at the top** — the engine/model download button now sits at the very top of the Subtitles panel.
+- **Voice panel fixed** — you can always type the text, pick a voice style and add automatic karaoke subtitles. If the Piper engine is missing, one button downloads it with a Spanish voice.
+
+## What's new in v0.4.11
 
 - **Linux: subtitles (Whisper) now install** — pressing install shows the system password prompt (`pkexec`) to add what is missing (compiler, cmake and FFmpeg), then builds the Whisper engine on your PC. It takes a few minutes the first time.
 - **Linux: FFmpeg is detected** — cupcraft now finds `ffmpeg` on your system (`/usr/bin`, `PATH`), so exporting works after `sudo apt install ffmpeg`.

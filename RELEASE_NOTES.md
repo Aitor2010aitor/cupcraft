@@ -1,4 +1,5 @@
-## What's new in v0.4.11
+## What's new in v0.4.11.1
 
-- **Linux: subtitles (Whisper) now install**: the app asks for administrator permission to add what is missing (compiler, cmake and FFmpeg), then builds the Whisper engine on your PC (a few minutes the first time).
-- **Linux: FFmpeg is detected**: cupcraft finds `ffmpeg` on your system, so exporting works.
+- **AI subtitle generator window**: pick the clip, language and a karaoke effect (animated previews), replace current subtitles, and see the Whisper model status.
+- **Whisper download at the top** of the Subtitles panel.
+- **Voice panel fixed**: always type text, choose a style and add karaoke subtitles; one button downloads Piper and a Spanish voice.

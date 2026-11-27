@@ -17,6 +17,18 @@ pub const COLORS: &[(&str, &str)] = &[("#ffe600", "Amarillo"), ("#00e5d0", "Turq
 /// Modos de resaltado: id y etiqueta.
 pub const MODES: &[(&str, &str)] = &[("color", "Color"), ("pop", "Color + salto")];
 
+/// Efectos que ofrece el menú de transcribir: id, etiqueta, ¿karaoke?, color, modo.
+pub const PRESETS: &[(&str, &str, bool, &str, &str)] = &[
+    ("none", "Sin efecto", false, "#ffe600", "color"),
+    ("yellow", "Amarillo", true, "#ffe600", "color"),
+    ("yellow-pop", "Amarillo + salto", true, "#ffe600", "pop"),
+    ("cyan", "Turquesa", true, "#00e5d0", "color"),
+    ("cyan-pop", "Turquesa + salto", true, "#00e5d0", "pop"),
+    ("pink-pop", "Rosa + salto", true, "#ff4d6d", "pop"),
+    ("green", "Verde", true, "#7CFF6B", "color"),
+    ("orange-pop", "Naranja + salto", true, "#ff9f1c", "pop"),
+];
+
 /// Índice de la palabra activa en `local` (segundos del clip): la última que
 /// ya empezó. Antes de la primera se resalta la primera.
 pub fn active_index(starts: &[f64], local: f64) -> usize {

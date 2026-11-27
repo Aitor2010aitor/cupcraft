@@ -40,6 +40,23 @@ cupcraft 是一款桌面视频编辑器，灵感来自 CapCut 的工作流程和
 - **自动更新** — GitHub 上发布的新版本会在应用内提示更新。
 - **隐私** — 无需账号、无云端、无遥测。唯一的网络流量是检查更新以及你主动发起的下载。
 
+## 🆕 v0.4.12 新功能
+
+- **关键帧菱形** — 缩放、位置 X/Y、旋转和不透明度新增 ◆ 按钮：点击即可在播放头处添加关键帧，让属性随时间变化。预览和舞台拖动都会跟随关键帧。
+- **应用语言** — 设置中新增语言选择：西班牙语、英语、法语、德语、葡萄牙语（巴西）、俄语、日语和中文。
+- **你自己的语言** — 导出包含所有文本的 JSON 模板，翻译（手动或用 AI）后再导入，即可切换整个应用。
+
+## 🆕 v0.4.11.1 新功能
+
+- **AI 字幕生成器窗口** — 新的 **用 AI 生成字幕…** 按钮会打开一个窗口，你可以选择片段、语音语言和卡拉 OK 特效（均带动画预览），决定是否替换当前字幕，并查看 Whisper 模型是否就绪。
+- **Whisper 下载按钮置顶** — 引擎/模型的下载按钮现在位于字幕面板最顶部。
+- **修复语音面板** — 始终可以输入文字、选择语音风格并添加自动卡拉 OK 字幕。如果缺少 Piper 引擎，一个按钮即可连同西班牙语语音一起下载。
+- **更多卡拉 OK 特效和任意颜色** — 变色、跳动、大字、彩色框、框 + 跳动、下划线和渐进，均带动画预览，另有取色器。
+- **修复：部分 Piper 语音失败**（音素错误）— Amy、Joe 和 Ald 现已可用。
+- **更多语音** — 西班牙（西班牙语）语音和三个 Loquendo 风格预设（仅为近似：真正的 Loquendo 语音是商业产品，无法内置）。
+- **应用语言** — 在设置中切换界面语言（西班牙语 / 英语），你的选择会被记住。
+- **更准确的字幕** — Whisper Base 模型、更干净的音频和更精确的时间轴。文字转语音现标注为 Beta。
+
 ## 📦 下载
 
 请从 [**Releases 页面**](https://github.com/Aitor2010aitor/cupcraft/releases/latest) 下载最新版本。
@@ -50,10 +67,11 @@ cupcraft 是一款桌面视频编辑器，灵感来自 CapCut 的工作流程和
 | Windows (x64) | `cupcraft-windows-x86_64.exe` | 便携可执行文件。 |
 | macOS (Apple Silicon) | `cupcraft-macos-aarch64.tar.gz` | |
 | macOS (Intel) | `cupcraft-macos-x86_64.tar.gz` | |
-| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | |
+| Linux (x64) | `cupcraft-linux-x86_64.deb` | 适用于 Debian / Ubuntu / Linux Mint 的安装包（双击，或 `sudo apt install ./cupcraft-linux-x86_64.deb`）。会把 cupcraft 添加到应用菜单。 |
+| Linux (x64) | `cupcraft-linux-x86_64.tar.gz` | 便携版：解压后运行 `./cupcraft`。 |
 
 > [!WARNING]
-> macOS 和 Linux 版本目前处于**实验阶段**。部分工具（Whisper 字幕、Piper 语音和 CapCut 草稿导入）仍依赖 Windows 组件，在这些系统上暂不可用。
+> macOS 和 Linux 版本目前处于**实验阶段**。部分工具（Piper 语音和 CapCut 草稿导入）仍依赖 Windows 组件，在这些系统上暂不可用。
 
 > [!IMPORTANT]
 > 可执行文件尚未进行代码签名。在 Windows 上，SmartScreen 可能会显示警告（**更多信息 → 仍要运行**）。在 macOS 上，请先移除一次隔离标记：
